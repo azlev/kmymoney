@@ -3569,7 +3569,7 @@ void KMyMoneyApp::slotAccountDelete()
               // or if we have at least one sub-account that is used for transactions
               if (!file->hasOnlyUnusedAccounts(file->account(*it).accountList())) {
                 accountsToReparent.push_back(*it);
-                //qDebug() << "subaccount not empty";
+                //qCDebug(LOG_KMYMONEY) << "subaccount not empty";
               }
             }
           }
@@ -3668,7 +3668,7 @@ void KMyMoneyApp::slotAccountEdit()
                 dlg->setOpeningBalance(-s0.shares());
               }
             } catch (const MyMoneyException &e) {
-              qDebug() << "Error retrieving opening balance transaction " << tid << ": " << e.what() << "\n";
+              qCDebug(LOG_KMYMONEY) << "Error retrieving opening balance transaction " << tid << ": " << e.what() << "\n";
               tid.clear();
             }
           }
@@ -4788,7 +4788,7 @@ bool KMyMoneyApp::payeeReassign(int type)
     }
     // request a list of all transactions that still use the payees in question
     QList<MyMoneyTransaction> translist = file->transactionList(f);
-//     qDebug() << "[KPayeesView::slotDeletePayee]  " << translist.count() << " transaction still assigned to payees";
+//     qCDebug(LOG_KMYMONEY) << "[KPayeesView::slotDeletePayee]  " << translist.count() << " transaction still assigned to payees";
 
     // now get a list of all schedules that make use of one of the payees
     QList<MyMoneySchedule> all_schedules = file->scheduleList();
@@ -4805,7 +4805,7 @@ bool KMyMoneyApp::payeeReassign(int type)
         }
       }
     }
-//     qDebug() << "[KPayeesView::slotDeletePayee]  " << used_schedules.count() << " schedules use one of the selected payees";
+//     qCDebug(LOG_KMYMONEY) << "[KPayeesView::slotDeletePayee]  " << used_schedules.count() << " schedules use one of the selected payees";
 
     // and a list of all loan accounts that references one of the payees
     QList<MyMoneyAccount> allAccounts;
@@ -5102,7 +5102,7 @@ void KMyMoneyApp::slotTagDelete()
     }
     // request a list of all transactions that still use the tags in question
     QList<MyMoneyTransaction> translist = file->transactionList(f);
-//     qDebug() << "[KTagsView::slotDeleteTag]  " << translist.count() << " transaction still assigned to tags";
+//     qCDebug(LOG_KMYMONEY) << "[KTagsView::slotDeleteTag]  " << translist.count() << " transaction still assigned to tags";
 
     // now get a list of all schedules that make use of one of the tags
     QList<MyMoneySchedule> all_schedules = file->scheduleList();
@@ -5121,7 +5121,7 @@ void KMyMoneyApp::slotTagDelete()
         }
       }
     }
-//     qDebug() << "[KTagsView::slotDeleteTag]  " << used_schedules.count() << " schedules use one of the selected tags";
+//     qCDebug(LOG_KMYMONEY) << "[KTagsView::slotDeleteTag]  " << used_schedules.count() << " schedules use one of the selected tags";
 
     MyMoneyTag newTag;
     // if at least one tag is still referenced, we need to reassign its transactions first
@@ -6029,7 +6029,7 @@ void KMyMoneyApp::slotTransactionCopySplits()
         }
         ft.commit();
       } catch (const MyMoneyException &) {
-        qDebug() << "transactionCopySplits() failed";
+        qCDebug(LOG_KMYMONEY) << "transactionCopySplits() failed";
       }
     }
   }
@@ -7796,7 +7796,7 @@ void KMyMoneyApp::slotOnlineJobSend(QList<onlineJob> jobs)
         continue;
       }
       //! @fixme remove debug message
-      qDebug() << "Sending " << jobsByPlugin.count(pluginKey) << " job(s) to online plugin " << pluginKey;
+      qCDebug(LOG_KMYMONEY) << "Sending " << jobsByPlugin.count(pluginKey) << " job(s) to online plugin " << pluginKey;
       QList<onlineJob> jobsToExecute = jobsByPlugin.values(pluginKey);
       QList<onlineJob> executedJobs = jobsToExecute;
       pluginExt->sendOnlineJob(executedJobs);

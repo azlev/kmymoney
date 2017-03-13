@@ -53,6 +53,8 @@
 #include "kmymoneyutils.h"
 #include "kmymoneyglobalsettings.h"
 
+//Q_LOGGING_CATEGORY(LOG_KMYMONEY, "kmymoney")
+
 
 QTime timer;
 bool timersOn = false;
@@ -63,6 +65,7 @@ static int runKMyMoney(QApplication *a, std::unique_ptr<KStartupLogo> splash, co
 
 int main(int argc, char *argv[])
 {
+  QLoggingCategory::setFilterRules(QStringLiteral("kmymoney.debug = true"));
   KLocalizedString::setApplicationDomain("kmymoney");
   timer.start();
 

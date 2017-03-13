@@ -36,6 +36,7 @@ endif (WEBOOB_FOUND)
 ########### next target ###############
 
 set(kmm_plugin_LIB_SRCS
+  ../logging.cpp
   importinterface.cpp
   kmymoneyplugin.cpp
   statementinterface.cpp
@@ -45,6 +46,7 @@ set(kmm_plugin_LIB_SRCS
 )
 
 set(plugins_HEADERS
+  ../logging.h
   importinterface.h
   kmymoneyplugin.h
   statementinterface.h

@@ -51,6 +51,7 @@
 
 #include "imymoneyserialize.h"
 #include "kmymoneystorageplugin.h"
+#include "logging.h"
 #include "onlinejobadministration.h"
 #include "payeeidentifier/payeeidentifierloader.h"
 #include "onlinetasks/interfaces/tasks/onlinetask.h"
@@ -67,19 +68,19 @@ MyMoneySqlQuery::~MyMoneySqlQuery()
 
 bool MyMoneySqlQuery::exec()
 {
-  qDebug() << "start sql:" << lastQuery();
+  qCDebug(LOG_KMYMONEY) << "start sql:" << lastQuery();
   bool rc = QSqlQuery::exec();
-  qDebug() << "end sql:" << QSqlQuery::executedQuery();
-  qDebug() << "***Query returned:" << rc << ", row count:" << numRowsAffected();
+  qCDebug(LOG_KMYMONEY) << "end sql:" << QSqlQuery::executedQuery();
+  qCDebug(LOG_KMYMONEY) << "***Query returned:" << rc << ", row count:" << numRowsAffected();
   return (rc);
 }
 
 bool MyMoneySqlQuery::exec(const QString & query)
 {
-  qDebug() << "start sql:" << query;
+  qCDebug(LOG_KMYMONEY) << "start sql:" << query;
   bool rc = QSqlQuery::exec(query);
-  qDebug() << "end sql:" << QSqlQuery::executedQuery();
-  qDebug() << "***Query returned:" << rc << ", row count:" << numRowsAffected();
+  qCDebug(LOG_KMYMONEY) << "end sql:" << QSqlQuery::executedQuery();
+  qCDebug(LOG_KMYMONEY) << "***Query returned:" << rc << ", row count:" << numRowsAffected();
   return rc;
 }
 
@@ -136,7 +137,7 @@ MyMoneyStorageSql::~MyMoneyStorageSql()
   try {
     close(true);
   } catch (const MyMoneyException& e) {
-    qDebug() << "Caught Exception in MMStorageSql dtor: " << e.what();
+    qCDebug(LOG_KMYMONEY) << "Caught Exception in MMStorageSql dtor: " << e.what();
   }
 }
 
@@ -947,7 +948,7 @@ bool MyMoneyStorageSql::endCommitUnit(const QString& callingFunction)
     qDebug("%s", qPrintable(QString("%1 - %2 s/be %3").arg(Q_FUNC_INFO).arg(callingFunction).arg(m_commitUnitStack.top())));
   m_commitUnitStack.pop();
   if (m_commitUnitStack.isEmpty()) {
-    //qDebug() << "Committing with " << QSqlQuery::refCount() << " queries";
+    //qCDebug(LOG_KMYMONEY) << "Committing with " << QSqlQuery::refCount() << " queries";
     if (!commit()) throw MYMONEYEXCEPTION(buildError(QSqlQuery(), callingFunction, "ending commit unit"));
   }
   return rc;
@@ -2424,7 +2425,7 @@ void MyMoneyStorageSql::writeCurrency(const MyMoneySecurity& currency, QSqlQuery
   QString symbol = currency.tradingSymbol() + "   ";
   const ushort* symutf = symbol.utf16();
   //int ix = 0;
-  //while (x[ix] != '\0') qDebug() << "symbol" << symbol << "char" << ix << "=" << x[ix++];
+  //while (x[ix] != '\0') qCDebug(LOG_KMYMONEY) << "symbol" << symbol << "char" << ix << "=" << x[ix++];
   //q.bindValue(":symbol1", symbol.mid(0,1).unicode()->unicode());
   //q.bindValue(":symbol2", symbol.mid(1,1).unicode()->unicode());
   //q.bindValue(":symbol3", symbol.mid(2,1).unicode()->unicode());
@@ -2738,7 +2739,7 @@ void MyMoneyStorageSql::writeOnlineJobs()
     } catch (MyMoneyException& e) {
       // Do not save e as this may point to an inherited class
       failedJobs.append(QPair<onlineJob, QString>(job, e.what()));
-      qDebug() << "Failed to save onlineJob" << job.id() << "Reson:" << e.what();
+      qCDebug(LOG_KMYMONEY) << "Failed to save onlineJob" << job.id() << "Reson:" << e.what();
     }
 
     signalProgress(++jobCount, 0);
@@ -3981,7 +3982,7 @@ const QMap<QString, MyMoneyTransaction> MyMoneyStorageSql::fetchTransactions(con
   int obc = whereClause.count('(');
   int cbc = whereClause.count(')');
   if (cbc > obc) {
-    qDebug() << "invalid where clause " << whereClause;
+    qCDebug(LOG_KMYMONEY) << "invalid where clause " << whereClause;
     qFatal("aborting");
   }
   while (cbc < obc) {

@@ -153,7 +153,7 @@ void ModelTest::nonDestructiveBasicTest()
  */
 void ModelTest::rowCount()
 {
-//     qDebug() << "rc";
+//     qCDebug(LOG_KMYMONEY) << "rc";
     // check top row
     QModelIndex topIndex = model->index ( 0, 0, QModelIndex() );
     int rows = model->rowCount ( topIndex );
@@ -197,7 +197,7 @@ void ModelTest::columnCount()
  */
 void ModelTest::hasIndex()
 {
-//     qDebug() << "hi";
+//     qCDebug(LOG_KMYMONEY) << "hi";
     // Make sure that invalid values returns an invalid index
     QVERIFY( !model->hasIndex ( -2, -2 ) );
     QVERIFY( !model->hasIndex ( -2, 0 ) );
@@ -222,7 +222,7 @@ void ModelTest::hasIndex()
  */
 void ModelTest::index()
 {
-//     qDebug() << "i";
+//     qCDebug(LOG_KMYMONEY) << "i";
     // Make sure that invalid values returns an invalid index
     QVERIFY( model->index ( -2, -2 ) == QModelIndex() );
     QVERIFY( model->index ( -2, 0 ) == QModelIndex() );
@@ -252,7 +252,7 @@ void ModelTest::index()
  */
 void ModelTest::parent()
 {
-//     qDebug() << "p";
+//     qCDebug(LOG_KMYMONEY) << "p";
     // Make sure the model wont crash and will return an invalid QModelIndex
     // when asked for the parent of an invalid index.
     QVERIFY( model->parent ( QModelIndex() ) == QModelIndex() );
@@ -332,7 +332,7 @@ void ModelTest::checkChildren ( const QModelIndex &parent, int currentDepth )
     if ( rows > 0 )
         QVERIFY( model->hasChildren ( parent ) );
 
-    //qDebug() << "parent:" << model->data(parent).toString() << "rows:" << rows
+    //qCDebug(LOG_KMYMONEY) << "parent:" << model->data(parent).toString() << "rows:" << rows
     //         << "columns:" << columns << "parent column:" << parent.column();
 
     QVERIFY( !model->hasIndex ( rows + 1, 0, parent ) );
@@ -369,9 +369,9 @@ void ModelTest::checkChildren ( const QModelIndex &parent, int currentDepth )
             // If the next test fails here is some somewhat useful debug you play with.
 
             if (model->parent(index) != parent) {
-                qDebug() << r << c << currentDepth << model->data(index).toString()
+                qCDebug(LOG_KMYMONEY) << r << c << currentDepth << model->data(index).toString()
                          << model->data(parent).toString();
-                qDebug() << index << parent << model->parent(index);
+                qCDebug(LOG_KMYMONEY) << index << parent << model->parent(index);
 //                 And a view that you can even use to show the model.
 //                 QTreeView view;
 //                 view.setModel(model);
@@ -383,9 +383,9 @@ void ModelTest::checkChildren ( const QModelIndex &parent, int currentDepth )
 
             // recursively go down the children
             if ( model->hasChildren ( index ) && currentDepth < 10 ) {
-                //qDebug() << r << c << "has children" << model->rowCount(index);
+                //qCDebug(LOG_KMYMONEY) << r << c << "has children" << model->rowCount(index);
                 checkChildren ( index, ++currentDepth );
-            }/* else { if (currentDepth >= 10) qDebug() << "checked 10 deep"; };*/
+            }/* else { if (currentDepth >= 10) qCDebug(LOG_KMYMONEY) << "checked 10 deep"; };*/
 
             // make sure that after testing the children that the index doesn't change.
             QModelIndex newerIndex = model->index ( r, c, parent );
@@ -473,9 +473,9 @@ void ModelTest::data()
 void ModelTest::rowsAboutToBeInserted ( const QModelIndex &parent, int start, int end )
 {
 //     Q_UNUSED(end);
-//    qDebug() << "rowsAboutToBeInserted" << "start=" << start << "end=" << end << "parent=" << model->data ( parent ).toString()
+//    qCDebug(LOG_KMYMONEY) << "rowsAboutToBeInserted" << "start=" << start << "end=" << end << "parent=" << model->data ( parent ).toString()
 //    << "current count of parent=" << model->rowCount ( parent ); // << "display of last=" << model->data( model->index(start-1, 0, parent) );
-//     qDebug() << model->index(start-1, 0, parent) << model->data( model->index(start-1, 0, parent) );
+//     qCDebug(LOG_KMYMONEY) << model->index(start-1, 0, parent) << model->data( model->index(start-1, 0, parent) );
     Changing c;
     c.parent = parent;
     c.oldSize = model->rowCount ( parent );
@@ -493,23 +493,23 @@ void ModelTest::rowsInserted ( const QModelIndex & parent, int start, int end )
 {
     Changing c = insert.pop();
     QVERIFY( c.parent == parent );
-//    qDebug() << "rowsInserted"  << "start=" << start << "end=" << end << "oldsize=" << c.oldSize
+//    qCDebug(LOG_KMYMONEY) << "rowsInserted"  << "start=" << start << "end=" << end << "oldsize=" << c.oldSize
 //    << "parent=" << model->data ( parent ).toString() << "current rowcount of parent=" << model->rowCount ( parent );
 
 //    for (int ii=start; ii <= end; ii++)
 //    {
-//      qDebug() << "itemWasInserted:" << ii << model->data ( model->index ( ii, 0, parent ));
+//      qCDebug(LOG_KMYMONEY) << "itemWasInserted:" << ii << model->data ( model->index ( ii, 0, parent ));
 //    }
-//    qDebug();
+//    qCDebug(LOG_KMYMONEY);
 
     QVERIFY( c.oldSize + ( end - start + 1 ) == model->rowCount ( parent ) );
     QVERIFY( c.last == model->data ( model->index ( start - 1, 0, c.parent ) ) );
 
     if (c.next != model->data(model->index(end + 1, 0, c.parent))) {
-        qDebug() << start << end;
+        qCDebug(LOG_KMYMONEY) << start << end;
         for (int i=0; i < model->rowCount(); ++i)
-            qDebug() << model->index(i, 0).data().toString();
-        qDebug() << c.next << model->data(model->index(end + 1, 0, c.parent));
+            qCDebug(LOG_KMYMONEY) << model->index(i, 0).data().toString();
+        qCDebug(LOG_KMYMONEY) << c.next << model->data(model->index(end + 1, 0, c.parent));
     }
 
     QVERIFY( c.next == model->data ( model->index ( end + 1, 0, c.parent ) ) );
@@ -537,7 +537,7 @@ void ModelTest::layoutChanged()
  */
 void ModelTest::rowsAboutToBeRemoved ( const QModelIndex &parent, int start, int end )
 {
-qDebug() << "ratbr" << parent << start << end;
+qCDebug(LOG_KMYMONEY) << "ratbr" << parent << start << end;
     Changing c;
     c.parent = parent;
     c.oldSize = model->rowCount ( parent );
@@ -553,7 +553,7 @@ qDebug() << "ratbr" << parent << start << end;
  */
 void ModelTest::rowsRemoved ( const QModelIndex & parent, int start, int end )
 {
-  qDebug() << "rr" << parent << start << end;
+  qCDebug(LOG_KMYMONEY) << "rr" << parent << start << end;
     Changing c = remove.pop();
     QVERIFY( c.parent == parent );
     QVERIFY( c.oldSize - ( end - start + 1 ) == model->rowCount ( parent ) );

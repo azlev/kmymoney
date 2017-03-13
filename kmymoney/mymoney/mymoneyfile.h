@@ -42,6 +42,7 @@
 #include <mymoneyreport.h>
 #include <mymoneybudget.h>
 #include <onlinejob.h>
+#include "logging.h"
 #include "mymoneyschedule.h"
 #include <kmm_mymoney_export.h>
 #include <mymoneyunittestable.h>

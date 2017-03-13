@@ -43,6 +43,7 @@
 // Project Includes
 
 #include "kmymoneysettings.h"
+#include "logging.h"
 
 class KMyMoneyMVCCombo::Private
 {
@@ -519,7 +520,7 @@ void KMyMoneyReconcileCombo::setState(MyMoneySplit::reconcileFlagE state)
       id = 'U';
       break;
     default:
-      qDebug() << "Unknown reconcile state '" << state << "' in KMyMoneyReconcileCombo::setState()\n";
+      qCDebug(LOG_KMYMONEY) << "Unknown reconcile state '" << state << "' in KMyMoneyReconcileCombo::setState()\n";
       break;
   }
   setSelectedItem(id);

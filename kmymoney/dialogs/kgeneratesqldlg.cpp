@@ -167,7 +167,7 @@ void KGenerateSqlDlg::slotcreateTables()
     QStringList::ConstIterator cit;
     for (cit = commands.constBegin(); cit != commands.constEnd(); ++cit) {
       if (!(*cit).isEmpty()) {
-        //qDebug() << "exec" << *cit;
+        //qCDebug(LOG_KMYMONEY) << "exec" << *cit;
         q.prepare(*cit);
         if (!q.exec()) {
           QSqlError e = q.lastError();

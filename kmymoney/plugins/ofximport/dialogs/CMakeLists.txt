@@ -3,6 +3,8 @@ include_directories(${LIBOFX_INCLUDE_DIR})
 ########### next target ###############
 
 set(kmm_ofximport_dialogs_la_SOURCES
+  ../../../logging.cpp
+  ../../../logging.h
   kofxdirectconnectdlg.cpp konlinebankingsetupwizard.cpp
   konlinebankingstatus.cpp mymoneyofxconnector.cpp
   )

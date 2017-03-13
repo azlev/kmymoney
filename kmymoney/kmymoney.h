@@ -43,9 +43,12 @@
 #include <kmymoneyutils.h>
 #include <mymoneyprice.h>
 
+#include "logging.h"
 #include "mymoney/onlinejob.h"
 #include "mymoney/onlinejobtyped.h"
 #include "onlinetasks/interfaces/tasks/credittransfer.h"
+
+Q_DECLARE_LOGGING_CATEGORY(LOG_KMYMONEY)
 
 class QResizeEvent;
 class QTreeWidgetItem;

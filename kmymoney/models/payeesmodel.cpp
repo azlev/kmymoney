@@ -45,7 +45,7 @@ PayeesModel::PayeesModel(QObject* parent)
   : QAbstractListModel(parent)
   , d(new Private)
 {
-  qDebug() << "Payees model created with items" << d->m_payeeItems.count();
+  qCDebug(LOG_KMYMONEY) << "Payees model created with items" << d->m_payeeItems.count();
   d->m_payeeItems.clear();
 }
 
@@ -131,7 +131,7 @@ bool PayeesModel::setData(const QModelIndex& index, const QVariant& value, int r
     return false;
   }
 
-  qDebug() << "setData(" << index.row() << index.column() << ")" << value << role;
+  qCDebug(LOG_KMYMONEY) << "setData(" << index.row() << index.column() << ")" << value << role;
   return QAbstractItemModel::setData(index, value, role);
 }
 

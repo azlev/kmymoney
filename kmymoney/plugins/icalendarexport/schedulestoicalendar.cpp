@@ -246,9 +246,9 @@ void KMMSchedulesToiCalendar::exportToFile(const QString& filePath, bool setting
   } else {
     vCalendar = icalcomponent_new_from_string(d->m_icalendarAsString.toUtf8());
     if (vCalendar == 0) {
-      qDebug() << "Error parsing the following string into an icalendar:" << endl;
-      qDebug() << d->m_icalendarAsString << endl;
-      qDebug() << "so we will overwrite this with a new calendar" << endl;
+      qCDebug(LOG_KMYMONEY) << "Error parsing the following string into an icalendar:" << endl;
+      qCDebug(LOG_KMYMONEY) << d->m_icalendarAsString << endl;
+      qCDebug(LOG_KMYMONEY) << "so we will overwrite this with a new calendar" << endl;
       newCalendar = true;
       vCalendar = icalcomponent_new_vcalendar();
     }
@@ -256,7 +256,7 @@ void KMMSchedulesToiCalendar::exportToFile(const QString& filePath, bool setting
 
   if (vCalendar == 0) {
     // one way or the other we must have a calendar by now
-    qDebug() << "Unable to create vcalendar component" << endl;
+    qCDebug(LOG_KMYMONEY) << "Unable to create vcalendar component" << endl;
     return;
   }
 

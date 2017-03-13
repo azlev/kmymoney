@@ -354,6 +354,6 @@ void SplitDialog::deleteZeroSplits()
 
 void SplitDialog::mergeSplits()
 {
-  qDebug() << "Merge splits not yet implemented.";
+  qCDebug(LOG_KMYMONEY) << "Merge splits not yet implemented.";
   adjustSummary();
 }

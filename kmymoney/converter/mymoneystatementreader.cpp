@@ -607,12 +607,12 @@ void MyMoneyStatementReader::processSecurityEntry(const MyMoneyStatement::Securi
     try {
       file->addSecurity(security);
       ft.commit();
-      qDebug() << "Created " << security.name() << " with id " << security.id();
+      qCDebug(LOG_KMYMONEY) << "Created " << security.name() << " with id " << security.id();
     } catch (const MyMoneyException &e) {
       KMessageBox::error(0, i18n("Error creating security record: %1", e.what()), i18n("Error"));
     }
   } else {
-    qDebug() << "Found " << security.name() << " with id " << security.id();
+    qCDebug(LOG_KMYMONEY) << "Found " << security.name() << " with id " << security.id();
   }
 }
 
@@ -731,7 +731,7 @@ void MyMoneyStatementReader::processTransactionEntry(const MyMoneyStatement::Tra
             currencyid = thisaccount.currencyId();
 
             file->addAccount(thisaccount, m_account);
-            qDebug() << Q_FUNC_INFO << ": created account " << thisaccount.id() << " for security " << statementTransactionUnderImport.m_strSecurity << " under account " << m_account.id();
+            qCDebug(LOG_KMYMONEY) << Q_FUNC_INFO << ": created account " << thisaccount.id() << " for security " << statementTransactionUnderImport.m_strSecurity << " under account " << m_account.id();
           }
           // this security does not exist in the file.
           else {
@@ -911,7 +911,7 @@ void MyMoneyStatementReader::processTransactionEntry(const MyMoneyStatement::Tra
 
   QString payeename = statementTransactionUnderImport.m_strPayee;
   if (!payeename.isEmpty()) {
-    qDebug() << QLatin1String("Start matching payee") << payeename;
+    qCDebug(LOG_KMYMONEY) << QLatin1String("Start matching payee") << payeename;
     QString payeeid;
     try {
       QList<MyMoneyPayee> pList = file->payeeList();

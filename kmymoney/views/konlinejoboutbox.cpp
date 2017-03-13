@@ -167,7 +167,7 @@ void KOnlineJobOutbox::slotSendAllSendableJobs()
     if (job.isValid() && job.isEditable())
       validJobs.append(job);
   }
-  qDebug() << "I shall send " << validJobs.count() << "/" << MyMoneyFile::instance()->onlineJobList().count() << " onlineJobs";
+  qCDebug(LOG_KMYMONEY) << "I shall send " << validJobs.count() << "/" << MyMoneyFile::instance()->onlineJobList().count() << " onlineJobs";
   if (!validJobs.isEmpty())
     emit sendJobs(validJobs);
 }

@@ -1,6 +1,7 @@
 
 ########### create links ###############
 set(kmymoney_STAT_HEADERS
+  ../logging.h
   kaccounttemplateselector.h kbudgetvalues.h kguiutils.h
   kmymoneyaccountcombo.h kmymoneyaccountcompletion.h
   kmymoneyaccountselector.h
@@ -21,6 +22,7 @@ set(kmymoney_STAT_HEADERS
 
 ########### Shared widget library ###########
 set(kmm_widgets_sources
+  ../logging.cpp
   kmymoneydateinput.cpp
   kmymoneyvalidationfeedback.cpp
   styleditemdelegateforwarder.cpp

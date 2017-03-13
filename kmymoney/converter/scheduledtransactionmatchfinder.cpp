@@ -29,7 +29,7 @@ ScheduledTransactionMatchFinder::ScheduledTransactionMatchFinder(const MyMoneyAc
 void ScheduledTransactionMatchFinder::createListOfMatchCandidates()
 {
   listOfMatchCandidates = MyMoneyFile::instance()->scheduleList(account.id());
-  qDebug() << "Considering" << listOfMatchCandidates.size() << "schedule(s) for matching the transaction";
+  qCDebug(LOG_KMYMONEY) << "Considering" << listOfMatchCandidates.size() << "schedule(s) for matching the transaction";
 }
 
 void ScheduledTransactionMatchFinder::findMatchInMatchCandidatesList()

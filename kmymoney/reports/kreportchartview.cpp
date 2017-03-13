@@ -484,7 +484,7 @@ void KReportChartView::drawPivotChart(const PivotGrid &grid, const MyMoneyReport
       while (column < numColumns()) {
         abscissaNames += QString(columnHeadings[column++]).replace("&nbsp;", " ");
       }
-      qDebug() << "rows: " << m_model.rowCount() << "columns: " << m_model.columnCount();
+      qCDebug(LOG_KMYMONEY) << "rows: " << m_model.rowCount() << "columns: " << m_model.columnCount();
       m_model.setVerticalHeaderLabels(abscissaNames);
     }
   }
@@ -675,10 +675,10 @@ void KReportChartView::justifyModelSize(int rows, int columns)
 
   if (currentCols < columns)
     if (! m_model.insertColumns(currentCols, columns - currentCols))
-      qDebug() << "justifyModelSize: could not increase model size.";
+      qCDebug(LOG_KMYMONEY) << "justifyModelSize: could not increase model size.";
   if (currentRows < rows)
     if (! m_model.insertRows(currentRows, rows - currentRows))
-      qDebug() << "justifyModelSize: could not increase model size.";
+      qCDebug(LOG_KMYMONEY) << "justifyModelSize: could not increase model size.";
 
   Q_ASSERT(m_model.rowCount() >= rows);
   Q_ASSERT(m_model.columnCount() >= columns);

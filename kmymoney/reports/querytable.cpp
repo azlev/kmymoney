@@ -68,7 +68,7 @@ MyMoneyMoney CashFlowListItem::NPV(double _rate) const
   double T = static_cast<double>(m_sToday.daysTo(m_date)) / 365.0;
   MyMoneyMoney result(m_value.toDouble() / pow(1 + _rate, T), 100);
 
-  //qDebug() << "CashFlowListItem::NPV( " << _rate << " ) == " << result;
+  //qCDebug(LOG_KMYMONEY) << "CashFlowListItem::NPV( " << _rate << " ) == " << result;
 
   return result;
 }
@@ -87,7 +87,7 @@ CashFlowListItem CashFlowList::mostRecent() const
 
   qSort(dupe);
 
-  //qDebug() << " CashFlowList::mostRecent() == " << dupe.back().date().toString(Qt::ISODate);
+  //qCDebug(LOG_KMYMONEY) << " CashFlowList::mostRecent() == " << dupe.back().date().toString(Qt::ISODate);
 
   return dupe.back();
 }
@@ -102,7 +102,7 @@ MyMoneyMoney CashFlowList::NPV(double _rate) const
     ++it_cash;
   }
 
-  //qDebug() << "CashFlowList::NPV( " << _rate << " ) == " << result << "------------------------" << endl;
+  //qCDebug(LOG_KMYMONEY) << "CashFlowList::NPV( " << _rate << " ) == " << result << "------------------------" << endl;
 
   return result;
 }
@@ -227,7 +227,7 @@ void CashFlowList::dumpDebug() const
 {
   const_iterator it_item = begin();
   while (it_item != end()) {
-    qDebug() << (*it_item).date().toString(Qt::ISODate) << " " << (*it_item).value().toString();
+    qCDebug(LOG_KMYMONEY) << (*it_item).date().toString(Qt::ISODate) << " " << (*it_item).value().toString();
     ++it_item;
   }
 }
@@ -1120,7 +1120,7 @@ void QueryTable::constructPerformanceRow(const ReportAccount& account, TableRow&
     annualReturn = MyMoneyMoney(std::isnan(irr) ? 0 : irr, 10000);
 #endif
   } catch (QString e) {
-    qDebug() << e;
+    qCDebug(LOG_KMYMONEY) << e;
   }
 
   // check if there are any meaningfull values before adding them to results

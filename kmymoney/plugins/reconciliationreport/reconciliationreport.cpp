@@ -42,7 +42,7 @@ KMMReconciliationReportPlugin::KMMReconciliationReportPlugin()
 void KMMReconciliationReportPlugin::plug()
 {
   connect(viewInterface(), &KMyMoneyPlugin::ViewInterface::accountReconciled, this, &KMMReconciliationReportPlugin::slotGenerateReconciliationReport);
-  qDebug() << "Connect was done" << viewInterface();
+  qCDebug(LOG_KMYMONEY) << "Connect was done" << viewInterface();
 }
 
 void KMMReconciliationReportPlugin::unplug()

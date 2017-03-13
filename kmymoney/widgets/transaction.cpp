@@ -58,6 +58,8 @@
 
 #include "kmymoneyglobalsettings.h"
 
+#include "logging.h"
+
 using namespace KMyMoneyRegister;
 using namespace KMyMoneyTransactionForm;
 
@@ -785,7 +787,7 @@ StdTransaction::StdTransaction(Register *parent, const MyMoneyTransaction& trans
         break;
     }
   } catch (const MyMoneyException &e) {
-    qDebug() << "Problem determining the category for transaction '" << m_transaction.id() << "'. Reason: " << e.what()  << "\n";
+    qCDebug(LOG_KMYMONEY) << "Problem determining the category for transaction '" << m_transaction.id() << "'. Reason: " << e.what()  << "\n";
   }
   m_rowsForm = 6;
 

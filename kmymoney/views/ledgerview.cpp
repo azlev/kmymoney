@@ -262,7 +262,7 @@ void LedgerView::closeEditor(QWidget* editor, QAbstractItemDelegate::EndEditHint
 
 void LedgerView::mousePressEvent(QMouseEvent* event)
 {
-  // qDebug() << "mousePressEvent";
+  // qCDebug(LOG_KMYMONEY) << "mousePressEvent";
   if(state() != QAbstractItemView::EditingState) {
     QTableView::mousePressEvent(event);
   }
@@ -270,25 +270,25 @@ void LedgerView::mousePressEvent(QMouseEvent* event)
 
 void LedgerView::mouseMoveEvent(QMouseEvent* event)
 {
-  // qDebug() << "mouseMoveEvent";
+  // qCDebug(LOG_KMYMONEY) << "mouseMoveEvent";
   QTableView::mouseMoveEvent(event);
 }
 
 void LedgerView::mouseDoubleClickEvent(QMouseEvent* event)
 {
-  // qDebug() << "mouseDoubleClickEvent";
+  // qCDebug(LOG_KMYMONEY) << "mouseDoubleClickEvent";
   QTableView::mouseDoubleClickEvent(event);
 }
 
 void LedgerView::wheelEvent(QWheelEvent* e)
 {
-  // qDebug() << "wheelEvent";
+  // qCDebug(LOG_KMYMONEY) << "wheelEvent";
   QTableView::wheelEvent(e);
 }
 
 void LedgerView::currentChanged(const QModelIndex& current, const QModelIndex& previous)
 {
-  // qDebug() << "currentChanged";
+  // qCDebug(LOG_KMYMONEY) << "currentChanged";
   QTableView::currentChanged(current, previous);
 
   if(current.isValid()) {
@@ -308,7 +308,7 @@ void LedgerView::currentChanged(const QModelIndex& current, const QModelIndex& p
 
 void LedgerView::moveEvent(QMoveEvent* event)
 {
-  // qDebug() << "moveEvent";
+  // qCDebug(LOG_KMYMONEY) << "moveEvent";
   QWidget::moveEvent(event);
 }
 
@@ -368,7 +368,7 @@ int LedgerView::sizeHintForRow(int row) const
 
 void LedgerView::resizeEvent(QResizeEvent* event)
 {
-  // qDebug() << "resizeEvent, old:" << event->oldSize() << "new:" << event->size() << "viewport:" << viewport()->width();
+  // qCDebug(LOG_KMYMONEY) << "resizeEvent, old:" << event->oldSize() << "new:" << event->size() << "viewport:" << viewport()->width();
   QTableView::resizeEvent(event);
   adjustDetailColumn(event->size().width());
 }

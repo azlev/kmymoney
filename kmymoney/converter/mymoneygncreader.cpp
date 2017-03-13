@@ -285,9 +285,9 @@ QString GncObject::hide(QString data, unsigned int anonClass)
 void GncObject::debugDump()
 {
   uint i;
-  qDebug() << "Object" << m_elementName;
+  qCDebug(LOG_KMYMONEY) << "Object" << m_elementName;
   for (i = 0; i < m_dataElementListCount; i++) {
-    qDebug() << m_dataElementList[i] << "=" << m_v[i];
+    qCDebug(LOG_KMYMONEY) << m_dataElementList[i] << "=" << m_v[i];
   }
 }
 //*****************************************************************
@@ -490,7 +490,7 @@ void GncCountData::terminate()
   if (i != 0) {
     if (m_countType == "budget") pMain->setBudgetsFound(true);
     else if (m_countType.left(7) == "gnc:Gnc") pMain->setSmallBusinessFound(true);
-    else if (pMain->xmldebug) qDebug() << "Unknown count type" << m_countType;
+    else if (pMain->xmldebug) qCDebug(LOG_KMYMONEY) << "Unknown count type" << m_countType;
   }
   return ;
 }
@@ -1112,7 +1112,7 @@ bool XmlReader::startElement(const QString&, const QString&, const QString& elNa
                              const QXmlAttributes& elAttrs)
 {
   try {
-    if (pMain->gncdebug) qDebug() << "XML start -" << elName;
+    if (pMain->gncdebug) qCDebug(LOG_KMYMONEY) << "XML start -" << elName;
 #ifdef _GNCFILEANON
     int i;
     QString spaces;
@@ -1174,7 +1174,7 @@ bool XmlReader::startElement(const QString&, const QString&, const QString& elNa
 bool XmlReader::endElement(const QString&, const QString&, const QString&elName)
 {
   try {
-    if (pMain->xmldebug) qDebug() << "XML end -" << elName;
+    if (pMain->xmldebug) qCDebug(LOG_KMYMONEY) << "XML end -" << elName;
 #ifdef _GNCFILEANON
     QString spaces;
     switch (lastType) {
@@ -1215,7 +1215,7 @@ bool XmlReader::characters(const QString &data)
   if (pMain->xmldebug) qDebug("XML Data received - %d bytes", data.length());
   QString pData = data.trimmed(); // data may contain line feeds and indentation spaces
   if (!pData.isEmpty()) {
-    if (pMain->developerDebug) qDebug() << "XML Data -" << pData;
+    if (pMain->developerDebug) qCDebug(LOG_KMYMONEY) << "XML Data -" << pData;
     m_co->storeData(pData);  //go store it
 #ifdef _GNCFILEANON
     QString anonData = m_co->getData();
@@ -1402,7 +1402,7 @@ void MyMoneyGncReader::convertCommodity(const GncCommodity *gcm)
     m_storage->addSecurity(equ);
 
     //assign the gnucash id as the key into the map to find our id
-    if (gncdebug) qDebug() << "mapping, key =" << gcm->id() << "id =" << equ.id();
+    if (gncdebug) qCDebug(LOG_KMYMONEY) << "mapping, key =" << gcm->id() << "id =" << equ.id();
     m_mapEquities[gcm->id().toUtf8()] = equ.id();
   }
   signalProgress(++m_commodityCount, 0);
@@ -1423,7 +1423,7 @@ void MyMoneyGncReader::convertPrice(const GncPrice *gpr)
       m_storage->addPrice(exchangeRate);
   } else {
     MyMoneySecurity e = m_storage->security(m_mapEquities[gpr->commodity()->id().toUtf8()]);
-    if (gncdebug) qDebug() << "Searching map, key = " << gpr->commodity()->id()
+    if (gncdebug) qCDebug(LOG_KMYMONEY) << "Searching map, key = " << gpr->commodity()->id()
       << ", found id =" << e.id().data();
     e.setTradingCurrency(gpr->currency()->id().toUtf8());
     MyMoneyPrice stockPrice(e.id(), gpr->currency()->id().toUtf8(), gpr->priceDate(), rate, i18n("Imported History"));
@@ -1540,12 +1540,12 @@ void MyMoneyGncReader::convertAccount(const GncAccount* gac)
       m_stockList.append(gac->id());
       // set the equity type
       MyMoneySecurity e = m_storage->security(m_mapEquities[gac->commodity()->id().toUtf8()]);
-      if (gncdebug) qDebug() << "Acct equity search, key =" << gac->commodity()->id()
+      if (gncdebug) qCDebug(LOG_KMYMONEY) << "Acct equity search, key =" << gac->commodity()->id()
         << "found id =" << e.id();
       acc.setCurrencyId(e.id());  // actually, the security id
       if ("MUTUAL" == gac->type()) {
         e.setSecurityType(MyMoneySecurity::SECURITY_MUTUALFUND);
-        if (gncdebug) qDebug() << "Setting" << e.name() << "to mutual";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Setting" << e.name() << "to mutual";
         m_storage->modifySecurity(e);
       }
 
@@ -1560,7 +1560,7 @@ void MyMoneyGncReader::convertAccount(const GncAccount* gac)
     m_mapIds[gac->id().toUtf8()] = acc.id(); // to link gnucash id to ours for tx posting
 
     if (gncdebug)
-      qDebug() << "Gnucash account" << gac->id() << "has id of" << acc.id()
+      qCDebug(LOG_KMYMONEY) << "Gnucash account" << gac->id() << "has id of" << acc.id()
       << ", type of" << KMyMoneyUtils::accountTypeToString(acc.accountType())
       << "parent is" << acc.parentAccountId();
 
@@ -1718,7 +1718,7 @@ void MyMoneyGncReader::convertSplit(const GncSplit *gsp)
             // we can't use m_storage->security coz security list is not built yet
             m_storage->currency(m_txCommodity);   // will throw exception if not currency
             e.setTradingCurrency(m_txCommodity);
-            if (gncdebug) qDebug() << "added price for" << e.name()
+            if (gncdebug) qCDebug(LOG_KMYMONEY) << "added price for" << e.name()
               << price.toString() << "date" << m_txDatePosted.toString(Qt::ISODate);
             m_storage->modifySecurity(e);
             MyMoneyPrice dealPrice(e.id(), m_txCommodity, m_txDatePosted, price, i18n("Imported Transaction"));
@@ -1876,7 +1876,7 @@ void MyMoneyGncReader::convertTemplateSplit(const QString& schedName, const GncT
       }
       // all data read, now check we have everything
       if ((bFoundStringCreditFormula) && (bFoundStringDebitFormula) && (bFoundGuidAccountId)) {
-        if (gncdebug) qDebug() << "Found valid slot; credit" << gncCreditFormula
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Found valid slot; credit" << gncCreditFormula
           << "debit" << gncDebitFormula << "acct" << gncAccountId;
         validSlotCount++;
       }
@@ -1903,7 +1903,7 @@ void MyMoneyGncReader::convertTemplateSplit(const QString& schedName, const GncT
             exFormula = numericTest;
         }
       } else {
-        if (gncdebug) qDebug() << numericTest << "is not numeric";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << numericTest << "is not numeric";
         nonNumericFormula = true;
       }
       split.setValue(exFormula);
@@ -2166,7 +2166,7 @@ void MyMoneyGncReader::terminate()
     // this code is just temporary to show us what is in the file.
     if (gncdebug) qDebug("%d accounts found in the GnuCash file", (unsigned int)m_mapIds.count());
     for (map_accountIds::const_iterator it = m_mapIds.constBegin(); it != m_mapIds.constEnd(); ++it) {
-      if (gncdebug) qDebug() << "key ="  << it.key() << "value =" << it.value();
+      if (gncdebug) qCDebug(LOG_KMYMONEY) << "key ="  << it.key() << "value =" << it.value();
     }
     // first step is to implement the users investment option, now we
     // have all the accounts available
@@ -2184,33 +2184,33 @@ void MyMoneyGncReader::terminate()
       if ((*acc).parentAccountId() == m_storage->asset().id()) {
         MyMoneyAccount assets = m_storage->asset();
         m_storage->addAccount(assets, (*acc));
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main asset account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main asset account";
       } else if ((*acc).parentAccountId() == m_storage->liability().id()) {
         MyMoneyAccount liabilities = m_storage->liability();
         m_storage->addAccount(liabilities, (*acc));
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main liability account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main liability account";
       } else if ((*acc).parentAccountId() == m_storage->income().id()) {
         MyMoneyAccount incomes = m_storage->income();
         m_storage->addAccount(incomes, (*acc));
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main income account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main income account";
       } else if ((*acc).parentAccountId() == m_storage->expense().id()) {
         MyMoneyAccount expenses = m_storage->expense();
         m_storage->addAccount(expenses, (*acc));
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main expense account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main expense account";
       } else if ((*acc).parentAccountId() == m_storage->equity().id()) {
         MyMoneyAccount equity = m_storage->equity();
         m_storage->addAccount(equity, (*acc));
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main equity account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main equity account";
       } else if ((*acc).parentAccountId() == m_rootId) {
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of the main root account";
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of the main root account";
       } else {
         // it is not under one of the main accounts, so find gnucash parent
         QString parentKey = (*acc).parentAccountId();
-        if (gncdebug) qDebug() << "Account id" << (*acc).id() << "is a child of " << (*acc).parentAccountId();
+        if (gncdebug) qCDebug(LOG_KMYMONEY) << "Account id" << (*acc).id() << "is a child of " << (*acc).parentAccountId();
         map_accountIds::const_iterator id = m_mapIds.constFind(parentKey);
         if (id != m_mapIds.constEnd()) {
           if (gncdebug)
-            qDebug() << "Setting account id" << (*acc).id()
+            qCDebug(LOG_KMYMONEY) << "Setting account id" << (*acc).id()
             << "parent account id to" << id.value();
           MyMoneyAccount parent = m_storage->account(id.value());
           parent = checkConsistency(parent, (*acc));
@@ -2331,7 +2331,7 @@ QString MyMoneyGncReader::buildReportSection(const QString& source)
     } else {
       s = m_messageList[source].join(QChar('\n'));
     }
-    if (gncdebug) qDebug() << s;
+    if (gncdebug) qCDebug(LOG_KMYMONEY) << s;
     return (static_cast<const QString>(s));
   }
   PASS
@@ -2471,10 +2471,10 @@ void MyMoneyGncReader::checkInvestmentOption(QString stockId)
     invAcc.setParentAccountId(parentKey);  // intersperse it between old parent and child stock acct
     m_storage->addAccount(invAcc);
     m_mapIds [invAcc.id()] = invAcc.id(); // so stock account gets parented (again) to investment account later
-    if (gncdebug) qDebug()
+    if (gncdebug) qCDebug(LOG_KMYMONEY)
       << "Created investment account" << invAcc.name() << "as id" << invAcc.id()
       << "parent" << invAcc.parentAccountId();
-    if (gncdebug) qDebug() << "Setting stock" << stockAcc.name() << "id" <<  stockAcc.id()
+    if (gncdebug) qCDebug(LOG_KMYMONEY) << "Setting stock" << stockAcc.name() << "id" <<  stockAcc.id()
       << "as child of" << invAcc.id();
     stockAcc.setParentAccountId(invAcc.id());
     m_storage->addAccount(invAcc, stockAcc);
@@ -2496,7 +2496,7 @@ void MyMoneyGncReader::checkInvestmentOption(QString stockId)
       singleInvAcc.setParentAccountId(m_storage->asset().id());
       m_storage->addAccount(singleInvAcc);
       m_mapIds [singleInvAcc.id()] = singleInvAcc.id(); // so stock account gets parented (again) to investment account later
-      if (gncdebug) qDebug() << "Created investment account" << singleInvAcc.name()
+      if (gncdebug) qCDebug(LOG_KMYMONEY) << "Created investment account" << singleInvAcc.name()
         << "as id" << singleInvAcc.id() << "parent" << singleInvAcc.parentAccountId()
         << "reparenting stock";
       singleInvAccId = singleInvAcc.id();

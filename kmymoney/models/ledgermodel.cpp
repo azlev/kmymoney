@@ -257,7 +257,7 @@ LedgerSplit::LedgerSplit(const MyMoneyTransaction& t, const MyMoneySplit& s)
     try {
       m_payeeName = MyMoneyFile::instance()->payee(m_payeeId).name();
     } catch(MyMoneyException&) {
-      qDebug() << "payee" << m_payeeId << "not found.";
+      qCDebug(LOG_KMYMONEY) << "payee" << m_payeeId << "not found.";
     }
   }
 }
@@ -561,6 +561,7 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
             break;
           case BalanceColumn:
             rc = d->m_ledgerItems[index.row()]->balance();
+            qCDebug(LOG_KMYMONEY) << "Ze Balance " << d->m_ledgerItems[index.row()]->balance();
             break;
         }
       }
@@ -717,7 +718,7 @@ bool LedgerModel::setData(const QModelIndex& index, const QVariant& value, int r
     d->m_ledgerItems[index.row()]->setBalance(value.toString());
     return true;
   }
-  qDebug() << "setData(" << index.row() << index.column() << ")" << value << role;
+  qCDebug(LOG_KMYMONEY) << "setData(" << index.row() << index.column() << ")" << value << role;
   return QAbstractItemModel::setData(index, value, role);
 }
 
@@ -850,24 +851,24 @@ void LedgerModel::addSchedules(const QList<MyMoneySchedule> & list, int previewP
 
 void LedgerModel::load()
 {
-  qDebug() << "Start loading splits";
+  qCDebug(LOG_KMYMONEY) << "Start loading splits";
   // load all transactions and splits into the model
   QList<QPair<MyMoneyTransaction, MyMoneySplit> > tList;
   MyMoneyTransactionFilter filter;
   MyMoneyFile::instance()->transactionList(tList, filter);
   addTransactions(tList);
-  qDebug() << "Loaded" << rowCount() << "elements";
+  qCDebug(LOG_KMYMONEY) << "Loaded" << rowCount() << "elements";
 
   // load all scheduled transactoins and splits into the model
   const int splitCount = rowCount();
   QList<MyMoneySchedule> sList = MyMoneyFile::instance()->scheduleList();
   addSchedules(sList, KMyMoneyGlobalSettings::schedulePreview());
-  qDebug() << "Loaded" << rowCount()-splitCount << "elements";
+  qCDebug(LOG_KMYMONEY) << "Loaded" << rowCount()-splitCount << "elements";
 
   // create a dummy entry for new transactions
   addTransaction(LedgerTransaction::newTransactionEntry());
 
-  qDebug() << "Loaded" << rowCount() << "elements";
+  qCDebug(LOG_KMYMONEY) << "Loaded" << rowCount() << "elements";
 }
 
 void LedgerModel::addTransaction(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj)
@@ -876,7 +877,7 @@ void LedgerModel::addTransaction(MyMoneyFile::notificationObjectT objType, const
     return;
   }
 
-  qDebug() << "Adding transaction" << obj->id();
+  qCDebug(LOG_KMYMONEY) << "Adding transaction" << obj->id();
 
   const MyMoneyTransaction * const t = static_cast<const MyMoneyTransaction * const>(obj);
 
@@ -909,20 +910,20 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
     lastRowUsed = list.last().row();
   }
 
-  qDebug() << "first:" << firstRowUsed << "last:" << lastRowUsed;
+  qCDebug(LOG_KMYMONEY) << "first:" << firstRowUsed << "last:" << lastRowUsed;
 
   while(!list.isEmpty() && !splits.isEmpty()) {
     QModelIndex index = list.takeFirst();
     MyMoneySplit split = splits.takeFirst();
     // get rid of the old split and store new split
-    qDebug() << "Modify split in row:" << index.row() << t->id() << split.id();
+    qCDebug(LOG_KMYMONEY) << "Modify split in row:" << index.row() << t->id() << split.id();
     delete d->m_ledgerItems[index.row()];
     d->m_ledgerItems[index.row()] = new LedgerTransaction(*t, split);
   }
 
   // inform every one else about the changes
   if(lastRowUsed != -1) {
-    qDebug() << "emit dataChanged from" << firstRowUsed << "to" << lastRowUsed;
+    qCDebug(LOG_KMYMONEY) << "emit dataChanged from" << firstRowUsed << "to" << lastRowUsed;
     emit dataChanged(index(firstRowUsed, 0), index(lastRowUsed, columnCount()-1));
 
   } else {
@@ -950,7 +951,7 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
       ++count;
       QModelIndex index = list.takeFirst();
       // get rid of the old split and store new split
-      qDebug() << "Delete split in row:" << index.row() << data(index, LedgerRole::TransactionSplitIdRole).toString();
+      qCDebug(LOG_KMYMONEY) << "Delete split in row:" << index.row() << data(index, LedgerRole::TransactionSplitIdRole).toString();
       delete d->m_ledgerItems[index.row()];
     }
     d->m_ledgerItems.remove(firstRowUsed, count);

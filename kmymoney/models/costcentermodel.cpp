@@ -45,7 +45,7 @@ CostCenterModel::CostCenterModel(QObject* parent)
   : QAbstractListModel(parent)
   , d(new Private)
 {
-  qDebug() << "Cost center model created with items" << d->m_costCenterItems.count();
+  qCDebug(LOG_KMYMONEY) << "Cost center model created with items" << d->m_costCenterItems.count();
   d->m_costCenterItems.clear();
 }
 
@@ -135,7 +135,7 @@ bool CostCenterModel::setData(const QModelIndex& index, const QVariant& value, i
     return false;
   }
 
-  qDebug() << "setData(" << index.row() << index.column() << ")" << value << role;
+  qCDebug(LOG_KMYMONEY) << "setData(" << index.row() << index.column() << ")" << value << role;
   return QAbstractItemModel::setData(index, value, role);
 }
 

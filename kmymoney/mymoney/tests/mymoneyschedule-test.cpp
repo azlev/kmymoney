@@ -120,7 +120,7 @@ void MyMoneyScheduleTest::testOverdue()
   // between the 1st and 27th. If it is between 28th and 31st
   // we don't perform them. Note: this should be fixed.
   if (QDate::currentDate().day() > 27 || QDate::currentDate().day() == 1) {
-    qDebug() << "testOverdue() skipped because current day is between 28th and 2nd";
+    qCDebug(LOG_KMYMONEY) << "testOverdue() skipped because current day is between 28th and 2nd";
     return;
   }
 

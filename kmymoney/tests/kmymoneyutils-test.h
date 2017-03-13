@@ -22,10 +22,13 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QList>
+#include <QLoggingCategory>
 
 #define KMM_MYMONEY_UNIT_TESTABLE friend class KMyMoneyUtilsTest;
 
 #include "kmymoneyutils.h"
+
+Q_DECLARE_LOGGING_CATEGORY(TEST_KMYMONEY)
 
 class KMyMoneyUtilsTest : public QObject
 {

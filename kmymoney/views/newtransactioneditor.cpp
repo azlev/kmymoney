@@ -189,7 +189,7 @@ bool NewTransactionEditor::Private::isDatePostOpeningDate(const QDate& date, con
         rc = false;
     }
   } catch (MyMoneyException &e) {
-    qDebug() << "Ooops: invalid account id" << accountId << "in" << Q_FUNC_INFO;
+    qCDebug(LOG_KMYMONEY) << "Ooops: invalid account id" << accountId << "in" << Q_FUNC_INFO;
   }
   return rc;
 }
@@ -277,7 +277,7 @@ bool NewTransactionEditor::Private::categoryChanged(const QString& accountId)
 
 
     } catch (MyMoneyException &e) {
-      qDebug() << "Ooops: invalid account id" << accountId << "in" << Q_FUNC_INFO;
+      qCDebug(LOG_KMYMONEY) << "Ooops: invalid account id" << accountId << "in" << Q_FUNC_INFO;
     }
   }
   return rc;
@@ -327,7 +327,7 @@ bool NewTransactionEditor::Private::valueChanged(CreditDebitHelper* valueHelper)
       rc = true;
 
     } catch (MyMoneyException &e) {
-      qDebug() << "Ooops: somwthing went wrong in" << Q_FUNC_INFO;
+      qCDebug(LOG_KMYMONEY) << "Ooops: somwthing went wrong in" << Q_FUNC_INFO;
     }
   }
   return rc;
@@ -683,7 +683,7 @@ void NewTransactionEditor::saveTransaction()
     ft.commit();
 
   } catch (const MyMoneyException &e) {
-    qDebug() << Q_FUNC_INFO << "something went wrong" << e.what();
+    qCDebug(LOG_KMYMONEY) << Q_FUNC_INFO << "something went wrong" << e.what();
   }
 
 }

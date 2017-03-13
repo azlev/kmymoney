@@ -772,12 +772,12 @@ bool KBankingPlugin::enqueTransaction(onlineJobTyped<sepaOnlineTransfer>& job)
   AB_Transaction_SetValue(AbTransaction, AB_Value_fromMyMoneyMoney(job.constTask()->value()));
 
   /** @todo LOW remove Debug info */
-  qDebug() << "SetTransaction: " << AB_Job_SetTransaction(abJob, AbTransaction);
+  qCDebug(LOG_KMYMONEY) << "SetTransaction: " << AB_Job_SetTransaction(abJob, AbTransaction);
 
   GWEN_DB_NODE *gwenNode = AB_Job_GetAppData(abJob);
   GWEN_DB_SetCharValue(gwenNode, GWEN_DB_FLAGS_DEFAULT, "kmmOnlineJobId", m_kbanking->mappingId(job).toLatin1().constData());
 
-  qDebug() << "Enqueue: " << m_kbanking->enqueueJob(abJob);
+  qCDebug(LOG_KMYMONEY) << "Enqueue: " << m_kbanking->enqueueJob(abJob);
 
   //delete localAcc;
   return true;
@@ -872,7 +872,7 @@ int KMyMoneyBanking::executeQueue(AB_IMEXPORTER_CONTEXT *ctx)
 
   int rv = AB_Banking::executeJobs(_jobQueue, ctx);
   if (rv != 0) {
-    qDebug() << "Sending queue by aqbanking got error no " << rv;
+    qCDebug(LOG_KMYMONEY) << "Sending queue by aqbanking got error no " << rv;
   }
 
   /** check result of each job */

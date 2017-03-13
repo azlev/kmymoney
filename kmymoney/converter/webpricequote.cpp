@@ -157,7 +157,7 @@ bool WebPriceQuote::launchNative(const QString& _symbol, const QString& _id, con
       QTemporaryFile tmpFileFile;
       tmpFileFile.setAutoRemove(false);
       if (tmpFileFile.open())
-          qDebug() << "created tmpfile";
+          qCDebug(WEBPRICEQUOTE) << "created tmpfile";
 
       tmpFile = tmpFileFile.fileName();
     }
@@ -177,7 +177,7 @@ void WebPriceQuote::downloadResult(KJob* job)
   QUrl url = dynamic_cast<KIO::FileCopyJob*>(job)->srcUrl();
   if (!job->error())
   {
-    qDebug() << "Downloaded" << tmpFile << "from" << url;
+    qCDebug(WEBPRICEQUOTE) << "Downloaded" << tmpFile << "from" << url;
     QFile f(tmpFile);
     if (f.open(QIODevice::ReadOnly)) {
       // Find out the page encoding and convert it to unicode
@@ -675,13 +675,13 @@ WebPriceQuoteProcess::WebPriceQuoteProcess()
 
 void WebPriceQuoteProcess::slotReceivedDataFromFilter()
 {
-//   qDebug() << "WebPriceQuoteProcess::slotReceivedDataFromFilter(): " << QString(data);
+//   qCDebug(WEBPRICEQUOTE) << "WebPriceQuoteProcess::slotReceivedDataFromFilter(): " << QString(data);
   m_string += QString(readAllStandardOutput());
 }
 
 void WebPriceQuoteProcess::slotProcessExited(int /*exitCode*/, QProcess::ExitStatus /*exitStatus*/)
 {
-//   qDebug() << "WebPriceQuoteProcess::slotProcessExited()";
+//   qCDebug(WEBPRICEQUOTE) << "WebPriceQuoteProcess::slotProcessExited()";
   emit processExited(m_string);
   m_string.truncate(0);
 }
@@ -757,13 +757,13 @@ void FinanceQuoteProcess::slotReceivedDataFromFilter()
 {
   QByteArray data(readAllStandardOutput());
 
-//   qDebug() << "WebPriceQuoteProcess::slotReceivedDataFromFilter(): " << QString(data);
+//   qCDebug(WEBPRICEQUOTE) << "WebPriceQuoteProcess::slotReceivedDataFromFilter(): " << QString(data);
   m_string += QString(data);
 }
 
 void FinanceQuoteProcess::slotProcessExited()
 {
-//   qDebug() << "WebPriceQuoteProcess::slotProcessExited()";
+//   qCDebug(WEBPRICEQUOTE) << "WebPriceQuoteProcess::slotProcessExited()";
   m_isDone = true;
 }
 
@@ -983,7 +983,7 @@ convertertest::QuoteReceiver::~QuoteReceiver()
 
 void convertertest::QuoteReceiver::slotGetQuote(const QString&, const QString&, const QDate& d, const double& m)
 {
-//   qDebug() << "test::QuoteReceiver::slotGetQuote( , " << d << " , " << m.toString() << " )";
+//   qCDebug(WEBPRICEQUOTE) << "test::QuoteReceiver::slotGetQuote( , " << d << " , " << m.toString() << " )";
 
   m_price = MyMoneyMoney(m);
   m_date = d;
@@ -991,14 +991,14 @@ void convertertest::QuoteReceiver::slotGetQuote(const QString&, const QString&, 
 
 void convertertest::QuoteReceiver::slotStatus(const QString& msg)
 {
-//   qDebug() << "test::QuoteReceiver::slotStatus( " << msg << " )";
+//   qCDebug(WEBPRICEQUOTE) << "test::QuoteReceiver::slotStatus( " << msg << " )";
 
   m_statuses += msg;
 }
 
 void convertertest::QuoteReceiver::slotError(const QString& msg)
 {
-//   qDebug() << "test::QuoteReceiver::slotError( " << msg << " )";
+//   qCDebug(WEBPRICEQUOTE) << "test::QuoteReceiver::slotError( " << msg << " )";
 
   m_errors += msg;
 }

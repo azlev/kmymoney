@@ -4,6 +4,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/csvexport.json.in ${CMAKE_CURRENT_BIN
 ########### next target ###############
 
 set(kmm_csvexport_PART_SRCS
+  ../../logging.cpp
+  ../../logging.h
   csvwriter.cpp
   csvexporterplugin.cpp
   csvexportdlg.cpp

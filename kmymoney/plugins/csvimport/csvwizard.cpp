@@ -740,7 +740,7 @@ bool CSVWizard::getInFileName(QString& inFileName)
     if (!inFileName.endsWith(QDir::separator()))
       inFileName += QDir::separator();
     inFileName += url.fileName();
-    qDebug() << "Source:" << url.toDisplayString() << "Destination:" << inFileName;
+    qCDebug(LOG_KMYMONEY) << "Source:" << url.toDisplayString() << "Destination:" << inFileName;
     KIO::FileCopyJob *job = KIO::file_copy(url, QUrl::fromUserInput(inFileName),
                                            -1, KIO::Overwrite);
     KJobWidgets::setWindow(job, this);

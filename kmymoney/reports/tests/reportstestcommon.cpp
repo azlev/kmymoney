@@ -208,12 +208,12 @@ void InvTransactionHelper::init(const QDate& _date, const QString& _action, MyMo
   }
   addSplit(s1);
 
-  //qDebug() << "created transaction, now adding...";
+  //qCDebug(LOG_KMYMONEY) << "created transaction, now adding...";
 
   MyMoneyFileTransaction ft;
   file->addTransaction(*this);
 
-  //qDebug() << "updating price...";
+  //qCDebug(LOG_KMYMONEY) << "updating price...";
 
   // update the price, while we're here
   QString stockid = stockaccount.currencyId();
@@ -224,7 +224,7 @@ void InvTransactionHelper::init(const QDate& _date, const QString& _action, MyMo
     file->addPrice(newprice);
   }
   ft.commit();
-  //qDebug() << "successfully added " << id();
+  //qCDebug(LOG_KMYMONEY) << "successfully added " << id();
 }
 
 QString makeAccount(const QString& _name, MyMoneyAccount::accountTypeE _type, MyMoneyMoney _balance, const QDate& _open, const QString& _parent, QString _currency, bool _taxReport)

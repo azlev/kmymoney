@@ -138,7 +138,7 @@ void SimpleLedgerView::openNewLedger(QString accountId)
 
 void SimpleLedgerView::tabSelected(int idx)
 {
-  // qDebug() << "tabSelected" << idx << (d->ui->ledgerTab->count()-1);
+  // qCDebug(LOG_KMYMONEY) << "tabSelected" << idx << (d->ui->ledgerTab->count()-1);
   if(idx != (d->ui->ledgerTab->count()-1)) {
     d->lastIdx = idx;
   }

@@ -292,7 +292,7 @@ OfxAccountData::AccountType MyMoneyOfxConnector::accounttype() const
   QRegExp rexp("OFXTYPE:([A-Z]*)");
   if (rexp.indexIn(m_account.description()) != -1) {
     QString override = rexp.cap(1);
-    qDebug() << "MyMoneyOfxConnector::accounttype() overriding to " << result;
+    qCDebug(LOG_KMYMONEY) << "MyMoneyOfxConnector::accounttype() overriding to " << result;
 
     if (override == "BANK")
       result = OfxAccountData::OFX_CHECKING;

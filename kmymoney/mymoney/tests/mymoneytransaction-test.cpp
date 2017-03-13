@@ -350,7 +350,7 @@ void MyMoneyTransactionTest::testAddDuplicateAccount()
 {
   testAddSplits();
 
-  qDebug() << "Split count is" << m->splitCount();
+  qCDebug(LOG_KMYMONEY) << "Split count is" << m->splitCount();
 
   MyMoneySplit split1, split2;
   split1.setAccountId("A000001");
@@ -363,7 +363,7 @@ void MyMoneyTransactionTest::testAddDuplicateAccount()
     QVERIFY(m->accountReferenced("A000002") == true);
     m->addSplit(split1);
     m->addSplit(split2);
-    qDebug() << "Split count is" << m->splitCount();
+    qCDebug(LOG_KMYMONEY) << "Split count is" << m->splitCount();
     QVERIFY(m->splitCount() == 2);
     QVERIFY(m->splits()[0].accountId() == "A000001");
     QVERIFY(m->splits()[1].accountId() == "A000002");

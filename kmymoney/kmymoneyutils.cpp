@@ -402,7 +402,7 @@ void KMyMoneyUtils::updateLastNumberUsed(const MyMoneyAccount& acc, const QStrin
       }
     }
     if (!free) {
-      qDebug() << "No free number found - set to '1'";
+      qCDebug(LOG_KMYMONEY) << "No free number found - set to '1'";
       num = '1';
     }
     setLastNumberUsed(getAdjacentNumber(num, - 1));

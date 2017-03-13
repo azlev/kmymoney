@@ -279,7 +279,7 @@ public:
       }
 
     } catch (const MyMoneyException &e) {
-      qDebug() << Q_FUNC_INFO << " caught exception while adding " << account.name() << "[" << account.id() << "]: " << e.what();
+      qCDebug(LOG_KMYMONEY) << Q_FUNC_INFO << " caught exception while adding " << account.name() << "[" << account.id() << "]: " << e.what();
     }
 
     MyMoneyMoney value = balance;

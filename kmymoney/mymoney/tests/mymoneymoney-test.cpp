@@ -27,6 +27,7 @@
 #include "mymoneyexception.h"
 #include "mymoneymoney.h"
 
+Q_LOGGING_CATEGORY(TEST_KMYMONEY, "test_kmymoney")
 
 QTEST_GUILESS_MAIN(MyMoneyMoneyTest)
 
@@ -83,7 +84,7 @@ void MyMoneyMoneyTest::testAssignment()
 {
   MyMoneyMoney *m = new MyMoneyMoney();
   *m = *m_1;
-  //qDebug() << "Current value: "<< qPrintable( m->toString()) ;
+  //qCDebug(TEST_KMYMONEY) << "Current value: "<< qPrintable( m->toString()) ;
   QVERIFY(m->valueRef().get_num() == -1);
   QVERIFY(m->valueRef().get_den() == 10);
   //QVERIFY(m->valueRef().get_num() == -10);
@@ -430,23 +431,23 @@ void MyMoneyMoneyTest::testSetThousandSeparator()
 
 void MyMoneyMoneyTest::testFormatMoney()
 {
-  qDebug() << "Value:" << qPrintable(m_0->toString());
-  qDebug() << "Converted: " << qPrintable(m_0->convert(100).toString());
-  qDebug() << " Formatted: " << qPrintable(m_0->formatMoney("", 2));
+  qCDebug(TEST_KMYMONEY) << "Value:" << qPrintable(m_0->toString());
+  qCDebug(TEST_KMYMONEY) << "Converted: " << qPrintable(m_0->convert(100).toString());
+  qCDebug(TEST_KMYMONEY) << " Formatted: " << qPrintable(m_0->formatMoney("", 2));
 
   QVERIFY(m_0->formatMoney("", 2) == QString("0.12"));
   QVERIFY(m_1->formatMoney("", 2) == QString("-0.10"));
 
   MyMoneyMoney m1(10099, 100);
-  qDebug() << "Value:" << qPrintable(m1.toString());
-  qDebug() << "Converted: " << qPrintable(m1.convert(100).toString());
-  qDebug() << " Formatted: " << qPrintable(m1.formatMoney("", 2));
+  qCDebug(TEST_KMYMONEY) << "Value:" << qPrintable(m1.toString());
+  qCDebug(TEST_KMYMONEY) << "Converted: " << qPrintable(m1.convert(100).toString());
+  qCDebug(TEST_KMYMONEY) << " Formatted: " << qPrintable(m1.formatMoney("", 2));
   QVERIFY(m1.formatMoney("", 2) == QString("100.99"));
 
   m1 = MyMoneyMoney(100, 1);
-  qDebug() << "Value:" << qPrintable(m1.toString());
-  qDebug() << "Converted: " << qPrintable(m1.convert(100).toString());
-  qDebug() << " Formatted: " << qPrintable(m1.formatMoney("", 2));
+  qCDebug(TEST_KMYMONEY) << "Value:" << qPrintable(m1.toString());
+  qCDebug(TEST_KMYMONEY) << "Converted: " << qPrintable(m1.convert(100).toString());
+  qCDebug(TEST_KMYMONEY) << " Formatted: " << qPrintable(m1.formatMoney("", 2));
   QVERIFY(m1.formatMoney("", 2) == QString("100.00"));
   QVERIFY(m1.formatMoney("", -1) == QString("100"));
 

@@ -40,6 +40,7 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "logging.h"
 #include "mymoney/mymoneyfile.h"
 #include "mymoney/mymoneyaccount.h"
 #include "mymoney/mymoneykeyvaluecontainer.h"
@@ -310,7 +311,7 @@ void onlineJobAdministration::registerOnlineTask(onlineTask *const task)
   const bool sendCreditTransfer = canSendCreditTransfer();
 
   m_onlineTasks.insert(task->taskName(), task);
-  qDebug() << "onlineTask available" << task->taskName();
+  qCDebug(LOG_KMYMONEY) << "onlineTask available" << task->taskName();
 
   if (sendAnyTask != canSendAnyTask())
     emit canSendAnyTaskChanged(!sendAnyTask);
@@ -324,7 +325,7 @@ void onlineJobAdministration::registerOnlineTaskConverter(onlineTaskConverter* c
     return;
 
   m_onlineTaskConverter.insertMulti(converter->convertedTask(), converter);
-  qDebug() << "onlineTaskConverter available" << converter->convertedTask() << converter->convertibleTasks();
+  qCDebug(LOG_KMYMONEY) << "onlineTaskConverter available" << converter->convertedTask() << converter->convertibleTasks();
 }
 
 onlineJobAdministration::onlineJobEditOffers onlineJobAdministration::onlineJobEdits()

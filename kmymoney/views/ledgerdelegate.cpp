@@ -162,7 +162,7 @@ QWidget* LedgerDelegate::createEditor(QWidget* parent, const QStyleOptionViewIte
     Q_ASSERT(view != 0);
 
     if(view->selectionModel()->selectedRows().count() > 1) {
-      qDebug() << "Editing multiple transactions at once is not yet supported";
+      qCDebug(LOG_KMYMONEY) << "Editing multiple transactions at once is not yet supported";
 
       /**
        * @todo replace the following three lines with the creation of a special
@@ -378,7 +378,7 @@ void LedgerDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option
     QPen old = painter->pen();
     painter->setPen(gridPen);
 
-    // qDebug() << "Paint grid for" << index.row() << "in" << opt.rect;
+    // qCDebug(LOG_KMYMONEY) << "Paint grid for" << index.row() << "in" << opt.rect;
     for(int i=0; i < horizontalHeader->count(); ++i) {
       if(!horizontalHeader->isSectionHidden(i)) {
         int ofs = horizontalHeader->sectionViewportPosition(i) + viewportOffset;
@@ -467,7 +467,7 @@ void LedgerDelegate::updateEditorGeometry(QWidget* editor, const QStyleOptionVie
   editor->setGeometry(r);
   editor->update();
   // int flags = editor->windowFlags();
-  // qDebug() << "updateEditorGeometry" << r << QString("%1").arg(flags, 8, 16, QChar('0'));
+  // qCDebug(LOG_KMYMONEY) << "updateEditorGeometry" << r << QString("%1").arg(flags, 8, 16, QChar('0'));
 }
 
 void LedgerDelegate::endEdit()

@@ -33,6 +33,7 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "logging.h"
 #include "mymoneyfile.h"
 #include "mymoneytransactionfilter.h"
 #include "mymoneyfinancialcalculator.h"
@@ -710,7 +711,7 @@ void MyMoneyForecast::addScheduledTransactions()
           (*it).setLastPayment(date);
 
         } catch (const MyMoneyException &e) {
-          qDebug() << Q_FUNC_INFO << " Schedule " << (*it).id() << " (" << (*it).name() << "): " << e.what();
+          qCDebug(LOG_KMYMONEY) << Q_FUNC_INFO << " Schedule " << (*it).id() << " (" << (*it).name() << "): " << e.what();
 
           schedule.erase(it);
         }

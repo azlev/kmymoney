@@ -83,7 +83,7 @@ QString reports::ReportTable::renderHeader(const QString& title, bool includeCSS
                 + "\n-->\n</style>\n";
       cssFile.close();
     } else {
-      qDebug() << "reports::ReportTable::htmlHeaderGet: could not open file "
+      qCDebug(LOG_KMYMONEY) << "reports::ReportTable::htmlHeaderGet: could not open file "
       << cssfilename << " readonly";
     }
   } else {
@@ -117,7 +117,7 @@ QString reports::ReportTable::renderHTML(QWidget* widget,
     //this method is implemented by each concrete class
     html += renderBody();
   } catch (const MyMoneyException &e) {
-    qDebug() << "reports::ReportTable::renderHTML(): ERROR " << e.what();
+    qCDebug(LOG_KMYMONEY) << "reports::ReportTable::renderHTML(): ERROR " << e.what();
 
     QString error = i18n("There was an error creating your report: \"%1\".\nPlease report this error to the developer's list: kmymoney-devel@kde.org", e.what());
 

@@ -5,6 +5,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/kmm_reconciliationreport.json.in
 )
 
 set(kmm_reconciliationreport_PART_SRCS
+    ../../logging.cpp
+    ../../logging.h
     kreconciliationreportdlg.cpp
     reconciliationreport.cpp
    )

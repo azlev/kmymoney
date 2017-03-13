@@ -5,6 +5,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/kmm_icalendarexport.json.in
 )
 
 set(kmm_icalendarexport_PART_SRCS
+  ../../logging.cpp
+  ../../logging.h
   schedulestoicalendar.cpp
   icalendarexport.cpp
 )

@@ -95,8 +95,8 @@ bool KSelectDatabaseDlg::checkDrivers()
   }
   if (m_url != QUrl()) {
     QString driverName = QUrlQuery(m_url).queryItemValue("driver");
-    //qDebug() << driverName;
-    //qDebug() << m_supportedDrivers;
+    //qCDebug(LOG_KMYMONEY) << driverName;
+    //qCDebug(LOG_KMYMONEY) << m_supportedDrivers;
     if (!m_supportedDrivers.join(",").contains(driverName)) {
       KMessageBox::error(0, i18n("Qt SQL driver %1 is no longer installed on your system", driverName),
                          "");

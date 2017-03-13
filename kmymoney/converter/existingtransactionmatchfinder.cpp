@@ -33,7 +33,7 @@ void ExistingTransactionMatchFinder::createListOfMatchCandidates()
   filter.setAmountFilter(importedSplit.shares(), importedSplit.shares());
 
   MyMoneyFile::instance()->transactionList(listOfMatchCandidates, filter);
-  qDebug() << "Considering" << listOfMatchCandidates.size() << "existing transaction(s) for matching";
+  qCDebug(LOG_KMYMONEY) << "Considering" << listOfMatchCandidates.size() << "existing transaction(s) for matching";
 }
 
 void ExistingTransactionMatchFinder::findMatchInMatchCandidatesList()

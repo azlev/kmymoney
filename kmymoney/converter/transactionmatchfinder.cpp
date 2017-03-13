@@ -45,7 +45,7 @@ TransactionMatchFinder::MatchResult TransactionMatchFinder::findMatch(const MyMo
   QString payeeName = MyMoneyFile::instance()->payee(importedSplit.payeeId()).name();
   QString amount = importedSplit.shares().formatMoney("", 2);
   QString account = MyMoneyFile::instance()->account(importedSplit.accountId()).name();
-  qDebug() << "Looking for a match with transaction: " << date << "," << payeeName << "," << amount
+  qCDebug(LOG_KMYMONEY) << "Looking for a match with transaction: " << date << "," << payeeName << "," << amount
   << "(referenced account: " << account << ")";
 
   createListOfMatchCandidates();
