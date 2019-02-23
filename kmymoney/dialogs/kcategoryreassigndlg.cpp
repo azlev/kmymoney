@@ -1,18 +1,20 @@
-/***************************************************************************
-                          kcategoryreassigndlg.cpp
-                             -------------------
-    copyright            : (C) 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2008  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kcategoryreassigndlg.h"
 
@@ -24,27 +26,34 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kmessagebox.h>
+#include <KMessageBox>
 #include <kguiutils.h>
 #include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyfile.h>
-#include <kmymoneycategory.h>
-#include <kmymoneyaccountselector.h>
+#include "ui_kcategoryreassigndlg.h"
+
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "kmymoneycategory.h"
+#include "kmymoneyaccountselector.h"
+#include "mymoneyenums.h"
 
 KCategoryReassignDlg::KCategoryReassignDlg(QWidget* parent) :
-    KCategoryReassignDlgDecl(parent)
+  QDialog(parent),
+  ui(new Ui::KCategoryReassignDlg)
 {
-  kMandatoryFieldGroup* mandatory = new kMandatoryFieldGroup(this);
-  mandatory->add(m_category);
-  mandatory->setOkButton(buttonBox->button(QDialogButtonBox::Ok));
+  ui->setupUi(this);
+  auto mandatory = new KMandatoryFieldGroup(this);
+  mandatory->add(ui->m_category);
+  mandatory->setOkButton(ui->buttonBox->button(QDialogButtonBox::Ok));
 }
 
 KCategoryReassignDlg::~KCategoryReassignDlg()
 {
+  delete ui;
 }
 
 QString KCategoryReassignDlg::show(const MyMoneyAccount& category)
@@ -53,25 +62,25 @@ QString KCategoryReassignDlg::show(const MyMoneyAccount& category)
     return QString(); // no payee available? nothing can be selected...
 
   AccountSet set;
-  set.addAccountGroup(MyMoneyAccount::Income);
-  set.addAccountGroup(MyMoneyAccount::Expense);
-  set.load(m_category->selector());
+  set.addAccountGroup(eMyMoney::Account::Type::Income);
+  set.addAccountGroup(eMyMoney::Account::Type::Expense);
+  set.load(ui->m_category->selector());
 
   // remove the category we are about to delete
-  m_category->selector()->removeItem(category.id());
+  ui->m_category->selector()->removeItem(category.id());
 
   // make sure the available categories have the same currency
   QStringList list;
   QStringList::const_iterator it_a;
-  m_category->selector()->itemList(list);
+  ui->m_category->selector()->itemList(list);
   for (it_a = list.constBegin(); it_a != list.constEnd(); ++it_a) {
     MyMoneyAccount acc = MyMoneyFile::instance()->account(*it_a);
     if (acc.currencyId() != category.currencyId())
-      m_category->selector()->removeItem(*it_a);
+      ui->m_category->selector()->removeItem(*it_a);
   }
 
   // reload the list
-  m_category->selector()->itemList(list);
+  ui->m_category->selector()->itemList(list);
 
   // if there is no category for reassignment left, we bail out
   if (list.isEmpty()) {
@@ -84,18 +93,17 @@ QString KCategoryReassignDlg::show(const MyMoneyAccount& category)
     return QString();
 
   // otherwise return index of selected payee
-  return m_category->selectedItem();
+  return ui->m_category->selectedItem();
 }
 
 
 void KCategoryReassignDlg::accept()
 {
   // force update of payeeCombo
-  buttonBox->button(QDialogButtonBox::Ok)->setFocus();
+  ui->buttonBox->button(QDialogButtonBox::Ok)->setFocus();
 
-  if (m_category->selectedItem().isEmpty()) {
+  if (ui->m_category->selectedItem().isEmpty())
     KMessageBox::information(this, i18n("This dialog does not allow new categories to be created. Please pick a category from the list."), i18n("Category creation"));
-  } else {
-    KCategoryReassignDlgDecl::accept();
-  }
+  else
+    QDialog::accept();
 }

@@ -18,20 +18,20 @@
 #ifndef CONVERTERTEST_H
 #define CONVERTERTEST_H
 
-#include <QtCore/QObject>
+#include <QObject>
 
 #include "mymoneyfile.h"
-#include "storage/mymoneyseqaccessmgr.h"
+#include "storage/mymoneystoragemgr.h"
 
 class ConverterTest : public QObject
 {
   Q_OBJECT
 
 private:
-  MyMoneySeqAccessMgr* storage;
+  MyMoneyStorageMgr* storage;
   MyMoneyFile* file;
 
-private slots:
+private Q_SLOTS:
   void init();
   void cleanup();
   void testWebQuotesDefault();

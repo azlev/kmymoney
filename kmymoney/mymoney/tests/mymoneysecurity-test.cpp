@@ -1,28 +1,41 @@
-/***************************************************************************
-                          mymoneysecuritytest.cpp
-                          -------------------
-    copyright            : (C) 2002 by Kevin Tambascio
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2008  Thomas Baumgart <tbaumgart@kde.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneysecurity-test.h"
 
-#include <QtTest/QtTest>
+#include <QtTest>
+
+#define KMM_MYMONEY_UNIT_TESTABLE friend class MyMoneySecurityTest;
+
+#include "mymoneysecurity.h"
+#include "mymoneysecurity_p.h"
+#include "mymoneymoney.h"
+#include "mymoneyenums.h"
 
 QTEST_GUILESS_MAIN(MyMoneySecurityTest)
 
 void MyMoneySecurityTest::init()
 {
-  m.reset(new MyMoneySecurity());
+  m = new MyMoneySecurity();
+}
+
+void MyMoneySecurityTest::cleanup()
+{
+  delete m;
 }
 
 void MyMoneySecurityTest::testEmptyConstructor()
@@ -30,12 +43,11 @@ void MyMoneySecurityTest::testEmptyConstructor()
   QVERIFY(m->id().isEmpty());
   QVERIFY(m->name().isEmpty());
   QVERIFY(m->tradingSymbol().isEmpty());
-  QVERIFY(m->securityType() == MyMoneySecurity::SECURITY_NONE);
+  QVERIFY(m->securityType() == eMyMoney::Security::Type::None);
   QVERIFY(m->tradingMarket().isEmpty());
   QVERIFY(m->tradingCurrency().isEmpty());
   QVERIFY(m->smallestCashFraction() == 100);
   QVERIFY(m->smallestAccountFraction() == 100);
-  QVERIFY(m->partsPerUnit() == 100);
 }
 
 void MyMoneySecurityTest::testCopyConstructor()
@@ -55,14 +67,14 @@ void MyMoneySecurityTest::testNonemptyConstructor()
 
   m->setName("name");
   m->setTradingSymbol("symbol");
-  m->setSecurityType(MyMoneySecurity::SECURITY_CURRENCY);
+  m->setSecurityType(eMyMoney::Security::Type::Currency);
   // m->addPriceHistory(date, val);
 
   MyMoneySecurity n("id", *m);
 
   QVERIFY(n.id() == QString("id"));
   QVERIFY(n.tradingSymbol() == QString("symbol"));
-  QVERIFY(n.securityType() == MyMoneySecurity::SECURITY_CURRENCY);
+  QVERIFY(n.securityType() == eMyMoney::Security::Type::Currency);
   // QVERIFY(n.priceHistory().count() == 1);
 }
 
@@ -73,19 +85,17 @@ void MyMoneySecurityTest::testSetFunctions()
   m->setTradingSymbol("Symbol");
   m->setTradingMarket("Market");
   m->setTradingCurrency("Currency");
-  m->setSecurityType(MyMoneySecurity::SECURITY_STOCK);
+  m->setSecurityType(eMyMoney::Security::Type::Stock);
   m->setSmallestAccountFraction(50);
   m->setSmallestCashFraction(2);
-  m->setPartsPerUnit(30);
 
   QVERIFY(m->name() == "Name");
   QVERIFY(m->tradingSymbol() == "Symbol");
   QVERIFY(m->tradingMarket() == "Market");
   QVERIFY(m->tradingCurrency() == "Currency");
-  QVERIFY(m->securityType() == MyMoneySecurity::SECURITY_STOCK);
+  QVERIFY(m->securityType() == eMyMoney::Security::Type::Stock);
   QVERIFY(m->smallestAccountFraction() == 50);
   QVERIFY(m->smallestCashFraction() == 2);
-  QVERIFY(m->partsPerUnit() == 30);
 }
 
 /*
@@ -119,16 +129,13 @@ void MyMoneySecurityTest::testEquality()
   n.setTradingCurrency("NewCurrency");
   QVERIFY(!(n == *m));
   n = *m;
-  n.setSecurityType(MyMoneySecurity::SECURITY_CURRENCY);
+  n.setSecurityType(eMyMoney::Security::Type::Currency);
   QVERIFY(!(n == *m));
   n = *m;
-  n.setSmallestAccountFraction(40);
+  n.setPricePrecision(8);
   QVERIFY(!(n == *m));
   n = *m;
   n.setSmallestCashFraction(20);
-  QVERIFY(!(n == *m));
-  n = *m;
-  n.setPartsPerUnit(3);
   QVERIFY(!(n == *m));
   n = *m;
   n.setValue("Key", "NewValue");
@@ -156,16 +163,13 @@ void MyMoneySecurityTest::testInequality()
   n.setTradingCurrency("NewCurrency");
   QVERIFY(n != *m);
   n = *m;
-  n.setSecurityType(MyMoneySecurity::SECURITY_CURRENCY);
+  n.setSecurityType(eMyMoney::Security::Type::Currency);
   QVERIFY(n != *m);
   n = *m;
   n.setSmallestAccountFraction(40);
   QVERIFY(n != *m);
   n = *m;
   n.setSmallestCashFraction(20);
-  QVERIFY(n != *m);
-  n = *m;
-  n.setPartsPerUnit(3);
   QVERIFY(n != *m);
   n = *m;
   n.setValue("Key", "NewValue");

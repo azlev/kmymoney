@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2013-2018  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,14 +21,10 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QtCore/QObject>
-#include <QtCore/QSharedPointer>
-#include <QPair>
+#include <QMap>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
-
-#include <KService>
 
 // ----------------------------------------------------------------------------
 // Project Includes
@@ -37,9 +32,12 @@
 #include "onlinejob.h"
 #include "onlinetasks/interfaces/tasks/onlinetask.h"
 #include "onlinetasks/interfaces/tasks/ionlinetasksettings.h"
+#include "onlinetasks/interfaces/tasks/credittransfer.h"
 #include "onlinetasks/interfaces/converter/onlinetaskconverter.h"
 
+class onlineTask;
 class IonlineJobEdit;
+
 namespace KMyMoneyPlugin
 {
 class OnlinePluginExtended;
@@ -67,8 +65,10 @@ class KMM_MYMONEY_EXPORT onlineJobAdministration : public QObject
   Q_PROPERTY(bool canSendAnyTask READ canSendAnyTask NOTIFY canSendAnyTaskChanged STORED false);
   Q_PROPERTY(bool canSendCreditTransfer READ canSendCreditTransfer NOTIFY canSendCreditTransferChanged STORED false);
 
-public:
+protected:
   explicit onlineJobAdministration(QObject *parent = 0);
+
+public:
   ~onlineJobAdministration();
 
   struct onlineJobEditOffer {
@@ -83,13 +83,13 @@ public:
    */
   QStringList availableOnlineTasks();
 
-  static onlineJobAdministration* instance() {
-    static onlineJobAdministration m_instance;
-    return &m_instance;
-  }
+  static onlineJobAdministration* instance();
+
+  /** @brief clear the internal caches for shutdown */
+  void clearCaches();
 
   /** @brief Use onlineTask::name() to create a corresponding onlineJob */
-  onlineJob createOnlineJob(const QString& name, const QString& id = MyMoneyObject::emptyId()) const;
+  onlineJob createOnlineJob(const QString& name, const QString& id = QString()) const;
 
   /**
    * @brief Return list of IonlineJobEdits
@@ -145,7 +145,7 @@ public:
   onlineJob convertBest(const onlineJob& original, const QStringList& convertTaskIids, onlineTaskConverter::convertType& convertType, QString& userInformation, const QString& onlineJobId) const;
 
   /**
-   * @brief Convinient for convertBest() which crates an onlineJob with the same id as original.
+   * @brief Convenient for convertBest() which crates an onlineJob with the same id as original.
    */
   onlineJob convertBest(const onlineJob& original, const QStringList& convertTaskIids, onlineTaskConverter::convertType& convertType, QString& userInformation) const;
 
@@ -198,7 +198,24 @@ public:
   template<class baseTask>
   bool isInherited(const QString& taskIid) const;
 
-signals:
+  /**
+   * @brief makes plugins loaded in KMyMoneyApp available here
+   * @param plugins
+   */
+  void setOnlinePlugins(QMap<QString, KMyMoneyPlugin::OnlinePluginExtended*>& plugins);
+
+  /**
+   * @brief updates online actions and should be called after plugin enable or disable
+   */
+  void updateActions();
+
+  /**
+   * @brief Creates an onlineTask by its iid and xml data
+   * @return pointer to task, caller gains ownership. Can be 0.
+   */
+  onlineTask* createOnlineTaskByXml(const QString& iid, const QDomElement& element) const;
+
+Q_SIGNALS:
   /**
    * @brief Emitted if canSendAnyTask() changed
    *
@@ -213,9 +230,7 @@ signals:
    */
   void canSendCreditTransferChanged(bool);
 
-public slots:
-  void addPlugin(const QString& pluginName, KMyMoneyPlugin::OnlinePluginExtended*);
-
+public Q_SLOTS:
   /**
    * @brief Slot for plugins to make an onlineTask available.
    * @param task the task to register, I take ownership
@@ -235,6 +250,11 @@ public slots:
 
 private:
   /**
+   * Register all available online tasks
+   */
+  void registerAllOnlineTasks();
+
+  /**
    * @brief Find onlinePlugin which is responsible for accountId
    * @param accountId
    * @return Pointer to onlinePluginExtended, do not delete.
@@ -247,27 +267,12 @@ private:
    */
   onlineTask* createOnlineTask(const QString& iid) const;
 
-  /**
-   * @brief Creates an onlineTask by its iid and xml data
-   * @return pointer to task, caller gains ownership. Can be 0.
-   */
-  onlineTask* createOnlineTaskByXml(const QString& iid, const QDomElement& element) const;
-
-  /**
-   * @brief Creates an onlineTask by its iid and xml data
-   * @return pointer to task, caller gains ownership. Can be 0.
-   */
-  onlineTask* createOnlineTaskFromSqlDatabase(const QString& iid, const QString& onlineJobId, QSqlDatabase connection) const;
-
   // Must be able to call createOnlineTaskByXml
   friend class onlineJob;
 
   // Must be able to call createOnlineTask
   template<class T>
   friend class onlineJobTyped;
-
-  // Must be able to call createOnlineTaskFromSqlDatabase()
-  friend class MyMoneyStorageSql;
 
   /**
    * @brief Get root instance of an onlineTask
@@ -286,7 +291,7 @@ private:
   /**
    * The key is the onlinePlugin's name
    */
-  QMap<QString, KMyMoneyPlugin::OnlinePluginExtended *> m_onlinePlugins;
+  QMap<QString, KMyMoneyPlugin::OnlinePluginExtended*>* m_onlinePlugins;
 
   /**
    * The key is the name of the task
@@ -299,9 +304,11 @@ private:
   QMultiMap<QString, onlineTaskConverter*> m_onlineTaskConverter;
 
   /**
-   * Intances of editors
+   * Instances of editors
    */
   QList<IonlineJobEdit*> m_onlineTaskEditors;
+
+  bool m_inRegistration;
 };
 
 template<class T>

@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013-2015 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -25,15 +25,15 @@
 #ifndef AQBANKINGKMMOPERATORS_H
 #define AQBANKINGKMMOPERATORS_H
 
-#include <QtCore/QSharedPointer>
+#include <QSharedPointer>
 
 #include "onlinetasks/interfaces/tasks/ionlinetasksettings.h"
-#include "onlinetasks/sepa/tasks/sepaonlinetransfer.h"
+#include "onlinetasks/sepa/sepaonlinetransfer.h"
 
-class AB_ACCOUNT;
-class AB_TRANSACTION_LIMITS;
-class AB_TRANSACTION;
-class AB_VALUE;
+struct AB_ACCOUNT;
+struct AB_TRANSACTION_LIMITS;
+struct AB_TRANSACTION;
+struct AB_VALUE;
 
 namespace payeeIdentifiers
 {

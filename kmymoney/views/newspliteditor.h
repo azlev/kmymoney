@@ -31,8 +31,7 @@ class QWidget;
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneytransaction.h"
-#include "ledgermodel.h"
+#include "mymoneymoney.h"
 
 class NewSplitEditor : public QFrame
 {
@@ -55,7 +54,7 @@ public:
   bool showValuesInverted();
 
 protected:
-  virtual void keyPressEvent(QKeyEvent* e);
+  void keyPressEvent(QKeyEvent* e) final override;
 
 public Q_SLOTS:
   /**

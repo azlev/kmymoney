@@ -1,83 +1,43 @@
-/***************************************************************************
-                          kmymoneyedit.h
-                             -------------------
-    copyright            : (C) 2000 by Michael Edwardes <mte@users.sourceforge.net>
-
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2002  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2002-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYEDIT_H
 #define KMYMONEYEDIT_H
 
-
-
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QValidator>
-#include <QEvent>
-#include <QKeyEvent>
-class QWidget;
+#include <QWidget>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <KLineEdit>
-class QPushButton;
-
-
-
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmymoneylineedit.h>
-#include <mymoneysecurity.h>
+#include "mymoneymoney.h"
 #include "kmm_widgets_export.h"
 
-class MyMoneyMoney;
-class kMyMoneyCalculator;
-
-/**
-  * This class is derived from KDoubleValidator and uses
-  * the monetary symbols instead of the numeric symbols.
-  * Also, it always accepts localized input.
-  *
-  * @author Thomas Baumgart
-  */
-class KMM_WIDGETS_EXPORT kMyMoneyMoneyValidator : public QDoubleValidator
-{
-  Q_OBJECT
-
-public:
-  /**
-    * Constuct a locale-aware KDoubleValidator with default range
-    * (whatever QDoubleValidator uses for that) and parent @p
-    * parent
-    */
-  kMyMoneyMoneyValidator(QObject * parent);
-  /**
-    * Constuct a locale-aware KDoubleValidator for range [@p bottom,@p
-    * top] and a precision of @p digits after the decimal
-    * point.
-    */
-  kMyMoneyMoneyValidator(double bottom, double top, int decimals,
-                         QObject * parent);
-  /**
-    * Destructs the validator.
-    */
-  virtual ~kMyMoneyMoneyValidator() {}
-
-  /** Overloaded for internal reasons. The API is not affected. */
-  virtual QValidator::State validate(QString & input, int & pos) const;
-};
+class QWidget;
+class KLineEdit;
+class MyMoneySecurity;
+class QValidator;
 
 /**
   * This class represents a widget to enter monetary values.
@@ -87,9 +47,11 @@ public:
   *
   * @author Michael Edwardes, Thomas Baumgart
   */
-class KMM_WIDGETS_EXPORT kMyMoneyEdit : public QWidget
+class KMyMoneyEditPrivate;
+class KMM_WIDGETS_EXPORT KMyMoneyEdit : public QWidget
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyEdit)
   Q_PROPERTY(bool calculatorButtonVisibility READ isCalculatorButtonVisible WRITE setCalculatorButtonVisible)
   Q_PROPERTY(bool resetButtonVisibility READ isResetButtonVisible WRITE setResetButtonVisible)
   Q_PROPERTY(bool allowEmpty READ isEmptyAllowed WRITE setAllowEmpty)
@@ -97,53 +59,10 @@ class KMM_WIDGETS_EXPORT kMyMoneyEdit : public QWidget
   Q_PROPERTY(MyMoneyMoney value READ value WRITE setValue DESIGNABLE false STORED false USER true)
   Q_PROPERTY(bool valid READ isValid DESIGNABLE false STORED false)
 
-private:
-  QString previousText; // keep track of what has been typed
-  QString m_text;       // keep track of what was the original value
-  kMyMoneyCalculator* m_calculator;
-  QWidget*            m_calculatorFrame;
-  kMyMoneyLineEdit*   m_edit;
-  QPushButton*        m_calcButton;
-  QPushButton*        m_resetButton;
-  int                 m_prec;
-  bool                allowEmpty;
-
-private:
-  /**
-    * Internal helper function for value() and ensureFractionalPart().
-    */
-  void ensureFractionalPart(QString& txt) const;
-
-protected:
-  /**
-    * This method ensures that the text version contains a
-    * fractional part.
-    */
-  void ensureFractionalPart();
-
-  /**
-    * This method opens the calculator and replays the key
-    * event pointed to by @p ev. If @p ev is 0, then no key
-    * event is replayed.
-    *
-    * @param ev pointer to QKeyEvent that started the calculator.
-    */
-  void calculatorOpen(QKeyEvent* ev);
-
-  /**
-    * Helper method for constructors.
-    */
-  void init();
-
-protected slots:
-  void theTextChanged(const QString & text);
-  void slotCalculatorResult();
-  void slotCalculatorOpen();
-
 public:
-  explicit kMyMoneyEdit(QWidget *parent = 0, const int prec = -2);
-  explicit kMyMoneyEdit(const MyMoneySecurity& eq, QWidget *parent = 0);
-  ~kMyMoneyEdit();
+  explicit KMyMoneyEdit(QWidget* parent = nullptr, const int prec = -2);
+  explicit KMyMoneyEdit(const MyMoneySecurity& eq, QWidget* parent = nullptr);
+  ~KMyMoneyEdit();
 
   MyMoneyMoney value() const;
 
@@ -151,19 +70,14 @@ public:
 
   bool isValid() const;
 
-  virtual bool eventFilter(QObject * , QEvent *);
+  virtual bool eventFilter(QObject *watched, QEvent *event) override;
 
   /**
     * This method returns the value of the edit field in "numerator/denominator" format.
     * If you want to get the text of the edit field, use lineedit()->text() instead.
     */
-  QString text() const {
-    return value().toString();
-  };
-
-  void setMinimumWidth(int w) {
-    m_edit->setMinimumWidth(w);
-  };
+  QString text() const;
+  void setMinimumWidth(int w);
 
   /**
     * Set the number of fractional digits that should be shown
@@ -179,20 +93,18 @@ public:
     * return the number of fractional digits
     * @sa setPrecision
     */
-  int precision() {
-    return m_prec;
-  };
+  int precision() const;
 
   QWidget* focusWidget() const;
 
   /**
     * This method allows to modify the behavior of the widget
     * such that it accepts an empty value (all blank) or not.
-    * The default is to not accept an emtpy input and to
+    * The default is to not accept an empty input and to
     * convert an empty field into 0.00 upon loss of focus.
     *
     * @param allowed if @a true, empty input is allowed, if @a false
-    *                emtpy input will be converted to 0.00
+    *                empty input will be converted to 0.00
     */
   void setAllowEmpty(bool allowed = true);
 
@@ -211,14 +123,19 @@ public:
 
   bool isReadOnly() const;
 
-public slots:
+  /**
+   * This allows to setup the standard precision (number of decimal places)
+   * to be used when no other information is available. @a prec must be in
+   * the range of 0..19. If never set, the default precision is 2.
+   */
+  static void setStandardPrecision(int prec);
+
+public Q_SLOTS:
   void loadText(const QString& text);
   void resetText();
   void clearText();
 
-  void setText(const QString& txt) {
-    setValue(MyMoneyMoney(txt));
-  };
+  void setText(const QString& txt);
 
   /**
     * This method allows to show/hide the calculator button of the widget.
@@ -233,7 +150,7 @@ public slots:
 
   void setReadOnly(bool readOnly);
 
-signals: // Signals
+Q_SIGNALS: // Signals
   /**
     * This signal is sent, when the focus leaves this widget and
     * the amount has been changed by user during this session.
@@ -241,6 +158,15 @@ signals: // Signals
   void valueChanged(const QString& text);
 
   void textChanged(const QString& text);
+
+protected Q_SLOTS:
+  void theTextChanged(const QString & text);
+  void slotCalculatorResult();
+  void slotCalculatorOpen();
+
+private:
+  KMyMoneyEditPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KMyMoneyEdit)
 };
 
 #endif

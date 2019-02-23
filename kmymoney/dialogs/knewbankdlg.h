@@ -1,18 +1,20 @@
-/***************************************************************************
-                          knewbankdlg.h
-                             -------------------
-    copyright            : (C) 2000 by Michael Edwardes
-    email                : mte@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2002  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KNEWBANKDLG_H
 #define KNEWBANKDLG_H
@@ -28,37 +30,34 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneyinstitution.h"
-#include "mymoneykeyvaluecontainer.h"
-
-#include "ui_knewbankdlgdecl.h"
-
-
-class KNewBankDlgDecl : public QDialog, public Ui::KNewBankDlgDecl
-{
-public:
-  explicit KNewBankDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
+class MyMoneyInstitution;
+class KJob;
 
 /// This dialog lets the user create or edit an institution
-class KNewBankDlg : public KNewBankDlgDecl
+class KNewBankDlgPrivate;
+class KNewBankDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KNewBankDlg)
 
 public:
-  explicit KNewBankDlg(MyMoneyInstitution& institution, QWidget *parent = 0);
+  explicit KNewBankDlg(MyMoneyInstitution& institution, QWidget *parent = nullptr);
   ~KNewBankDlg();
   const MyMoneyInstitution& institution();
 
-protected slots:
+  static void newInstitution(MyMoneyInstitution& institution);
+
+private Q_SLOTS:
   void okClicked();
   void institutionNameChanged(const QString &);
+  void slotUrlChanged(const QString&);
+  void slotLoadIcon();
+  void slotIconLoaded(KJob* job);
+  void killIconLoad();
 
 private:
-  MyMoneyInstitution m_institution;
-
+  KNewBankDlgPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KNewBankDlg)
 };
 
 #endif

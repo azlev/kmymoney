@@ -1,5 +1,5 @@
 /*
-  This file is part of KMyMoney, A Personal Finance Manager for KDE
+  This file is part of KMyMoney, A Personal Finance Manager by KDE
   Copyright (C) 2013 Christian Dávid <christian-david@web.de>
 
   This program is free software; you can redistribute it and/or
@@ -20,11 +20,12 @@
 #ifndef CREDITTRANSFER_H
 #define CREDITTRANSFER_H
 
-#include "mymoney/mymoneymoney.h"
-#include "mymoney/mymoneysecurity.h"
+#include <QtPlugin>
 #include "payeeidentifier/payeeidentifier.h"
 
 class QValidator;
+class MyMoneyMoney;
+class MyMoneySecurity;
 
 /**
  * @brief Describes an online credit-transfer (or similar)
@@ -36,7 +37,7 @@ class creditTransfer
 {
 
 public:
-  virtual ~creditTransfer() {}
+  virtual ~creditTransfer();
 
   virtual MyMoneyMoney value() const = 0;
   /** @brief The currency the transfer value is in */
@@ -58,11 +59,9 @@ public:
    * @return
    * @todo Move (logic) to a utils class?
    */
-  virtual QString jobTypeName() const {
-    return "Credit Transfer";
-  }
+  virtual QString jobTypeName() const;
 };
 
-Q_DECLARE_INTERFACE(creditTransfer, "org.kmymoney.onlineTasks.creditTransfer");
+Q_DECLARE_INTERFACE(creditTransfer, "org.kmymoney.onlineTasks.creditTransfer")
 
 #endif // CREDITTRANSFER_H

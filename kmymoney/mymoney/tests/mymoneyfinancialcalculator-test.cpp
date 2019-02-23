@@ -1,27 +1,29 @@
-/***************************************************************************
-                          mymoneyfinancialcalculatortest.cpp
-                          -------------------
-    copyright            : (C) 2003 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2008  Thomas Baumgart <tbaumgart@kde.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneyfinancialcalculator-test.h"
 
-#include <QtTest/QtTest>
+#include <QtTest>
 
 #define KMM_MYMONEY_UNIT_TESTABLE friend class MyMoneyFinancialCalculatorTest;
 
 #include "mymoneymoney.h"
 #include "mymoneyfinancialcalculator.h"
+#include "mymoneyfinancialcalculator_p.h"
 
 QTEST_GUILESS_MAIN(MyMoneyFinancialCalculatorTest)
 
@@ -37,90 +39,90 @@ void MyMoneyFinancialCalculatorTest::cleanup()
 
 void MyMoneyFinancialCalculatorTest::testEmptyConstructor()
 {
-  QVERIFY(m->m_ir == 0.0);
-  QVERIFY(m->m_pv == 0.0);
-  QVERIFY(m->m_pmt == 0.0);
-  QVERIFY(m->m_fv == 0.0);
-  QVERIFY(m->m_npp == 0);
-  QVERIFY(m->m_CF == 12);
-  QVERIFY(m->m_PF == 12);
-  QVERIFY(m->m_prec == 2);
-  QVERIFY(m->m_bep == false);
-  QVERIFY(m->m_disc == true);
-  QVERIFY(m->m_mask == 0);
+  QVERIFY(m->d_func()->m_ir == 0.0);
+  QVERIFY(m->d_func()->m_pv == 0.0);
+  QVERIFY(m->d_func()->m_pmt == 0.0);
+  QVERIFY(m->d_func()->m_fv == 0.0);
+  QVERIFY(m->d_func()->m_npp == 0);
+  QVERIFY(m->d_func()->m_CF == 12);
+  QVERIFY(m->d_func()->m_PF == 12);
+  QVERIFY(m->d_func()->m_prec == 2);
+  QVERIFY(m->d_func()->m_bep == false);
+  QVERIFY(m->d_func()->m_disc == true);
+  QVERIFY(m->d_func()->m_mask == 0);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetPrec()
 {
   m->setPrec(3);
-  QVERIFY(m->m_prec == 3);
+  QVERIFY(m->d_func()->m_prec == 3);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetNpp()
 {
   m->setNpp(20);
-  QVERIFY(m->m_npp == 20);
-  QVERIFY(m->m_mask == NPP_SET);
+  QVERIFY(m->d_func()->m_npp == 20);
+  QVERIFY(m->d_func()->m_mask == NPP_SET);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetPF()
 {
   m->setPF(1);
-  QVERIFY(m->m_PF == 1);
+  QVERIFY(m->d_func()->m_PF == 1);
   m->setPF();
-  QVERIFY(m->m_PF == 12);
+  QVERIFY(m->d_func()->m_PF == 12);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetCF()
 {
   m->setCF(1);
-  QVERIFY(m->m_CF == 1);
+  QVERIFY(m->d_func()->m_CF == 1);
   m->setCF();
-  QVERIFY(m->m_CF == 12);
+  QVERIFY(m->d_func()->m_CF == 12);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetBep()
 {
   m->setBep(true);
-  QVERIFY(m->m_bep == true);
+  QVERIFY(m->d_func()->m_bep == true);
   m->setBep();
-  QVERIFY(m->m_bep == false);
+  QVERIFY(m->d_func()->m_bep == false);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetDisc()
 {
   m->setDisc(false);
-  QVERIFY(m->m_disc == false);
+  QVERIFY(m->d_func()->m_disc == false);
   m->setDisc();
-  QVERIFY(m->m_disc == true);
+  QVERIFY(m->d_func()->m_disc == true);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetIr()
 {
   m->setIr(12.3);
-  QVERIFY(m->m_ir == 12.3);
-  QVERIFY(m->m_mask == IR_SET);
+  QVERIFY(m->d_func()->m_ir == 12.3);
+  QVERIFY(m->d_func()->m_mask == IR_SET);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetPv()
 {
   m->setPv(23.4);
-  QVERIFY(m->m_pv == 23.4);
-  QVERIFY(m->m_mask == PV_SET);
+  QVERIFY(m->d_func()->m_pv == 23.4);
+  QVERIFY(m->d_func()->m_mask == PV_SET);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetPmt()
 {
   m->setPmt(34.5);
-  QVERIFY(m->m_pmt == 34.5);
-  QVERIFY(m->m_mask == PMT_SET);
+  QVERIFY(m->d_func()->m_pmt == 34.5);
+  QVERIFY(m->d_func()->m_mask == PMT_SET);
 }
 
 void MyMoneyFinancialCalculatorTest::testSetFv()
 {
   m->setFv(45.6);
-  QVERIFY(m->m_fv == 45.6);
-  QVERIFY(m->m_mask == FV_SET);
+  QVERIFY(m->d_func()->m_fv == 45.6);
+  QVERIFY(m->d_func()->m_mask == FV_SET);
 }
 
 void MyMoneyFinancialCalculatorTest::testCombinedSet()
@@ -131,7 +133,7 @@ void MyMoneyFinancialCalculatorTest::testCombinedSet()
   m->setPmt(34.5);
   m->setFv(45.6);
 
-  QVERIFY(m->m_mask == (NPP_SET | PV_SET | IR_SET | PMT_SET | FV_SET));
+  QVERIFY(m->d_func()->m_mask == (NPP_SET | PV_SET | IR_SET | PMT_SET | FV_SET));
 }
 
 void MyMoneyFinancialCalculatorTest::testNumPayments()
@@ -172,7 +174,7 @@ void MyMoneyFinancialCalculatorTest::testNumPayments()
     QFAIL("Unexpected exception");
   }
 
-  QVERIFY(qRound(m->m_npp) == 12);
+  QVERIFY(qRound(m->d_func()->m_npp) == 12);
 }
 
 void MyMoneyFinancialCalculatorTest::testUseCase1()

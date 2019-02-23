@@ -22,35 +22,53 @@
 
 //! @todo remove
 #include <QDebug>
+#include <QPointer>
+#include <QUrl>
+#include <QDate>
 
 // KDE includes
 #include <KPluginFactory>
-#include <KPluginInfo>
 #include <KColorScheme>
 #include <KLocalizedString>
 
 // KMyMoney includes
 #include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "mymoneypayee.h"
+#include "mymoneysecurity.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "mymoneytransactionfilter.h"
+#include "mymoneyutils.h"
+#include "viewinterface.h"
+#include "mymoneyenums.h"
 
 #include "kreconciliationreportdlg.h"
 
-KMMReconciliationReportPlugin::KMMReconciliationReportPlugin()
-    : KMyMoneyPlugin::Plugin(nullptr, "Reconciliation report"/*must be the same as X-KDE-PluginInfo-Name*/)
+ReconciliationReport::ReconciliationReport(QObject *parent, const QVariantList &args) :
+  KMyMoneyPlugin::Plugin(parent, "reconciliationreport"/*must be the same as X-KDE-PluginInfo-Name*/)
 {
+  Q_UNUSED(args);
+  qDebug("Plugins: reconciliation report loaded");
 }
 
-void KMMReconciliationReportPlugin::plug()
+ReconciliationReport::~ReconciliationReport()
 {
-  connect(viewInterface(), &KMyMoneyPlugin::ViewInterface::accountReconciled, this, &KMMReconciliationReportPlugin::slotGenerateReconciliationReport);
-  qDebug() << "Connect was done" << viewInterface();
+  qDebug("Plugins: reconciliation report unloaded");
 }
 
-void KMMReconciliationReportPlugin::unplug()
+void ReconciliationReport::plug()
 {
-  disconnect(viewInterface(), &KMyMoneyPlugin::ViewInterface::accountReconciled, this, &KMMReconciliationReportPlugin::slotGenerateReconciliationReport);
+  connect(viewInterface(), &KMyMoneyPlugin::ViewInterface::accountReconciled, this, &ReconciliationReport::slotGenerateReconciliationReport);
+//  qDebug() << "Connect was done" << viewInterface();
 }
 
-void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMoneyAccount& account, const QDate& date, const MyMoneyMoney& startingBalance, const MyMoneyMoney& endingBalance, const QList<QPair<MyMoneyTransaction, MyMoneySplit> >& transactionList)
+void ReconciliationReport::unplug()
+{
+  disconnect(viewInterface(), &KMyMoneyPlugin::ViewInterface::accountReconciled, this, &ReconciliationReport::slotGenerateReconciliationReport);
+}
+
+void ReconciliationReport::slotGenerateReconciliationReport(const MyMoneyAccount& account, const QDate& date, const MyMoneyMoney& startingBalance, const MyMoneyMoney& endingBalance, const QList<QPair<MyMoneyTransaction, MyMoneySplit> >& transactionList)
 {
   MyMoneyFile* file = MyMoneyFile::instance();
   MyMoneySecurity currency = file->currency(account.currencyId());
@@ -89,7 +107,7 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
   QList<QPair<MyMoneyTransaction, MyMoneySplit> >::const_iterator it;
   for (it = transactionList.begin(); it != transactionList.end(); ++it) {
     // if this split is a stock split, we can't just add the amount of shares
-    if ((*it).second.reconcileFlag() == MyMoneySplit::NotReconciled) {
+    if ((*it).second.reconcileFlag() == eMyMoney::Split::State::NotReconciled) {
       if ((*it).second.shares().isNegative()) {
         outstandingPayments++;
         outstandingPaymentAmount += (*it).second.shares();
@@ -180,8 +198,8 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
   // retrieve list of all transactions after the reconciliation date that are not reconciled or cleared
   QList<QPair<MyMoneyTransaction, MyMoneySplit> > afterTransactionList;
   MyMoneyTransactionFilter filter(account.id());
-  filter.addState(MyMoneyTransactionFilter::cleared);
-  filter.addState(MyMoneyTransactionFilter::notReconciled);
+  filter.addState((int)eMyMoney::TransactionFilter::State::Cleared);
+  filter.addState((int)eMyMoney::TransactionFilter::State::NotReconciled);
   filter.setDateFilter(date.addDays(1), QDate());
   filter.setConsiderCategory(false);
   filter.setReportAllSplits(true);
@@ -192,7 +210,7 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
   int afterPayments = 0;
   for (it = afterTransactionList.constBegin(); it != afterTransactionList.constEnd(); ++it) {
     // if this split is a stock split, we can't just add the amount of shares
-    if ((*it).second.reconcileFlag() == MyMoneySplit::NotReconciled) {
+    if ((*it).second.reconcileFlag() == eMyMoney::Split::State::NotReconciled) {
       if ((*it).second.shares().isNegative()) {
         afterPayments++;
         afterPaymentAmount += (*it).second.shares();
@@ -239,31 +257,30 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
   QString detailsReport = QString("<h2 class=\"report\">%1</h2>\n").arg(i18n("Outstanding payments"));
   detailsReport += detailsTableHeader;
 
-  int index = 0;
-  for (it = transactionList.begin(); it != transactionList.end(); ++it) {
-    if ((*it).second.reconcileFlag() == MyMoneySplit::NotReconciled && (*it).second.shares().isNegative()) {
-      QList<MyMoneySplit>::const_iterator it_s;
+  auto index = 0;
+  foreach (const auto transaction, transactionList) {
+    if (transaction.second.reconcileFlag() == eMyMoney::Split::State::NotReconciled && transaction.second.shares().isNegative()) {
       QString category;
-      for (it_s = (*it).first.splits().begin(); it_s != (*it).first.splits().end(); ++it_s) {
-        if ((*it_s).accountId() != account.id()) {
+      foreach (const auto split, transaction.first.splits()) {
+        if (split.accountId() != account.id()) {
           if (!category.isEmpty())
             category += ", "; // this is a split transaction
-          category = file->account((*it_s).accountId()).name();
+          category = file->account(split.accountId()).name();
         }
       }
 
       detailsReport += QString("<tr class=\"%1\"><td>").arg((index++ % 2 == 1) ? "row-odd" : "row-even");
-      detailsReport += QString("%1").arg(QLocale().toString((*it).first.entryDate(), QLocale::ShortFormat));
+      detailsReport += QString("%1").arg(QLocale().toString(transaction.first.entryDate(), QLocale::ShortFormat));
       detailsReport += "</td><td>";
-      detailsReport += QString("%1").arg((*it).second.number());
+      detailsReport += QString("%1").arg(transaction.second.number());
       detailsReport += "</td><td>";
-      detailsReport += QString("%1").arg(file->payee((*it).second.payeeId()).name());
+      detailsReport += QString("%1").arg(file->payee(transaction.second.payeeId()).name());
       detailsReport += "</td><td>";
-      detailsReport += QString("%1").arg((*it).first.memo());
+      detailsReport += QString("%1").arg(transaction.first.memo());
       detailsReport += "</td><td>";
       detailsReport += QString("%1").arg(category);
       detailsReport += "</td><td>";
-      detailsReport += QString("%1").arg(MyMoneyUtils::formatMoney((*it).second.shares(), file->currency(account.currencyId())));
+      detailsReport += QString("%1").arg(MyMoneyUtils::formatMoney(transaction.second.shares(), file->currency(account.currencyId())));
       detailsReport += "</td></tr>";
     }
   }
@@ -277,14 +294,13 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
 
   index = 0;
   for (it = transactionList.begin(); it != transactionList.end(); ++it) {
-    if ((*it).second.reconcileFlag() == MyMoneySplit::NotReconciled && !(*it).second.shares().isNegative()) {
-      QList<MyMoneySplit>::const_iterator it_s;
+    if ((*it).second.reconcileFlag() == eMyMoney::Split::State::NotReconciled && !(*it).second.shares().isNegative()) {
       QString category;
-      for (it_s = (*it).first.splits().begin(); it_s != (*it).first.splits().end(); ++it_s) {
-        if ((*it_s).accountId() != account.id()) {
+      foreach (const auto split, (*it).first.splits()) {
+        if (split.accountId() != account.id()) {
           if (!category.isEmpty())
             category += ", "; // this is a split transaction
-          category = file->account((*it_s).accountId()).name();
+          category = file->account(split.accountId()).name();
         }
       }
 
@@ -314,3 +330,7 @@ void KMMReconciliationReportPlugin::slotGenerateReconciliationReport(const MyMon
   dlg->exec();
   delete dlg;
 }
+
+K_PLUGIN_FACTORY_WITH_JSON(ReconciliationReportFactory, "reconciliationreport.json", registerPlugin<ReconciliationReport>();)
+
+#include "reconciliationreport.moc"

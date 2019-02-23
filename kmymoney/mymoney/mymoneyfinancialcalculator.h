@@ -1,24 +1,20 @@
-/***************************************************************************
-                          mymoneyfinancialcalculator.h  -  description
-                             -------------------
-    begin                : Tue Oct 21 2003
-    copyright            : (C) 2000-2003 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2012  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYFINANCIALCALCULATOR_H
 #define MYMONEYFINANCIALCALCULATOR_H
@@ -26,14 +22,18 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <qglobal.h>
+
+#include <cmath>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneyunittestable.h>
+#include "kmm_mymoney_export.h"
+#include "mymoneyunittestable.h"
 
 /**
   * @author Thomas Baumgart
@@ -44,8 +44,13 @@
   * For a detailed description of the algorithms see
   * gnucash-1.8.5/src/doc/finutil.html.
   */
+class MyMoneyFinancialCalculatorPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyFinancialCalculator
 {
+  Q_DISABLE_COPY(MyMoneyFinancialCalculator)
+  Q_DECLARE_PRIVATE(MyMoneyFinancialCalculator)
+  MyMoneyFinancialCalculatorPrivate * d_ptr;
+
   KMM_MYMONEY_UNIT_TESTABLE
 
 public:
@@ -156,9 +161,7 @@ public:
     */
   void setNpp(const double npp);
 
-  double npp() const {
-    return m_npp;
-  };
+  double npp() const;
 
   /**
     * This method sets the payment frequency. The parameter @p PF
@@ -211,10 +214,10 @@ public:
 
   /**
     * This method controls whether the interest is compounded in periods
-    * or continously.
+    * or continuously.
     *
     * @param disc if @p true (default) then the interest is compounded in
-    *             periods, if @p false continously.
+    *             periods, if @p false continuously.
     */
   void setDisc(const bool disc = true);
 
@@ -226,9 +229,7 @@ public:
     */
   void setIr(const double ir);
 
-  double ir() const {
-    return m_ir;
-  };
+  double ir() const;
 
   /**
     * This method sets the present value to the value passed
@@ -238,9 +239,7 @@ public:
     */
   void setPv(const double pv);
 
-  double pv() const {
-    return m_pv;
-  };
+  double pv() const;
 
   /**
     * This method sets the payment amount to the value passed
@@ -250,9 +249,7 @@ public:
     */
   void setPmt(const double pmt);
 
-  double pmt() const {
-    return m_pmt;
-  };
+  double pmt() const;
 
   /**
     * This method sets the future value to the value passed
@@ -262,38 +259,9 @@ public:
     */
   void setFv(const double fv);
 
-  double fv() const {
-    return m_fv;
-  };
+  double fv() const;
 
 private:
-  double eff_int() const;
-  double nom_int(const double eint) const;
-  double rnd(const double x) const;
-
-  double _Ax(const double eint) const;
-  double _Bx(const double eint) const;
-  double _Cx(const double eint) const;
-  double _fi(const double eint) const;
-  double _fip(const double eint) const;
-
-private:
-  double          m_ir;   // nominal interest rate
-  double          m_pv;   // present value
-  double          m_pmt;  // periodic payment
-  double          m_fv;   // future value
-  double          m_npp;  // number of payment periods
-
-  unsigned short  m_CF;   // compounding frequency
-  unsigned short  m_PF;   // payment frequency
-
-  unsigned short  m_prec; // precision for roundoff for pv, pmt and fv
-  // i is not rounded, n is integer
-
-  bool            m_bep;  // beginning/end of period payment flag
-  bool            m_disc; // discrete/continuous compounding flag
-
-  unsigned short m_mask; // available value mask
 #define PV_SET        0x0001
 #define IR_SET        0x0002
 #define PMT_SET       0x0004

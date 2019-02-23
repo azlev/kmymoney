@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kmymoneycurrencyselector.cpp  -  description
-                             -------------------
-    begin                : Tue Apr 6 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kmymoneycurrencyselector.h"
 
@@ -26,57 +22,98 @@
 // QT Includes
 
 #include <QPixmap>
-#include <QBitmap>
 #include <QIcon>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-
 // ----------------------------------------------------------------------------
 // Project Includes
 
-KMyMoneySecuritySelector::KMyMoneySecuritySelector(QWidget *parent) :
-    KComboBox(parent),
+#include "mymoneyfile.h"
+#include "mymoneysecurity.h"
+#include "icons/icons.h"
+
+using namespace Icons;
+
+class KMyMoneySecuritySelectorPrivate
+{
+  Q_DISABLE_COPY(KMyMoneySecuritySelectorPrivate)
+  Q_DECLARE_PUBLIC(KMyMoneySecuritySelector)
+
+public:
+  enum displayItemE {
+    Symbol = 0,
+    FullName
+  };
+
+  enum displayTypeE {
+    TypeCurrencies = 0x01,
+    TypeSecurities = 0x02,
+    TypeAll        = 0x03
+  };
+
+  explicit KMyMoneySecuritySelectorPrivate(KMyMoneySecuritySelector *qq):
+    q_ptr(qq),
     m_displayItem(FullName),
+    m_selectedItemId(0),
     m_displayOnly(false),
     m_displayType(TypeAll)
+  {
+  }
+
+  void selectDisplayItem(displayItemE item)
+  {
+    Q_Q(KMyMoneySecuritySelector);
+    m_displayItem = item;
+    q->update(QString());
+  }
+
+  void setDisplayType(displayTypeE type)
+  {
+    m_displayType = type;
+  }
+
+  KMyMoneySecuritySelector *q_ptr;
+  MyMoneySecurity m_currency;
+  displayItemE    m_displayItem;
+  int             m_selectedItemId;
+  bool            m_displayOnly;
+  displayTypeE    m_displayType;
+  QList<MyMoneySecurity> m_list;
+};
+
+KMyMoneySecuritySelector::KMyMoneySecuritySelector(QWidget *parent) :
+  KComboBox(parent),
+  d_ptr(new KMyMoneySecuritySelectorPrivate(this))
 {
   // update(QString());
 }
 
 KMyMoneySecuritySelector::~KMyMoneySecuritySelector()
 {
-}
-
-void KMyMoneySecuritySelector::selectDisplayItem(KMyMoneySecuritySelector::displayItemE item)
-{
-  m_displayItem = item;
-  update(QString());
-}
-
-void KMyMoneySecuritySelector::setDisplayType(displayTypeE type)
-{
-  m_displayType = type;
+  Q_D(KMyMoneySecuritySelector);
+  delete d;
 }
 
 void KMyMoneySecuritySelector::update(const QString& id)
 {
+  Q_D(KMyMoneySecuritySelector);
   MyMoneySecurity curr = MyMoneyFile::instance()->baseCurrency();
   QString baseCurrency = curr.id();
 
   if (!id.isEmpty())
-    curr = m_currency;
+    curr = d->m_currency;
 
   this->clear();
-  m_list.clear();
-  if (m_displayType & TypeCurrencies)
-    m_list += MyMoneyFile::instance()->currencyList();
-  if (m_displayType & TypeSecurities)
-    m_list += MyMoneyFile::instance()->securityList();
+  d->m_list.clear();
+  if (d->m_displayType & KMyMoneySecuritySelectorPrivate::TypeCurrencies)
+    d->m_list += MyMoneyFile::instance()->currencyList();
+  if (d->m_displayType & KMyMoneySecuritySelectorPrivate::TypeSecurities)
+    d->m_list += MyMoneyFile::instance()->securityList();
 
   // sort
-  qSort(m_list);
+  qSort(d->m_list);
 
   QList<MyMoneySecurity>::ConstIterator it;
 
@@ -109,11 +146,11 @@ void KMyMoneySecuritySelector::update(const QString& id)
 
   int itemId = 0;
   int m_selectedItemId = 0;
-  for (it = m_list.constBegin(); it != m_list.constEnd(); ++it) {
+  for (it = d->m_list.constBegin(); it != d->m_list.constEnd(); ++it) {
     QString display;
-    switch (m_displayItem) {
+    switch (d->m_displayItem) {
       default:
-      case FullName:
+      case KMyMoneySecuritySelectorPrivate::FullName:
         if ((*it).isCurrency()) {
           display = QString("%2 (%1)").arg((*it).id()).arg((*it).name());
         } else
@@ -121,7 +158,7 @@ void KMyMoneySecuritySelector::update(const QString& id)
         break;
         break;
 
-      case Symbol:
+      case KMyMoneySecuritySelectorPrivate::Symbol:
         if ((*it).isCurrency())
           display = (*it).id();
         else
@@ -129,16 +166,14 @@ void KMyMoneySecuritySelector::update(const QString& id)
         break;
     }
     if ((*it).id() == baseCurrency) {
-      insertItem(itemId,  QIcon::fromTheme(QStringLiteral("view-bank-account"),
-                                           QIcon::fromTheme(QStringLiteral("account"),
-                                                            QIcon::fromTheme(QStringLiteral("unknown")))), display);
+      insertItem(itemId,  Icons::get(Icon::ViewBankAccount), display);
     } else {
       insertItem(itemId, emptyIcon, display);
     }
 
     if (curr.id() == (*it).id()) {
       m_selectedItemId = itemId;
-      m_currency = (*it);
+      d->m_currency = (*it);
     }
 
     itemId++;
@@ -148,21 +183,28 @@ void KMyMoneySecuritySelector::update(const QString& id)
 
 const MyMoneySecurity& KMyMoneySecuritySelector::security() const
 {
+  Q_D(const KMyMoneySecuritySelector);
   int index = currentIndex();
-  if ((0 <= index) && (index < m_list.size()))
-    return m_list[index];
+  if ((0 <= index) && (index < d->m_list.size()))
+    return d->m_list[index];
   else
-    return m_currency;
+    return d->m_currency;
 }
 
 void KMyMoneySecuritySelector::setSecurity(const MyMoneySecurity& currency)
 {
-  m_currency = currency;
+  Q_D(KMyMoneySecuritySelector);
+  d->m_currency = currency;
   update(QString("x"));
 }
 
 KMyMoneyCurrencySelector::KMyMoneyCurrencySelector(QWidget *parent) :
-    KMyMoneySecuritySelector(parent)
+  KMyMoneySecuritySelector(parent)
 {
-  setDisplayType(TypeCurrencies);
+  Q_D(KMyMoneySecuritySelector);
+  d->setDisplayType(KMyMoneySecuritySelectorPrivate::TypeCurrencies);
+}
+
+KMyMoneyCurrencySelector::~KMyMoneyCurrencySelector()
+{
 }

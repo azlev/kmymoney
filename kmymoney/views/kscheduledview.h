@@ -9,6 +9,7 @@
                            John C <thetacoturtle@users.sourceforge.net>
                            Thomas Baumgart <ipwizard@users.sourceforge.net>
                            Kevin Tambascio <ktambascio@users.sourceforge.net>
+                           (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  ***************************************************************************/
 
 /***************************************************************************
@@ -25,20 +26,21 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QWidget>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
-
-#include <ktreewidgetsearchline.h>
-#include <ktreewidgetsearchlinewidget.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kscheduledviewdecl.h"
-#include <mymoneyfile.h>
-#include <mymoneyaccount.h>
+#include "kmymoneyviewbase.h"
+
+class QTreeWidgetItem;
+class KTreeWidgetSearchLineWidget;
+class MyMoneySchedule;
+class MyMoneyAccount;
+
+namespace eDialogs { enum class ScheduleResultCode; }
+namespace eView { namespace Schedules { enum class Requester; } }
 
 /**
   * Contains all the scheduled transactions be they bills, deposits or transfers.
@@ -50,7 +52,9 @@
   *
   * @short A class to encapsulate recurring transaction operations.
   */
-class KScheduledView : public QWidget, public Ui::KScheduledViewDecl
+
+class KScheduledViewPrivate;
+class KScheduledView : public KMyMoneyViewBase
 {
   Q_OBJECT
 
@@ -58,44 +62,44 @@ public:
   /**
     * Standard constructor for QWidgets.
     */
-  KScheduledView(QWidget *parent = 0);
+  explicit KScheduledView(QWidget *parent = nullptr);
 
   /**
     * Standard destructor.
     */
-  ~KScheduledView();
+  ~KScheduledView() override;
 
+  void executeCustomAction(eView::Action action) override;
+  void refresh();
+  void updateActions(const MyMoneyObject& obj);
+
+  // TODO: remove that function
   /**
-    * Called by KMyMoneyView.
-    */
-  void showEvent(QShowEvent* event);
+   * ugly proxy function
+   */
+  eDialogs::ScheduleResultCode enterSchedule(MyMoneySchedule& schedule, bool autoEnter, bool extendedKeys);
 
-public slots:
+public Q_SLOTS:
   void slotSelectSchedule(const QString& schedule);
-  void slotReloadView();
+  void slotShowScheduleMenu(const MyMoneySchedule& sch);
+  void slotEditSchedule();
 
-signals:
-  void scheduleSelected(const MyMoneySchedule& schedule);
-  void openContextMenu();
-  void skipSchedule();
-  void enterSchedule();
-  void editSchedule();
+  void slotEnterOverdueSchedules(const MyMoneyAccount& acc);
 
-  /**
-    * This signal is emitted whenever the view is about to be shown.
-    */
-  void aboutToShow();
+  void slotSelectByObject(const MyMoneyObject& obj, eView::Intent intent) override;
 
-protected slots:
-  /**
-    * Shows the context menu when the user right clicks or presses
-    * a 'windows' key when an item is selected.
-    *
-    * @param pos The position where to popup
-    * @return none
-  **/
-  void slotListViewContextMenu(const QPoint& pos);
+Q_SIGNALS:
+  void enterOverdueSchedulesFinished(eView::Schedules::Requester req);
 
+protected:
+  void showEvent(QShowEvent* event) override;
+
+private:
+  Q_DECLARE_PRIVATE(KScheduledView)
+
+private Q_SLOTS:
+
+  void customContextMenuRequested(const QPoint);
   void slotListItemExecuted(QTreeWidgetItem*, int);
 
   void slotAccountActivated();
@@ -103,52 +107,17 @@ protected slots:
   void slotListViewCollapsed(QTreeWidgetItem* item);
   void slotListViewExpanded(QTreeWidgetItem* item);
 
-  void slotBriefSkipClicked(const MyMoneySchedule& schedule, const QDate&);
-  void slotBriefEnterClicked(const MyMoneySchedule& schedule, const QDate&);
-
   void slotTimerDone();
 
   void slotSetSelectedItem();
 
   void slotRearrange();
 
-protected:
-
-  QTreeWidgetItem* addScheduleItem(QTreeWidgetItem* parent, MyMoneySchedule& schedule);
-
-private:
-
-  /// The selected schedule id in the list view.
-  QString m_selectedSchedule;
-
-  /// Read config file
-  void readConfig();
-
-  /// Write config file
-  void writeConfig();
-
-  /**
-    * Refresh the view.
-    */
-  void refresh(bool full = true, const QString& schedId = QString());
-
-  /**
-    * Loads the accounts into the combo box.
-    */
-//  void loadAccounts();
-
-  QMenu *m_kaccPopup;
-  QStringList m_filterAccounts;
-  bool m_openBills;
-  bool m_openDeposits;
-  bool m_openTransfers;
-  bool m_openLoans;
-  bool m_needReload;
-
-  /**
-   * Search widget for the list
-   */
-  KTreeWidgetSearchLineWidget*  m_searchWidget;
+  void slotNewSchedule();
+  void slotDeleteSchedule();
+  void slotDuplicateSchedule();
+  void slotEnterSchedule();
+  void slotSkipSchedule();
 };
 
 #endif

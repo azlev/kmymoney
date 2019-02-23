@@ -26,8 +26,6 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QBitArray>
-#include <QWidget>
 #include <QWizard>
 
 // ----------------------------------------------------------------------------
@@ -36,17 +34,19 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_knewloanwizarddecl.h"
-#include "mymoneyschedule.h"
-#include "kmymoneyaccountselector.h"
-#include "kmymoneydateinput.h"
+class QString;
+
+class MyMoneyAccount;
+class MyMoneySchedule;
+class MyMoneyAccountLoan;
+class MyMoneyTransaction;
 
 /**
   * @author Thomas Baumgart
   */
 
 /**
-  * This class implementes a wizard for the creation of loan accounts.
+  * This class implements a wizard for the creation of loan accounts.
   * The user is asked a set of questions and according to the answers
   * the respective MyMoneyAccount object can be requested from the
   * wizard when accept() has been called. A MyMoneySchedule is also
@@ -54,15 +54,8 @@
   * created loan.
   *
   */
-class KNewLoanWizardDecl : public QWizard, public Ui::KNewLoanWizardDecl
-{
-public:
-  KNewLoanWizardDecl(QWidget *parent) : QWizard(parent) {
-    setupUi(this);
-  }
-};
-
-class KNewLoanWizard : public KNewLoanWizardDecl
+class KNewLoanWizardPrivate;
+class KNewLoanWizard : public QWizard
 {
   Q_OBJECT
 
@@ -82,7 +75,7 @@ public:
          Page_AssetAccount, Page_Summary
        };
 
-  KNewLoanWizard(QWidget *parent = 0);
+  explicit KNewLoanWizard(QWidget *parent = nullptr);
   ~KNewLoanWizard();
 
   /**
@@ -117,7 +110,7 @@ public:
     */
   QDate initialPaymentDate() const;
 
-  bool validateCurrentPage();
+  bool validateCurrentPage() override;
 
   const MyMoneyAccountLoan account() const;
 
@@ -127,34 +120,14 @@ public:
    *
    * @return id of the next page or -1 if there is no next page
    */
-  int nextId() const;
+  int nextId() const final override;
 
-protected:
-  /**
-    * This method returns the transaction that is stored within
-    * the schedule. See schedule().
-    *
-    * @return MyMoneyTransaction object to be used within the schedule
-    */
-  MyMoneyTransaction transaction() const;
-
-protected slots:
+protected Q_SLOTS:
 
   // void slotNewPayee(const QString&);
   void slotReloadEditWidgets();
 
-protected:
-  void loadAccountList();
-  void resetCalculator();
-  void updateLoanAmount();
-  void updateInterestRate();
-  void updateDuration();
-  void updatePayment();
-  void updateFinalPayment();
-  void updateLoanInfo();
-  int calculateLoan();
-
-signals:
+Q_SIGNALS:
   /**
     * This signal is emitted, when a new category name has been
     * entered by the user and this name is not known as account
@@ -181,10 +154,16 @@ signals:
   void createPayee(const QString& txt, QString& id);
 
 protected:
-  MyMoneyAccountLoan  m_account;
-  MyMoneyTransaction  m_transaction;
-  MyMoneySplit        m_split;
-  QBitArray           m_pages;
+  const QScopedPointer<KNewLoanWizardPrivate> d_ptr;
+  KNewLoanWizard(KNewLoanWizardPrivate &dd, QWidget *parent);
+   
+private:
+  Q_DISABLE_COPY(KNewLoanWizard)
+  Q_DECLARE_PRIVATE(KNewLoanWizard)
+
+private Q_SLOTS:
+  void slotNewCategory(MyMoneyAccount &acc);
+  void slotNewPayee(const QString& newnameBase, QString& id);
 };
 
 #endif

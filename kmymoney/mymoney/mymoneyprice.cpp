@@ -1,24 +1,20 @@
-/***************************************************************************
-                          mymoneyprice  -  description
-                             -------------------
-    begin                : Sun Nov 21 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /**
   * @author Thomas Baumgart
@@ -29,86 +25,150 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <QDate>
+#include <QString>
+#include <QDomElement>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "mymoneymoney.h"
 #include "mymoneyexception.h"
 
-MyMoneyPrice::MyMoneyPrice()
+class MyMoneyPricePrivate
+{
+public:
+  QString       m_fromSecurity;
+  QString       m_toSecurity;
+  QDate         m_date;
+  MyMoneyMoney  m_rate;
+  MyMoneyMoney  m_invRate;
+  QString       m_source;
+};
+
+MyMoneyPrice::MyMoneyPrice() :
+  d_ptr(new MyMoneyPricePrivate)
 {
 }
 
-MyMoneyPrice::MyMoneyPrice(const QString& from, const QString& to, const QDomElement& node)
+MyMoneyPrice::MyMoneyPrice(const QString& from,
+                           const QString& to,
+                           const QDomElement& node) :
+  d_ptr(new MyMoneyPricePrivate)
 {
   if ("PRICE" != node.tagName())
-    throw MYMONEYEXCEPTION("Node was not PRICE");
+    throw MYMONEYEXCEPTION_CSTRING("Node was not PRICE");
 
-  m_fromSecurity = from;
-  m_toSecurity = to;
+  Q_D(MyMoneyPrice);
+  d->m_fromSecurity = from;
+  d->m_toSecurity = to;
 
-  m_date = QDate::fromString(node.attribute("date"), Qt::ISODate);
-  m_rate = MyMoneyMoney(node.attribute("price"));
-  m_source = node.attribute("source");
+  d->m_date = QDate::fromString(node.attribute("date"), Qt::ISODate);
+  d->m_rate = MyMoneyMoney(node.attribute("price"));
+  d->m_source = node.attribute("source");
 
-  if (!m_rate.isZero())
-    m_invRate = MyMoneyMoney::ONE / m_rate;
+  if (!d->m_rate.isZero())
+    d->m_invRate = MyMoneyMoney::ONE / d->m_rate;
   else
     qDebug("Price with zero value loaded");
 }
 
 MyMoneyPrice::MyMoneyPrice(const QString& from, const QString& to, const QDate& date, const MyMoneyMoney& rate, const QString& source) :
-    m_fromSecurity(from),
-    m_toSecurity(to),
-    m_date(date),
-    m_rate(rate),
-    m_source(source)
+  d_ptr(new MyMoneyPricePrivate)
 {
-  if (!m_rate.isZero())
-    m_invRate = MyMoneyMoney::ONE / m_rate;
+  Q_D(MyMoneyPrice);
+  d->m_fromSecurity =from;
+  d->m_toSecurity = to;
+  d->m_date = date;
+  d->m_rate = rate;
+  d->m_source = source;
+
+  if (!d->m_rate.isZero())
+    d->m_invRate = MyMoneyMoney::ONE / d->m_rate;
   else
     qDebug("Price with zero value created for '%s' to '%s'",
            qPrintable(from), qPrintable(to));
 }
 
-MyMoneyPrice::~MyMoneyPrice()
+MyMoneyPrice::MyMoneyPrice(const MyMoneyPrice& other) :
+  d_ptr(new MyMoneyPricePrivate(*other.d_func()))
 {
 }
 
-const MyMoneyMoney& MyMoneyPrice::rate(const QString& id) const
+MyMoneyPrice::~MyMoneyPrice()
 {
+  Q_D(MyMoneyPrice);
+  delete d;
+}
+
+MyMoneyMoney MyMoneyPrice::rate(const QString& id) const
+{
+  Q_D(const MyMoneyPrice);
   static MyMoneyMoney dummyPrice(1, 1);
 
   if (!isValid())
     return dummyPrice;
 
-  if (id.isEmpty() || id == m_toSecurity)
-    return m_rate;
-  if (id == m_fromSecurity)
-    return m_invRate;
+  if (id.isEmpty() || id == d->m_toSecurity)
+    return d->m_rate;
+  if (id == d->m_fromSecurity)
+    return d->m_invRate;
 
-  QString msg = QString("Unknown security id %1 for price info %2/%3.").arg(id).arg(m_fromSecurity).arg(m_toSecurity);
-  throw MYMONEYEXCEPTION(msg);
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Unknown security id %1 for price info %2/%3.").arg(id, d->m_fromSecurity, d->m_toSecurity));
+}
+
+QDate MyMoneyPrice::date() const
+{
+  Q_D(const MyMoneyPrice);
+  return d->m_date;
+}
+
+QString MyMoneyPrice::source() const
+{
+  Q_D(const MyMoneyPrice);
+  return d->m_source;
+}
+
+QString MyMoneyPrice::from() const
+{
+  Q_D(const MyMoneyPrice);
+  return d->m_fromSecurity;
+}
+
+QString MyMoneyPrice::to() const
+{
+  Q_D(const MyMoneyPrice);
+  return d->m_toSecurity;
 }
 
 bool MyMoneyPrice::isValid() const
 {
-  return (m_date.isValid() && !m_fromSecurity.isEmpty() && !m_toSecurity.isEmpty());
+  Q_D(const MyMoneyPrice);
+  return (d->m_date.isValid() && !d->m_fromSecurity.isEmpty() && !d->m_toSecurity.isEmpty());
 }
 
 // Equality operator
 bool MyMoneyPrice::operator == (const MyMoneyPrice &right) const
 {
-  return ((m_date == right.m_date) &&
-          (m_rate == right.m_rate) &&
-          ((m_fromSecurity.length() == 0 && right.m_fromSecurity.length() == 0) || (m_fromSecurity == right.m_fromSecurity)) &&
-          ((m_toSecurity.length() == 0 && right.m_toSecurity.length() == 0) || (m_toSecurity == right.m_toSecurity)) &&
-          ((m_source.length() == 0 && right.m_source.length() == 0) || (m_source == right.m_source)));
+  Q_D(const MyMoneyPrice);
+  auto d2 = static_cast<const MyMoneyPricePrivate *>(right.d_func());
+  return ((d->m_date == d2->m_date) &&
+          (d->m_rate == d2->m_rate) &&
+          ((d->m_fromSecurity.length() == 0 && d2->m_fromSecurity.length() == 0) || (d->m_fromSecurity == d2->m_fromSecurity)) &&
+          ((d->m_toSecurity.length() == 0 && d2->m_toSecurity.length() == 0) || (d->m_toSecurity == d2->m_toSecurity)) &&
+          ((d->m_source.length() == 0 && d2->m_source.length() == 0) || (d->m_source == d2->m_source)));
+}
+
+bool MyMoneyPrice::operator != (const MyMoneyPrice &right) const
+{
+  return !(operator == (right));
 }
 
 bool MyMoneyPrice::hasReferenceTo(const QString& id) const
 {
-  return (id == m_fromSecurity) || (id == m_toSecurity);
+  Q_D(const MyMoneyPrice);
+  return (id == d->m_fromSecurity) || (id == d->m_toSecurity);
 }

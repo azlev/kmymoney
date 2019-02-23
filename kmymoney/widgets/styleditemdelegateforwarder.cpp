@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2016  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,7 +56,7 @@ void StyledItemDelegateForwarder::updateEditorGeometry(QWidget* editor, const QS
 
 void StyledItemDelegateForwarder::connectSignals(QAbstractItemDelegate* delegate, Qt::ConnectionType type) const
 {
-  connect(delegate, SIGNAL(commitData(QWidget*)), this, SIGNAL(commitData(QWidget*)), type);
-  connect(delegate, SIGNAL(closeEditor(QWidget*,QAbstractItemDelegate::EndEditHint)), this, SIGNAL(closeEditor(QWidget*,QAbstractItemDelegate::EndEditHint)), type);
-  connect(delegate, SIGNAL(sizeHintChanged(QModelIndex)), this, SIGNAL(sizeHintChanged(QModelIndex)), type);
+  connect(delegate, &QAbstractItemDelegate::commitData, this, &QAbstractItemDelegate::commitData, type);
+  connect(delegate, &QAbstractItemDelegate::closeEditor, this, &QAbstractItemDelegate::closeEditor, type);
+  connect(delegate, &QAbstractItemDelegate::sizeHintChanged, this, &QAbstractItemDelegate::sizeHintChanged, type);
 }

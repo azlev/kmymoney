@@ -1,42 +1,50 @@
-/***************************************************************************
-                          mymoneyschedule.h
-                             -------------------
-    copyright            : (C) 2000-2002 by Michael Edwardes <mte@users.sourceforge.net>
-                           (C) 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
+/*
+ * Copyright 2000-2004  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2002-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2005       Ace Jones <acejones@users.sourceforge.net>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-
-#ifndef MYMONEYSCHEDULED_H
-#define MYMONEYSCHEDULED_H
+#ifndef MYMONEYSCHEDULE_H
+#define MYMONEYSCHEDULE_H
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QStringList>
-#include <QMap>
-#include <QDateTime>
-#include <QList>
+#include <QMetaType>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneytransaction.h"
-#include "mymoneyaccount.h"
 #include "kmm_mymoney_export.h"
 #include "mymoneyunittestable.h"
 #include "mymoneyobject.h"
 
+class QString;
+class QDate;
+
 class IMyMoneyProcessingCalendar;
-class MyMoneyStorageANON;
+class MyMoneyAccount;
+class MyMoneyTransaction;
+
+namespace eMyMoney { namespace Schedule { enum class Type;
+                                          enum class Occurrence;
+                                          enum class PaymentType;
+                                          enum class WeekendOption; } }
+
+template <typename T> class QList;
 
 /**
   * @author Michael Edwardes
@@ -49,55 +57,20 @@ class MyMoneyStorageANON;
   * @short A class to represent a schedule.
   * @see MyMoneyScheduled
   */
+class MyMoneySchedulePrivate;
 class KMM_MYMONEY_EXPORT MyMoneySchedule : public MyMoneyObject
 {
+  Q_DECLARE_PRIVATE(MyMoneySchedule)
+
   friend class MyMoneyStorageANON;
   KMM_MYMONEY_UNIT_TESTABLE
 
 public:
   /**
-    * This enum is used to describe all the possible schedule frequencies.
-    * The special entry, OCCUR_ANY, is used to combine all the other types.
-    */
-  enum occurrenceE { OCCUR_ANY = 0, OCCUR_ONCE = 1, OCCUR_DAILY = 2, OCCUR_WEEKLY = 4, OCCUR_FORTNIGHTLY = 8,
-                     OCCUR_EVERYOTHERWEEK = 16,
-                     OCCUR_EVERYHALFMONTH = 18,
-                     OCCUR_EVERYTHREEWEEKS = 20,
-                     OCCUR_EVERYTHIRTYDAYS = 30,
-                     OCCUR_MONTHLY = 32, OCCUR_EVERYFOURWEEKS = 64,
-                     OCCUR_EVERYEIGHTWEEKS = 126,
-                     OCCUR_EVERYOTHERMONTH = 128, OCCUR_EVERYTHREEMONTHS = 256,
-                     OCCUR_TWICEYEARLY = 1024, OCCUR_EVERYOTHERYEAR = 2048, OCCUR_QUARTERLY = 4096,
-                     OCCUR_EVERYFOURMONTHS = 8192, OCCUR_YEARLY = 16384
-                   };
-
-  /**
-    * This enum is used to describe the schedule type.
-    */
-  enum typeE {  TYPE_ANY = 0, TYPE_BILL = 1, TYPE_DEPOSIT = 2, TYPE_TRANSFER = 4, TYPE_LOANPAYMENT = 5 };
-
-  /**
-    * This enum is used to describe the schedule's payment type.
-    */
-  enum paymentTypeE { STYPE_ANY = 0, STYPE_DIRECTDEBIT = 1, STYPE_DIRECTDEPOSIT = 2,
-                      STYPE_MANUALDEPOSIT = 4, STYPE_OTHER = 8,
-                      STYPE_WRITECHEQUE = 16,
-                      STYPE_STANDINGORDER = 32,
-                      STYPE_BANKTRANSFER = 64
-                    };
-
-  /**
-    * This enum is used by the auto-commit functionality.
-    *
-    * Depending upon the value of m_weekendOption the schedule can
-    * be entered on a different date
-  **/
-  enum weekendOptionE { MoveBefore = 0, MoveAfter = 1, MoveNothing = 2 };
-
-  /**
     * Standard constructor
     */
-  explicit MyMoneySchedule();
+  MyMoneySchedule();
+  explicit MyMoneySchedule(const QString &id);
 
   /**
     * Constructor for initialising the object.
@@ -107,53 +80,58 @@ public:
     *
     * @a startDate is not used anymore and internally set to QDate()
     */
-  MyMoneySchedule(const QString& name, typeE type, occurrenceE occurrence, int occurrenceMultiplier,
-                  paymentTypeE paymentType, const QDate& startDate, const QDate& endDate, bool fixed, bool autoEnter);
+  explicit MyMoneySchedule(const QString& name,
+                           eMyMoney::Schedule::Type type,
+                           eMyMoney::Schedule::Occurrence occurrence,
+                           int occurrenceMultiplier,
+                           eMyMoney::Schedule::PaymentType paymentType,
+                           const QDate& startDate,
+                           const QDate& endDate,
+                           bool fixed,
+                           bool autoEnter);
 
-  explicit MyMoneySchedule(const QDomElement& node);
+  MyMoneySchedule(const QString& id,
+                  const MyMoneySchedule& other);
 
-  MyMoneySchedule(const QString& id, const MyMoneySchedule& right);
+  MyMoneySchedule(const MyMoneySchedule & other);
+  MyMoneySchedule(MyMoneySchedule && other);
+  MyMoneySchedule & operator=(MyMoneySchedule other);
+  friend void swap(MyMoneySchedule& first, MyMoneySchedule& second);
 
   /**
     * Standard destructor
     */
-  ~MyMoneySchedule() {}
+  ~MyMoneySchedule();
 
   /**
     * Simple get method that returns the occurrence frequency.
     *
-    * @return occurrenceE The instance frequency.
+    * @return eMyMoney::Schedule::Occurrence The instance frequency.
     */
-  occurrenceE occurrence() const;
+  eMyMoney::Schedule::Occurrence occurrence() const;
 
   /**
     * Simple get method that returns the occurrence period
     * multiplier and occurrence
     *
-    * @return occurrenceE The instance period
+    * @return eMyMoney::Schedule::Occurrence The instance period
     *
     */
-  occurrenceE occurrencePeriod() const {
-    return m_occurrence;
-  }
+  eMyMoney::Schedule::Occurrence occurrencePeriod() const;
 
   /**
     * Simple get method that returns the occurrence period multiplier.
     *
     * @return int The frequency multiplier
     */
-  int occurrenceMultiplier() const {
-    return m_occurrenceMultiplier;
-  }
+  int occurrenceMultiplier() const;
 
   /**
     * Simple get method that returns the schedule type.
     *
-    * @return typeE The instance type.
+    * @return eMyMoney::Schedule::Type The instance type.
     */
-  typeE type() const {
-    return m_type;
-  }
+  eMyMoney::Schedule::Type type() const;
 
   /**
     * Simple get method that returns the schedule startDate. If
@@ -163,25 +141,21 @@ public:
     *
     * @return reference to QDate containing the start date.
     */
-  const QDate& startDate() const;
+  QDate startDate() const;
 
   /**
     * Simple get method that returns the schedule paymentType.
     *
-    * @return paymentTypeE The instance paymentType.
+    * @return eMyMoney::Schedule::PaymentType The instance paymentType.
     */
-  paymentTypeE paymentType() const {
-    return m_paymentType;
-  }
+  eMyMoney::Schedule::PaymentType paymentType() const;
 
   /**
     * Simple get method that returns true if the schedule is fixed.
     *
     * @return bool To indicate whether the instance is fixed.
     */
-  bool isFixed() const {
-    return m_fixed;
-  }
+  bool isFixed() const;
 
   /**
     * Simple get method that returns true if the schedule will end
@@ -189,9 +163,7 @@ public:
     *
     * @return bool Indicates whether the instance will end.
     */
-  bool willEnd() const {
-    return m_endDate.isValid();
-  }
+  bool willEnd() const;
 
   /**
     * Simple get method that returns the number of transactions remaining.
@@ -214,9 +186,15 @@ public:
     *
     * @return QDate The end date for the instance.
     */
-  const QDate& endDate() const {
-    return m_endDate;
-  }
+  QDate endDate() const;
+
+  /**
+    * Get the state if the schedule should be processed at the last day
+    * of a month
+    *
+    * @return state of the flag
+    */
+  bool lastDayInMonth() const;
 
   /**
     * Simple get method that returns true if the transaction should be
@@ -224,18 +202,26 @@ public:
     *
     * @return bool Indicates whether the instance will be automatically entered.
     */
-  bool autoEnter() const {
-    return m_autoEnter;
-  }
+  bool autoEnter() const;
 
   /**
     * Simple get method that returns the transaction data for the schedule.
     *
     * @return MyMoneyTransaction The transaction data for the instance.
     */
-  const MyMoneyTransaction& transaction() const {
-    return m_transaction;
-  }
+  MyMoneyTransaction transaction() const;
+
+  /**
+    * Simple method that sets the transaction for the schedule.
+    * The transaction must have a valid postDate set, otherwise
+    * it will not be accepted. This test is bypassed, if @a noDateCheck
+    * is set to true
+    *
+    * @param transaction The new transaction.
+    * @param noDateCheck if @a true, the date check is bypassed
+    * @return none
+    */
+  void setTransaction(const MyMoneyTransaction& transaction, bool noDateCheck);
 
   /**
     * Simple method that returns the schedules last payment. If the
@@ -243,9 +229,7 @@ public:
     *
     * @return QDate The last payment for the schedule.
     */
-  const QDate& lastPayment() const {
-    return m_lastPayment;
-  }
+  QDate lastPayment() const;
 
   /**
     * Simple method that returns the next due date for the schedule.
@@ -256,7 +240,7 @@ public:
     *       a possible end of the schedule. Make sure to consider
     *       the return value of isFinished() when using the value returned.
     */
-  const QDate& nextDueDate() const;
+  QDate nextDueDate() const;
 
   /**
     * This method returns the next due date adjusted
@@ -277,7 +261,7 @@ public:
     *
     * @return QDate containing the adjusted date.
     */
-  QDate adjustedDate(QDate date, weekendOptionE option) const;
+  QDate adjustedDate(QDate date, eMyMoney::Schedule::WeekendOption option) const;
 
   /**
 
@@ -287,9 +271,7 @@ public:
     *
     * This not used by MyMoneySchedule but by the support code.
   **/
-  weekendOptionE weekendOption() const {
-    return m_weekendOption;
-  }
+  eMyMoney::Schedule::WeekendOption weekendOption() const;
 
   /**
     * Simple method that sets the frequency for the schedule.
@@ -297,7 +279,7 @@ public:
     * @param occ The new occurrence (frequency).
     * @return none
     */
-  void setOccurrence(occurrenceE occ);
+  void setOccurrence(eMyMoney::Schedule::Occurrence occ);
 
   /**
     * Simple method that sets the schedule period
@@ -305,7 +287,7 @@ public:
     * @param occ The new occurrence period (frequency)
     * @return none
     */
-  void setOccurrencePeriod(occurrenceE occ);
+  void setOccurrencePeriod(eMyMoney::Schedule::Occurrence occ);
 
   /**
     * Simple method that sets the frequency multiplier for the schedule.
@@ -321,7 +303,7 @@ public:
     * @param type The new type.
     * @return none
     */
-  void setType(typeE type);
+  void setType(eMyMoney::Schedule::Type type);
 
   /**
     * Simple method that sets the start date for the schedule.
@@ -337,7 +319,7 @@ public:
     * @param type The new payment type.
     * @return none
     */
-  void setPaymentType(paymentTypeE type);
+  void setPaymentType(eMyMoney::Schedule::PaymentType type);
 
   /**
     * Simple method to set whether the schedule is fixed or not.
@@ -364,6 +346,15 @@ public:
     * @return none
     */
   void setEndDate(const QDate& date);
+
+  /**
+    * Simple method to set whether the schedule should be performed at
+    * the last day of a month.
+    *
+    * @param state boolean The state to set
+    * @return none
+    */
+  void setLastDayInMonth(bool state);
 
   /**
     * Simple set method to set whether this transaction should be automatically
@@ -412,7 +403,7 @@ public:
     *
     * @note This not used by MyMoneySchedule but by the support code.
     **/
-  void setWeekendOption(const weekendOptionE option);
+  void setWeekendOption(const eMyMoney::Schedule::WeekendOption option);
 
   /**
     * Validates the schedule instance.
@@ -443,7 +434,8 @@ public:
     *               are no more payments then an empty/invalid QDate() will
     *               be returned.
     */
-  QDate adjustedNextPayment(const QDate& refDate = QDate::currentDate()) const;
+  QDate adjustedNextPayment(const QDate& refDate) const;
+  QDate adjustedNextPayment() const;
 
   /**
     * Calculates the date of the next payment.
@@ -456,7 +448,8 @@ public:
     *         if there are no more payments then an empty/invalid QDate()
     *         will be returned.
     */
-  QDate nextPayment(const QDate& refDate = QDate::currentDate()) const;
+  QDate nextPayment(const QDate& refDate) const;
+  QDate nextPayment() const;
 
   /**
     * Calculates the date of the next payment and adjusts if asked.
@@ -471,7 +464,8 @@ public:
     *         if there is no more payments then an empty/invalid QDate()
     *         will be returned.
     */
-  QDate nextPaymentDate(const bool& adjust, const QDate& refDate = QDate::currentDate()) const;
+  QDate nextPaymentDate(const bool& adjust, const QDate& refDate) const;
+  QDate nextPaymentDate(const bool& adjust) const;
 
   /**
     * Calculates the dates of the payment over a certain period of time.
@@ -489,9 +483,7 @@ public:
     *
     * @return The name
     */
-  const QString& name() const {
-    return m_name;
-  }
+  QString name() const;
 
   /**
     * Changes the instance name
@@ -502,27 +494,19 @@ public:
   void setName(const QString& nm);
 
   bool operator ==(const MyMoneySchedule& right) const;
-  bool operator !=(const MyMoneySchedule& right) const {
-    return ! operator==(right);
-  }
+  bool operator !=(const MyMoneySchedule& right) const;
 
   bool operator <(const MyMoneySchedule& right) const;
 
   MyMoneyAccount account(int cnt = 1) const;
-  MyMoneyAccount transferAccount() const {
-    return account(2);
-  };
+  MyMoneyAccount transferAccount() const;
   QDate dateAfter(int transactions) const;
 
   bool isOverdue() const;
   bool isFinished() const;
   bool hasRecordedPayment(const QDate&) const;
   void recordPayment(const QDate&);
-  QList<QDate> recordedPayments() const {
-    return m_recordedPayments;
-  }
-
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
+  QList<QDate> recordedPayments() const;
 
   /**
     * This method checks if a reference to the given object exists. It returns,
@@ -533,7 +517,7 @@ public:
     * @retval true This object references object with id @p id.
     * @retval false This object does not reference the object with id @p id.
     */
-  virtual bool hasReferenceTo(const QString& id) const;
+  virtual bool hasReferenceTo(const QString& id) const final override;
 
   /**
    * This method replaces all occurrences of id @a oldId with
@@ -560,7 +544,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString occurrenceToString(occurrenceE type);
+  static QString occurrenceToString(eMyMoney::Schedule::Occurrence type);
 
   /**
    * This method is used to convert a multiplier and base occurrence type
@@ -573,7 +557,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString occurrenceToString(int mult, occurrenceE type);
+  static QString occurrenceToString(int mult, eMyMoney::Schedule::Occurrence type);
 
   /**
    * This method is used to convert an occurrence period from
@@ -584,7 +568,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString occurrencePeriodToString(occurrenceE type);
+  static QString occurrencePeriodToString(eMyMoney::Schedule::Occurrence type);
 
   /**
    * This method is used to convert the payment type from its
@@ -595,7 +579,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString paymentMethodToString(MyMoneySchedule::paymentTypeE paymentType);
+  static QString paymentMethodToString(eMyMoney::Schedule::PaymentType paymentType);
 
   /**
    * This method is used to convert the schedule weekend option from its
@@ -606,7 +590,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString weekendOptionToString(MyMoneySchedule::weekendOptionE weekendOption);
+  static QString weekendOptionToString(eMyMoney::Schedule::WeekendOption weekendOption);
 
   /**
    * This method is used to convert the schedule type from its
@@ -617,7 +601,7 @@ public:
    *
    * @return QString representing the human readable format
    */
-  static QString scheduleTypeToString(MyMoneySchedule::typeE type);
+  static QString scheduleTypeToString(eMyMoney::Schedule::Type type);
 
   int variation() const;
   void setVariation(int var);
@@ -632,7 +616,7 @@ public:
    *
    * @return int  Number of days between events
    */
-  static int eventsPerYear(MyMoneySchedule::occurrenceE occurrence);
+  static int eventsPerYear(eMyMoney::Schedule::Occurrence occurrence);
 
   /**
    *
@@ -644,7 +628,7 @@ public:
    *
    * @return int  Number of days between events
    */
-  static int daysBetweenEvents(MyMoneySchedule::occurrenceE occurrence);
+  static int daysBetweenEvents(eMyMoney::Schedule::Occurrence occurrence);
 
   /**
     * Helper method to convert simple occurrence to compound occurrence + multiplier
@@ -652,7 +636,7 @@ public:
     * @param multiplier Returned by reference.  Adjusted multiplier
     * @param occurrence Returned by reference.  Occurrence type
     */
-  static void simpleToCompoundOccurrence(int& multiplier, occurrenceE& occurrence);
+  static void simpleToCompoundOccurrence(int& multiplier, eMyMoney::Schedule::Occurrence& occurrence);
 
   /**
     * Helper method to convert compound occurrence + multiplier to simple occurrence
@@ -660,7 +644,7 @@ public:
     * @param multiplier Returned by reference.  Adjusted multiplier
     * @param occurrence Returned by reference.  Occurrence type
     */
-  static void compoundToSimpleOccurrence(int& multiplier, occurrenceE& occurrence);
+  static void compoundToSimpleOccurrence(int& multiplier, eMyMoney::Schedule::Occurrence& occurrence);
 
   /**
     * This method is used to set the static point to relevant
@@ -688,20 +672,8 @@ private:
   void fixDate(QDate& date) const;
 
   /**
-    * Simple method that sets the transaction for the schedule.
-    * The transaction must have a valid postDate set, otherwise
-    * it will not be accepted. This test is bypassed, if @a noDateCheck
-    * is set to true
-    *
-    * @param transaction The new transaction.
-    * @param noDateCheck if @a true, the date check is bypassed
-    * @return none
-    */
-  void setTransaction(const MyMoneyTransaction& transaction, bool noDateCheck);
-
-  /**
     * This method adds a number of Half Months to the given Date.
-    * This is used for OCCUR_EVERYHALFMONTH occurrences.
+    * This is used for EveryHalfMonth occurrences.
     * The addition uses the following rules to add a half month:
     * Day 1-13: add 15 days
     * Day 14: add 15 days (except February: the last day of the month)
@@ -731,47 +703,24 @@ private:
     * and @c false on Sat..Sun.
     */
   bool isProcessingDate(const QDate& date) const;
-
-private:
-  /// Its occurrence
-  occurrenceE m_occurrence;
-
-  /// Its occurrence multiplier
-  int m_occurrenceMultiplier;
-
-  /// Its type
-  typeE m_type;
-
-  /// The date the schedule commences
-  QDate m_startDate;
-
-  /// The payment type
-  paymentTypeE m_paymentType;
-
-  /// Can the amount vary
-  bool m_fixed;
-
-  /// The, possibly estimated, amount plus all other relevant details
-  MyMoneyTransaction m_transaction;
-
-  /// The last transaction date if the schedule does end at a fixed date
-  QDate m_endDate;
-
-  /// Enter the transaction into the register automatically
-  bool m_autoEnter;
-
-  /// Internal date used for calculations
-  QDate m_lastPayment;
-
-  /// The name
-  QString m_name;
-
-  /// The recorded payments
-  QList<QDate> m_recordedPayments;
-
-  /// The weekend option
-  weekendOptionE m_weekendOption;
 };
+
+inline void swap(MyMoneySchedule& first, MyMoneySchedule& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
+}
+
+inline MyMoneySchedule::MyMoneySchedule(MyMoneySchedule && other) : MyMoneySchedule() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneySchedule & MyMoneySchedule::operator=(MyMoneySchedule other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 /**
   * Make it possible to hold @ref MyMoneySchedule objects inside @ref QVariant objects.

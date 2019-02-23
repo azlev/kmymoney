@@ -4,6 +4,7 @@
     begin                : Wed Jan 5 2005
     copyright            : (C) 2005 Thomas Baumgart
     email                : ipwizard@users.sourceforge.net
+                           (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  ***************************************************************************/
 
 /***************************************************************************
@@ -24,9 +25,7 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-class KMyMoneyApp;
 class KMyMoneyView;
-class KMyMoneyViewBase;
 
 // ----------------------------------------------------------------------------
 // Project Includes
@@ -45,7 +44,7 @@ class KMMViewInterface : public ViewInterface
   Q_OBJECT
 
 public:
-  KMMViewInterface(KMyMoneyApp* app, KMyMoneyView* view, QObject* parent, const char* name = 0);
+  KMMViewInterface(KMyMoneyView* view, QObject* parent, const char* name = 0);
   ~KMMViewInterface() {}
 
   /**
@@ -57,7 +56,7 @@ public:
     *
     * @return pointer to KMyMoneyViewBase object
     */
-  KMyMoneyViewBase* addPage(const QString& item, const QString& icon);
+//  KMyMoneyViewBase* addPage(const QString& item, const QString& icon);
 
   /**
     * This method allows to add a widget to the view
@@ -66,8 +65,20 @@ public:
     * @param view pointer to view object
     * @param w pointer to widget
     */
-  void addWidget(KMyMoneyViewBase* view, QWidget* w);
+//  void addWidget(KMyMoneyViewBase* view, QWidget* w);
 
+  /**
+    * Brings up a dialog to change the list(s) settings and saves them into the
+    * class KMyMoneySettings (a singleton).
+    *
+    * @see KListSettingsDlg
+    * Refreshes all views. Used e.g. after settings have been changed or
+    * data has been loaded from external sources (QIF import).
+    **/
+  void slotRefreshViews() override;
+
+  void addView(KMyMoneyViewBase* view, const QString& name, View idView) override;
+  void removeView(View idView) override;
 private:
   KMyMoneyView* m_view;
 };

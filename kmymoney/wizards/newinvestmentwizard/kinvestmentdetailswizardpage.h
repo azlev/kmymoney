@@ -4,6 +4,7 @@
    begin                : Sun Jun 27 2010
    copyright            : (C) 2010 by Fernando Vilas
    email                : kmymoney-devel@kde.org
+                          (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
 ***************************************************************************/
 
 /***************************************************************************
@@ -29,32 +30,27 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneysecurity.h"
-#include "ui_kinvestmentdetailswizardpagedecl.h"
+class MyMoneySecurity;
+
+namespace Ui { class KInvestmentDetailsWizardPage; }
 
 /**
  * This class implements the investment details page  of the
  * @ref KNewInvestmentWizard.
  */
-class KInvestmentDetailsWizardPageDecl : public QWizardPage, public Ui::KInvestmentDetailsWizardPageDecl
-{
-public:
-  KInvestmentDetailsWizardPageDecl(QWidget *parent) : QWizardPage(parent) {
-    setupUi(this);
-  }
-};
-
-class KInvestmentDetailsWizardPage : public KInvestmentDetailsWizardPageDecl
+class KInvestmentDetailsWizardPage : public QWizardPage
 {
   Q_OBJECT
 public:
-  explicit KInvestmentDetailsWizardPage(QWidget *parent = 0);
+  explicit KInvestmentDetailsWizardPage(QWidget *parent = nullptr);
+  ~KInvestmentDetailsWizardPage();
+
   void init2(const MyMoneySecurity& security);
 
   /**
    * Overload isComplete to handle the required fields
    */
-  bool isComplete() const;
+  bool isComplete() const final override;
 
   /**
    * Functions to control or read the m_priceMode widget
@@ -65,16 +61,18 @@ public:
 
   /**
    * load or set the name of the m_investmentName item widget. The difference
-   * can be seen in the @ref kMyMoneyLineEdit type.
+   * can be seen in the @ref KMyMoneyLineEdit type.
    */
   void loadName(const QString& name);
   void setName(const QString& name);
 
   void setupInvestmentSymbol();
 
-signals:
+Q_SIGNALS:
   void checkForExistingSymbol(const QString& symbol);
 
+private:
+  Ui::KInvestmentDetailsWizardPage  *ui;
 };
 
 #endif

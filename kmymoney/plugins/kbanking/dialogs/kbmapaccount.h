@@ -19,13 +19,13 @@
 
 #include <aqbanking/account.h>
 
-class KMyMoneyBanking;
+class KBankingExt;
 
 class KBMapAccount: public QDialog
 {
   Q_OBJECT
 public:
-  KBMapAccount(KMyMoneyBanking *kb,
+  KBMapAccount(KBankingExt *kb,
                const char *bankCode,
                const char *accountId,
                QWidget* parent = 0,
@@ -34,9 +34,9 @@ public:
 
   AB_ACCOUNT *getAccount();
 
-  void accept();
+  void accept() final override;
 
-protected slots:
+protected Q_SLOTS:
   void slotSelectionChanged();
   void slotHelpClicked();
 

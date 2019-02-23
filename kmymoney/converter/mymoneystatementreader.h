@@ -28,14 +28,14 @@
 #include <QString>
 #include <QStringList>
 
-#include "mymoneyqifprofile.h"
-#include "mymoneyaccount.h"
 #include "mymoneystatement.h"
-#include "transactionmatcher.h"
 #include "transactionmatchfinder.h"
 
 class MyMoneyFileTransaction;
+class TransactionMatcher;
 class QStringList;
+class MyMoneyAccount;
+class MyMoneyInstitution;
 
 /**
   * This is a pared-down version of a MyMoneyQifReader object
@@ -75,9 +75,7 @@ public:
   void setAutoCreatePayee(bool create);
   void setAskPayeeCategory(bool ask);
 
-  const MyMoneyAccount& account() const {
-    return m_account;
-  };
+  const MyMoneyAccount& account() const;
 
   void setProgressCallback(void(*callback)(int, int, const QString&));
 
@@ -87,6 +85,16 @@ public:
    * after import() has been called.
    */
   bool anyTransactionAdded() const;
+
+  /**
+    * Imports a KMM statement into the engine, triggering the appropriate
+    * UI to handle account matching, payee creation, and someday
+    * payee and transaction matching.
+    */
+  static QStringList importStatement(const QString& url, bool silent = false, void(*callback)(int, int, const QString&) = nullptr);
+  static QStringList importStatement(const MyMoneyStatement& s, bool silent = false, void(*callback)(int, int, const QString&) = nullptr);
+  static void clearResultMessages();
+  static QStringList resultMessages();
 
 private:
   /**
@@ -99,7 +107,6 @@ private:
 
   void processTransactionEntry(const MyMoneyStatement::Transaction& t_in);
   void processSecurityEntry(const MyMoneyStatement::Security& s_in);
-  void processPriceEntry(const MyMoneyStatement::Price& p_in);
 
   enum SelectCreateMode {
     Create = 0,
@@ -130,8 +137,6 @@ private:
   class Private;
   /// \internal d-pointer instance.
   Private* const d;
-  MyMoneyAccount          m_account;
-  MyMoneyAccount          m_brokerageAccount;
   QStringList             m_dontAskAgain;
   bool                    m_userAbort;
   bool                    m_autoCreatePayee;
@@ -160,6 +165,9 @@ private:
    * @return true, if user confirmed to enter the schedule to match it with imported transaction; false otherwise
    */
   bool askUserToEnterScheduleForMatching(const MyMoneySchedule& matchedSchedule, const MyMoneySplit& importedSplit, const MyMoneyTransaction & importedTransaction) const;
+
+private Q_SLOTS:
+  void slotNewAccount(const MyMoneyAccount& acc);
 };
 
 #endif

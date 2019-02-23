@@ -1,38 +1,67 @@
-/***************************************************************************
-                             transactionmatcher.cpp
-                             ----------
-    begin                : Tue Jul 08 2008
-    copyright            : (C) 2008 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
-                         : Christian David <christian-david@web.de>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2008-2015  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2015       Christian Dávid <christian-david@web.de>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "transactionmatcher.h"
 
-#include <QList>
-#include <KLocalizedString>
-#include <KMessageBox>
+#include <QDate>
 
+#include <KLocalizedString>
+
+#include "mymoneyaccount.h"
+#include "mymoneymoney.h"
+#include "mymoneysecurity.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "mymoneyutils.h"
 #include "mymoneyfile.h"
-#include "kmymoneyglobalsettings.h"
+#include "mymoneyexception.h"
+#include "mymoneyenums.h"
+
+class TransactionMatcherPrivate
+{
+  Q_DISABLE_COPY(TransactionMatcherPrivate)
+
+public:
+  TransactionMatcherPrivate()
+  {
+  }
+
+  MyMoneyAccount m_account;
+};
 
 TransactionMatcher::TransactionMatcher(const MyMoneyAccount& acc) :
-    m_account(acc)
+  d_ptr(new TransactionMatcherPrivate)
 {
+  Q_D(TransactionMatcher);
+  d->m_account = acc;
+}
+
+TransactionMatcher::~TransactionMatcher()
+{
+  Q_D(TransactionMatcher);
+  delete d;
 }
 
 void TransactionMatcher::match(MyMoneyTransaction tm, MyMoneySplit sm, MyMoneyTransaction ti, MyMoneySplit si, bool allowImportedTransactions)
 {
-  const MyMoneySecurity& sec = MyMoneyFile::instance()->security(m_account.currencyId());
+  Q_D(TransactionMatcher);
+  auto sec = MyMoneyFile::instance()->security(d->m_account.currencyId());
 
   // Now match the transactions.
   //
@@ -69,11 +98,11 @@ void TransactionMatcher::match(MyMoneyTransaction tm, MyMoneySplit sm, MyMoneyTr
   // allow matching two manual transactions
 
   if ((!allowImportedTransactions && tm.isImported()) || sm.isMatched())
-    throw MYMONEYEXCEPTION(i18n("First transaction does not match requirement for matching"));
+    throw MYMONEYEXCEPTION_CSTRING("First transaction does not match requirement for matching");
 
   // verify that the amounts are the same, otherwise we should not be matching!
   if (sm.shares() != si.shares()) {
-    throw MYMONEYEXCEPTION(i18n("Splits for %1 have conflicting values (%2,%3)", m_account.name(), MyMoneyUtils::formatMoney(sm.shares(), m_account, sec), MyMoneyUtils::formatMoney(si.shares(), m_account, sec)));
+    throw MYMONEYEXCEPTION(QString::fromLatin1("Splits for %1 have conflicting values (%2,%3)").arg(d->m_account.name(), MyMoneyUtils::formatMoney(sm.shares(), d->m_account, sec), MyMoneyUtils::formatMoney(si.shares(), d->m_account, sec)));
   }
 
   // ipwizard: I took over the code to keep the bank id found in the endMatchTransaction
@@ -87,8 +116,7 @@ void TransactionMatcher::match(MyMoneyTransaction tm, MyMoneySplit sm, MyMoneyTr
         tm.modifySplit(sm);
       }
     } catch (const MyMoneyException &e) {
-      QString estr = e.what();
-      throw MYMONEYEXCEPTION(i18n("Unable to match all splits (%1)", estr));
+      throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to match all splits (%1)").arg(e.what()));
     }
   }
   //
@@ -96,8 +124,8 @@ void TransactionMatcher::match(MyMoneyTransaction tm, MyMoneySplit sm, MyMoneyTr
   //
 
   // mark the split as cleared if it does not have a reconciliation information yet
-  if (sm.reconcileFlag() == MyMoneySplit::NotReconciled) {
-    sm.setReconcileFlag(MyMoneySplit::Cleared);
+  if (sm.reconcileFlag() == eMyMoney::Split::State::NotReconciled) {
+    sm.setReconcileFlag(eMyMoney::Split::State::Cleared);
   }
 
   // if we don't have a payee assigned to the manually entered transaction

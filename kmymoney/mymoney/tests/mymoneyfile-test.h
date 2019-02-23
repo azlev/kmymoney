@@ -1,39 +1,45 @@
-/***************************************************************************
-                          mymoneyfiletest.h
-                          -------------------
-    copyright            : (C) 2002 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2004       Ace Jones <acejones@users.sourceforge.net>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYFILETEST_H
 #define MYMONEYFILETEST_H
 
-#include <QtCore/QObject>
-#include <QtCore/QList>
+#include <QObject>
+#include <QList>
 
 #define KMM_MYMONEY_UNIT_TESTABLE friend class MyMoneyFileTest;
 
 #include "mymoneyfile.h"
-#include "storage/mymoneyseqaccessmgr.h"
+#include "mymoneyaccount.h"
+#include "storage/mymoneystoragemgr.h"
 
 class MyMoneyFileTest : public QObject
 {
   Q_OBJECT
+public:
+  MyMoneyFileTest();
+
 protected:
   MyMoneyFile *m;
-  MyMoneySeqAccessMgr* storage;
+  MyMoneyStorageMgr* storage;
   MyMoneyAccount  m_inv;
 
-private slots:
+private Q_SLOTS:
   void initTestCase();
   void init();
   void cleanup();
@@ -102,17 +108,20 @@ private slots:
   void testModifyOnlineJob();
   void testClearedBalance();
   void testAdjustedValues();
+  void testVatAssignment();
+  void testEmptyFilter();
+  void testAddSecurity();
 
-private slots:
-  void objectAdded(MyMoneyFile::notificationObjectT type, const MyMoneyObject * const obj);
-  void objectModified(MyMoneyFile::notificationObjectT type, const MyMoneyObject * const obj);
-  void objectRemoved(MyMoneyFile::notificationObjectT type, const QString& id);
+private Q_SLOTS:
+  void objectAdded(eMyMoney::File::Object type, const QString &id);
+  void objectModified(eMyMoney::File::Object type, const QString &id);
+  void objectRemoved(eMyMoney::File::Object type, const QString& id);
   void balanceChanged(const MyMoneyAccount& account);
   void valueChanged(const MyMoneyAccount& account);
 
 private:
   void testRemoveStdAccount(const MyMoneyAccount& acc);
-  void testReparentEquity(QList<MyMoneyAccount::accountTypeE>& list, MyMoneyAccount& parent);
+  void testReparentEquity(QList<eMyMoney::Account::Type>& list, MyMoneyAccount& parent);
   void clearObjectLists();
   void AddOneAccount();
 

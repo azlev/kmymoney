@@ -1,25 +1,21 @@
-/***************************************************************************
-                          mymoneystatement.h
-                          -------------------
-    begin                : Mon Aug 30 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
-                           Ace Jones <acejones@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2006  Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2005-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYSTATEMENT_H
 #define MYMONEYSTATEMENT_H
@@ -29,14 +25,14 @@
 
 #include <QString>
 #include <QList>
-#include <QDateTime>
+#include <QDate>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneymoney.h>
-#include <mymoneysplit.h>
+#include "kmm_mymoney_export.h"
+#include "mymoneymoney.h"
+#include "mymoneyenums.h"
 
 class QDomElement;
 class QDomDocument;
@@ -46,41 +42,29 @@ Represents the electronic analog of the paper bank statement just like we used t
 
 @author ace jones
 */
-class MyMoneyStatement
+class KMM_MYMONEY_EXPORT MyMoneyStatement
 {
 public:
-  MyMoneyStatement() : m_closingBalance(MyMoneyMoney::autoCalc), m_eType(etNone), m_skipCategoryMatching(false) {}
-
-  enum EType { etNone = 0, etCheckings, etSavings, etInvestment, etCreditCard, etEnd };
-
-  class Split
+  struct Split
   {
-  public:
-    Split() : m_reconcile(MyMoneySplit::NotReconciled) {}
     QString      m_strCategoryName;
     QString      m_strMemo;
     QString      m_accountId;
-    MyMoneySplit::reconcileFlagE m_reconcile;
+    eMyMoney::Split::State m_reconcile = eMyMoney::Split::State::NotReconciled;
     MyMoneyMoney m_amount;
-
   };
 
-  class Transaction
+  struct Transaction
   {
-  public:
-    Transaction() : m_reconcile(MyMoneySplit::NotReconciled), m_eAction(eaNone) {}
     QDate m_datePosted;
     QString m_strPayee;
     QString m_strMemo;
     QString m_strNumber;
     QString m_strBankID;
     MyMoneyMoney m_amount;
-    MyMoneySplit::reconcileFlagE m_reconcile;
+    eMyMoney::Split::State m_reconcile = eMyMoney::Split::State::NotReconciled;
 
-    // the following members are only used for investment accounts (m_eType==etInvestment)
-    // eaNone means the action, shares, and security can be ignored.
-    enum EAction { eaNone = 0, eaBuy, eaSell, eaReinvestDividend, eaCashDividend, eaShrsin, eaShrsout, eaStksplit, eaFees, eaInterest, eaEnd };
-    EAction m_eAction;
+    eMyMoney::Transaction::Action m_eAction = eMyMoney::Transaction::Action::None;
     MyMoneyMoney m_shares;
     MyMoneyMoney m_fees;
     MyMoneyMoney m_price;
@@ -93,6 +77,7 @@ public:
 
   struct Price {
     QDate m_date;
+    QString m_sourceName;
     QString m_strSecurity;
     QString m_strCurrency;
     MyMoneyMoney m_amount;
@@ -121,21 +106,31 @@ public:
   QString m_strCurrency;
   QDate m_dateBegin;
   QDate m_dateEnd;
-  MyMoneyMoney m_closingBalance;
-  EType m_eType;
+  MyMoneyMoney m_closingBalance = MyMoneyMoney::autoCalc;
+  eMyMoney::Statement::Type m_eType = eMyMoney::Statement::Type::None;
 
   QList<Transaction> m_listTransactions;
   QList<Price> m_listPrices;
   QList<Security> m_listSecurities;
 
-  bool m_skipCategoryMatching;
+  bool m_skipCategoryMatching = false;
 
   void write(QDomElement&, QDomDocument*) const;
   bool read(const QDomElement&);
 
-  KMM_MYMONEY_EXPORT static bool isStatementFile(const QString&);
-  KMM_MYMONEY_EXPORT static bool readXMLFile(MyMoneyStatement&, const QString&);
-  KMM_MYMONEY_EXPORT static void writeXMLFile(const MyMoneyStatement&, const QString&);
+  /**
+   * This method returns the date provided as the end date of the statement.
+   * In case this is not provided, we return the date of the youngest transaction
+   * instead. In case there are no transactions found, an invalid date is
+   * returned.
+   *
+   * @sa m_dateEnd
+   */
+  QDate statementEndDate() const;
+
+  static bool isStatementFile(const QString&);
+  static bool readXMLFile(MyMoneyStatement&, const QString&);
+  static void writeXMLFile(const MyMoneyStatement&, const QString&);
 };
 
 /**

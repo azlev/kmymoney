@@ -20,16 +20,19 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <QMap>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <KAboutData>
 #include <KToggleAction>
 #include <KActionCollection>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 #include "interfaceloader.h"
+
+KMyMoneyPlugin::Container pPlugins;
 
 KMyMoneyPlugin::Plugin::Plugin(QObject* parent, const char* name) :
     QObject(),
@@ -70,6 +73,20 @@ KToggleAction* KMyMoneyPlugin::Plugin::toggleAction(const QString& actionName) c
   return p;
 }
 
+KMyMoneyPlugin::OnlinePlugin::OnlinePlugin()
+{
+}
+
+KMyMoneyPlugin::OnlinePlugin::~OnlinePlugin()
+{
+}
+
+KMyMoneyPlugin::AppInterface* KMyMoneyPlugin::Plugin::appInterface() const
+{
+  Q_CHECK_PTR(KMyMoneyPlugin::pluginInterfaces().appInterface);
+  return KMyMoneyPlugin::pluginInterfaces().appInterface;
+}
+
 KMyMoneyPlugin::ViewInterface* KMyMoneyPlugin::Plugin::viewInterface() const
 {
   Q_CHECK_PTR(KMyMoneyPlugin::pluginInterfaces().viewInterface);
@@ -86,4 +103,12 @@ KMyMoneyPlugin::ImportInterface* KMyMoneyPlugin::Plugin::importInterface() const
 {
   Q_CHECK_PTR(KMyMoneyPlugin::pluginInterfaces().importInterface);
   return KMyMoneyPlugin::pluginInterfaces().importInterface;
+}
+
+KMyMoneyPlugin::ImporterPlugin::ImporterPlugin()
+{
+}
+
+KMyMoneyPlugin::ImporterPlugin::~ImporterPlugin()
+{
 }

@@ -1,19 +1,19 @@
-/***************************************************************************
- *                             payeesmodel.cpp
- *                             -------------------
- *    begin                : Mon Oct 03 2016
- *    copyright            : (C) 2016 by Thomas Baumgart
- *    email                : Thomas Baumgart <tbaumgart@kde.org>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2016-2017  Thomas Baumgart <tbaumgart@kde.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "payeesmodel.h"
 
@@ -32,7 +32,7 @@
 // Project Includes
 
 #include "mymoneyfile.h"
-#include "mymoneycostcenter.h"
+#include "mymoneypayee.h"
 
 struct PayeesModel::Private
 {
@@ -55,7 +55,7 @@ PayeesModel::~PayeesModel()
 
 int PayeesModel::rowCount(const QModelIndex& parent) const
 {
-  // since the ledger model is a simple table model, we only
+  // since the payees model is a simple table model, we only
   // return the rowCount for the hiddenRootItem. and zero otherwise
   if(parent.isValid()) {
     return 0;
@@ -141,26 +141,24 @@ void PayeesModel::unload()
 {
   if(rowCount() > 0) {
     beginRemoveRows(QModelIndex(), 0, rowCount() - 1);
-    for(int i = 0; i < rowCount(); ++i) {
-      delete d->m_payeeItems[i];
-    }
+    qDeleteAll(d->m_payeeItems);
     d->m_payeeItems.clear();
+    QVector<MyMoneyPayee*> swp;
+    d->m_payeeItems.swap(swp); // changed behaviour from Qt 5.7 http://doc.qt.io/qt-5/qvector.html#clear
     endRemoveRows();
   }
 }
 
 void PayeesModel::load()
 {
-  QList<MyMoneyPayee> list = MyMoneyFile::instance()->payeeList();
+  const QList<MyMoneyPayee> list = MyMoneyFile::instance()->payeeList();
 
   if(list.count() > 0) {
     beginInsertRows(QModelIndex(), rowCount(), rowCount() + list.count());
-    // create an empty entry for those items that do not reference a cost center
-    d->m_payeeItems.append((new MyMoneyPayee));
-    QList< MyMoneyPayee>::const_iterator it;
-    for(it = list.constBegin(); it != list.constEnd(); ++it) {
-      d->m_payeeItems.append(new MyMoneyPayee(*it));
-    }
+    // create an empty entry for those items that do not reference a payee
+    d->m_payeeItems.append(new MyMoneyPayee());
+    foreach (const auto it, list)
+      d->m_payeeItems.append(new MyMoneyPayee(it));
     endInsertRows();
   }
 }

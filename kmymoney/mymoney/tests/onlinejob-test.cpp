@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2013-2016  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,8 +17,12 @@
 
 #include "onlinejob-test.h"
 
-#include <QtTest/QTest>
+#include <QTest>
+
+#define KMM_MYMONEY_UNIT_TESTABLE friend class onlineJobTest;
+
 #include "onlinejob.h"
+#include "onlinejob_p.h"
 
 #include "onlinetasks/dummy/tasks/dummytask.h"
 
@@ -28,11 +31,11 @@ QTEST_GUILESS_MAIN(onlineJobTest)
 void onlineJobTest::testDefaultConstructor()
 {
   const onlineJob job = onlineJob();
-  QVERIFY(job.id() == MyMoneyObject::emptyId());
+  QCOMPARE(job.id(), QString());
   QVERIFY(job.isNull());
   QVERIFY(job.sendDate().isNull());
   QVERIFY(job.bankAnswerDate().isNull());
-  QVERIFY(job.bankAnswerState() == onlineJob::noBankAnswer);
+  QVERIFY(job.bankAnswerState() == eMyMoney::OnlineJob::sendingState::noBankAnswer);
   QVERIFY(job.jobMessageList().isEmpty());
   QVERIFY(job.isLocked() == false);
 
@@ -67,7 +70,7 @@ void onlineJobTest::testCopyAssignment()
 void onlineJobTest::testCopyConstructorWithNewId()
 {
   onlineJob originalJob = onlineJob(new dummyTask, "O000001");
-  originalJob.setBankAnswer(onlineJob::acceptedByBank);
+  originalJob.setBankAnswer(eMyMoney::OnlineJob::sendingState::acceptedByBank);
   QVERIFY(!originalJob.isNull());
 
   onlineJob jobCopy = onlineJob("O000002", originalJob);

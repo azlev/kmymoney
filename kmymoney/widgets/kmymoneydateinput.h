@@ -1,18 +1,21 @@
-/***************************************************************************
-                          kmymoneydateinput.h
-                             -------------------
-    copyright            : (C) 2000 by Michael Edwardes
-    email                : mte@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001       Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYDATEINPUT_H
 #define KMYMONEYDATEINPUT_H
@@ -21,7 +24,7 @@
 // QT Includes
 
 #include <QWidget>
-#include <QDateTime>
+#include <QDate>
 #include <QDateEdit>
 
 // ----------------------------------------------------------------------------
@@ -44,22 +47,22 @@ namespace KMyMoney {
   {
     Q_OBJECT
   public:
-    explicit OldDateEdit(const QDate& date, QWidget *parent = 0) : QDateEdit(date, parent) {}
+    explicit OldDateEdit(const QDate& date, QWidget* parent = nullptr);
 
   protected:
     /** if the date was cleared (a state which is not supported by QDateEdit)
       * make sure that a date can be entered again
       */
-    virtual void keyPressEvent(QKeyEvent* k);
+    void keyPressEvent(QKeyEvent* k) final override;
 
     /** reimplemented for internal reasons */
-    virtual bool event(QEvent* e);
+    bool event(QEvent* e) final override;
 
     /** reimplemented for internal reasons */
-    virtual bool focusNextPrevChild(bool next);
+    bool focusNextPrevChild(bool next) final override;
 
     /** reimplemented for internal reasons */
-    virtual void focusInEvent(QFocusEvent *event);
+    void focusInEvent(QFocusEvent *event) final override;
 
   };
 }; // namespace
@@ -70,14 +73,14 @@ namespace KMyMoney {
   * which is based on an edit field with spin boxes and adds a QPushButton
   * to open a KDatePicker.
   */
-class KMM_WIDGETS_EXPORT kMyMoneyDateInput : public QWidget
+class KMM_WIDGETS_EXPORT KMyMoneyDateInput : public QWidget
 {
   Q_OBJECT
   Q_PROPERTY(QDate date READ date WRITE setDate STORED false)
 
 public:
-  explicit kMyMoneyDateInput(QWidget *parent = 0, Qt::AlignmentFlag flags = Qt::AlignLeft);
-  ~kMyMoneyDateInput();
+  explicit KMyMoneyDateInput(QWidget* parent = nullptr, Qt::AlignmentFlag flags = Qt::AlignLeft);
+  ~KMyMoneyDateInput();
 
   /**
     * Returns the selected date in the widget. If the widget is not
@@ -115,7 +118,7 @@ public:
   void setRange(const QDate & min, const QDate & max);
   void markAsBadDate(bool bad = false, const QColor& = QColor());
 
-signals:
+Q_SIGNALS:
   void dateChanged(const QDate& date);
 
 protected:
@@ -126,18 +129,18 @@ protected:
     *   The actual key for this to happen might be overridden through
     *   an i18n package. The 'T'-key is always possible.
     */
-  void keyPressEvent(QKeyEvent* k);
-  void showEvent(QShowEvent* event);
+  void keyPressEvent(QKeyEvent* k) override;
+  void showEvent(QShowEvent* event) override;
 
   /** To intercept events sent to focusWidget() */
-  bool eventFilter(QObject *o, QEvent *e);
+  bool eventFilter(QObject *o, QEvent *e) override;
 
 
-protected slots:
+protected Q_SLOTS:
   void slotDateChosen(QDate date);
   void toggleDatePicker();
 
-private slots:
+private Q_SLOTS:
   void slotDateChosenRef(const QDate& date);
   void fixSize();
 

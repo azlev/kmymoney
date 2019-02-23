@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2013-2018  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,11 +30,11 @@
 #include <QPluginLoader>
 #include <QJsonArray>
 
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 #include <KServiceTypeTrader>
 #include <KPluginMetaData>
+#include <KService>
 
 // ----------------------------------------------------------------------------
 // Project Includes
@@ -47,18 +46,32 @@
 
 #include "onlinetasks/unavailabletask/tasks/unavailabletask.h"
 #include "onlinetasks/interfaces/tasks/credittransfer.h"
+#include "tasks/onlinetask.h"
 
-onlineJobAdministration::onlineJobAdministration(QObject *parent) :
-    QObject(parent)
+onlineJobAdministration::onlineJobAdministration(QObject *parent)
+  : QObject(parent)
+  , m_onlinePlugins(nullptr)
+  , m_inRegistration(false)
 {
 }
 
 onlineJobAdministration::~onlineJobAdministration()
 {
-// Will be done somewhere else
-//  qDeleteAll(m_onlinePlugins);
+  clearCaches();
+}
+
+onlineJobAdministration* onlineJobAdministration::instance()
+{
+  static onlineJobAdministration m_instance;
+  return &m_instance;
+}
+
+void onlineJobAdministration::clearCaches()
+{
   qDeleteAll(m_onlineTasks);
+  m_onlineTasks.clear();
   qDeleteAll(m_onlineTaskConverter);
+  m_onlineTaskConverter.clear();
 }
 
 KMyMoneyPlugin::OnlinePluginExtended* onlineJobAdministration::getOnlinePlugin(const QString& accountId) const
@@ -66,26 +79,25 @@ KMyMoneyPlugin::OnlinePluginExtended* onlineJobAdministration::getOnlinePlugin(c
   MyMoneyAccount acc = MyMoneyFile::instance()->account(accountId);
 
   QMap<QString, KMyMoneyPlugin::OnlinePluginExtended*>::const_iterator it_p;
-  it_p = m_onlinePlugins.constFind(acc.onlineBankingSettings().value("provider"));
+  it_p = m_onlinePlugins->constFind(acc.onlineBankingSettings().value("provider").toLower());
 
-  if (it_p != m_onlinePlugins.constEnd()) {
+  if (it_p != m_onlinePlugins->constEnd()) {
     // plugin found, use it
     return *it_p;
   }
   return 0;
 }
 
-void onlineJobAdministration::addPlugin(const QString& pluginName, KMyMoneyPlugin::OnlinePluginExtended *plugin)
+void onlineJobAdministration::setOnlinePlugins(QMap<QString, KMyMoneyPlugin::OnlinePluginExtended*>& plugins)
 {
-  const bool sendAnyTask = canSendAnyTask();
-  const bool sendCreditTransfer = canSendCreditTransfer();
+  m_onlinePlugins = &plugins;
+  updateActions();
+}
 
-  m_onlinePlugins.insert(pluginName, plugin);
-
-  if (!sendAnyTask && canSendAnyTask())
-    emit canSendAnyTaskChanged(true);
-  if (!sendCreditTransfer && canSendCreditTransfer())
-    emit canSendCreditTransferChanged(true);
+void onlineJobAdministration::updateActions()
+{
+  emit canSendAnyTaskChanged(canSendAnyTask());
+  emit canSendCreditTransferChanged(canSendCreditTransfer());
 }
 
 QStringList onlineJobAdministration::availableOnlineTasks()
@@ -96,7 +108,7 @@ QStringList onlineJobAdministration::availableOnlineTasks()
 
   QStringList list;
   for(const KPluginMetaData& plugin: plugins) {
-    QJsonValue array = plugin.rawData()["KMyMoney"].toObject()["OnlineTask"].toObject()["Iid"];
+    QJsonValue array = plugin.rawData()["KMyMoney"].toObject()["OnlineTask"].toObject()["Iids"];
     if (array.isArray())
       list.append(array.toVariant().toStringList());
   }
@@ -108,7 +120,9 @@ QStringList onlineJobAdministration::availableOnlineTasks()
  */
 bool onlineJobAdministration::isJobSupported(const QString& accountId, const QString& name) const
 {
-  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, m_onlinePlugins) {
+  if (!m_onlinePlugins)
+    return false;
+  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, *m_onlinePlugins) {
     if (plugin->availableJobs(accountId).contains(name))
       return true;
   }
@@ -129,7 +143,10 @@ bool onlineJobAdministration::isAnyJobSupported(const QString& accountId) const
   if (accountId.isEmpty())
     return false;
 
-  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, m_onlinePlugins) {
+  if (!m_onlinePlugins)
+    return false;
+
+  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, *m_onlinePlugins) {
     if (!(plugin->availableJobs(accountId).isEmpty()))
       return true;
   }
@@ -144,33 +161,23 @@ onlineJob onlineJobAdministration::createOnlineJob(const QString& name, const QS
 onlineTask* onlineJobAdministration::createOnlineTask(const QString& name) const
 {
   const onlineTask* task = rootOnlineTask(name);
-  if (task != 0)
+  if (task)
     return task->clone();
-  return 0;
+  return nullptr;
 }
 
 onlineTask* onlineJobAdministration::createOnlineTaskByXml(const QString& iid, const QDomElement& element) const
 {
   onlineTask* task = rootOnlineTask(iid);
-  if (task != 0) {
+  if (task) {
     return task->createFromXml(element);
   }
   qWarning("In the file is a onlineTask for which I could not find the plugin ('%s')", qPrintable(iid));
   return new unavailableTask(element);
 }
 
-onlineTask* onlineJobAdministration::createOnlineTaskFromSqlDatabase(const QString& iid, const QString& onlineTaskId, QSqlDatabase connection) const
-{
-  onlineTask* task = rootOnlineTask(iid);
-  if (task != 0)
-    return task->createFromSqlDatabase(connection, onlineTaskId);
-
-  qWarning("In the file is a onlineTask for which I could not find the plugin ('%s')", qPrintable(iid));
-  return 0;
-}
-
 /**
- * @interanl Using KPluginFactory to create the plugins seemed to be good idea. The drawback is that it does not support to create non QObjects directly.
+ * @internal Using KPluginFactory to create the plugins seemed to be good idea. The drawback is that it does not support to create non QObjects directly.
  * This made this function way longer than needed and adds many checks.
  *
  * @fixme Delete created tasks
@@ -194,14 +201,14 @@ onlineTask* onlineJobAdministration::rootOnlineTask(const QString& name) const
   std::unique_ptr<QPluginLoader> loader = std::unique_ptr<QPluginLoader>(new QPluginLoader{plugins.first().fileName()});
   QObject* plugin = loader->instance();
   if (!plugin) {
-    qWarning() << "Could not load plugin for online task \"" << name << "\", file name \"" << plugins.first().fileName() << "\".";
+    qWarning() << "Could not load plugin for online task " << name << ", file name " << plugins.first().fileName() << ".";
     return nullptr;
   }
 
   // Cast to KPluginFactory
   KPluginFactory* pluginFactory = qobject_cast< KPluginFactory* >(plugin);
   if (!pluginFactory) {
-    qWarning() << "Could not create plugin factory for online task \"" << name << "\", file name \"" << plugins.first().fileName() << "\".";
+    qWarning() << "Could not create plugin factory for online task " << name << ", file name " << plugins.first().fileName() << ".";
     return nullptr;
   }
 
@@ -211,7 +218,7 @@ onlineTask* onlineJobAdministration::rootOnlineTask(const QString& name) const
   QObject* taskFactoryObject = pluginFactory->create<QObject>(pluginKeyword, onlineJobAdministration::instance());
   KMyMoneyPlugin::onlineTaskFactory* taskFactory = qobject_cast< KMyMoneyPlugin::onlineTaskFactory* >(taskFactoryObject);
   if (!taskFactory) {
-    qWarning() << "Could not create online task factory for online task \"" << name << "\", file name \"" << plugins.first().fileName() << "\".";
+    qWarning() << "Could not create online task factory for online task " << name << ", file name " << plugins.first().fileName() << ".";
     return nullptr;
   }
 
@@ -301,6 +308,21 @@ onlineJob onlineJobAdministration::convertBest(const onlineJob& original, const 
   return bestConvert;
 }
 
+void onlineJobAdministration::registerAllOnlineTasks()
+{
+  // avoid recursive entrance
+  if (m_inRegistration)
+    return;
+
+  m_inRegistration = true;
+  QStringList availableTasks = availableOnlineTasks();
+  foreach (const auto& name, availableTasks) {
+    onlineTask* const task = rootOnlineTask(name);
+    Q_UNUSED(task);
+  }
+  m_inRegistration = false;
+}
+
 void onlineJobAdministration::registerOnlineTask(onlineTask *const task)
 {
   if (Q_UNLIKELY(task == 0))
@@ -310,7 +332,6 @@ void onlineJobAdministration::registerOnlineTask(onlineTask *const task)
   const bool sendCreditTransfer = canSendCreditTransfer();
 
   m_onlineTasks.insert(task->taskName(), task);
-  qDebug() << "onlineTask available" << task->taskName();
 
   if (sendAnyTask != canSendAnyTask())
     emit canSendAnyTaskChanged(!sendAnyTask);
@@ -360,14 +381,25 @@ IonlineTaskSettings::ptr onlineJobAdministration::taskSettings(const QString& ta
 
 bool onlineJobAdministration::canSendAnyTask()
 {
+  if (!m_onlinePlugins)
+    return false;
+
+  if (m_onlineTasks.isEmpty()) {
+    registerAllOnlineTasks();
+  }
+
+  if (!MyMoneyFile::instance()->storageAttached())
+    return false;
+
   // Check if any plugin supports a loaded online task
-  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, m_onlinePlugins) {
+  foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, *m_onlinePlugins) {
     QList<MyMoneyAccount> accounts;
     MyMoneyFile::instance()->accountList(accounts, QStringList(), true);
     foreach (MyMoneyAccount account, accounts) {
       foreach (QString onlineTaskIid, plugin->availableJobs(account.id())) {
-        if (m_onlineTasks.contains(onlineTaskIid))
+        if (m_onlineTasks.contains(onlineTaskIid)) {
           return true;
+        }
       }
     }
   }
@@ -376,10 +408,20 @@ bool onlineJobAdministration::canSendAnyTask()
 
 bool onlineJobAdministration::canSendCreditTransfer()
 {
+  if (!m_onlinePlugins)
+    return false;
+
+  if (m_onlineTasks.isEmpty()) {
+    registerAllOnlineTasks();
+  }
+
+  if (!MyMoneyFile::instance()->storageAttached())
+    return false;
+
   foreach (onlineTask* task, m_onlineTasks) {
     // Check if a online task has the correct type
     if (dynamic_cast<creditTransfer*>(task) != 0) {
-      foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, m_onlinePlugins) {
+      foreach (KMyMoneyPlugin::OnlinePluginExtended* plugin, *m_onlinePlugins) {
         QList<MyMoneyAccount> accounts;
         MyMoneyFile::instance()->accountList(accounts, QStringList(), true);
         foreach (MyMoneyAccount account, accounts) {

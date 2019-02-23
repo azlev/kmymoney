@@ -1,18 +1,20 @@
-/***************************************************************************
-                          mymoneytag.h
-                             -------------------
-    copyright            : (C) 2012 by Alessandro Russo <axela74@yahoo.it>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2012       Alessandro Russo <axela74@yahoo.it>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYTAG_H
 #define MYMONEYTAG_H
@@ -20,84 +22,61 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QColor>
 #include <QMetaType>
-class QStringList;
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneyobject.h>
+#include "kmm_mymoney_export.h"
+#include "mymoneyobject.h"
+
+class QString;
+class QColor;
 
 /**
   * This class represents a tag within the MyMoney engine.
   */
+class MyMoneyTagPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyTag : public MyMoneyObject
 {
-private:
-  // Simple fields
-  QString m_name;
-  // Closed tags will not be shown in the selector inside a transaction, only in the Tag tab
-  bool m_closed;
-  // Set the color showed in the ledger
-  QColor m_tag_color;
-  QString m_notes;
+  Q_DECLARE_PRIVATE(MyMoneyTag)
 
-public:
-  MyMoneyTag();
-  MyMoneyTag(const QString& id, const MyMoneyTag& tag);
+  KMM_MYMONEY_UNIT_TESTABLE
+
+  public:
+    MyMoneyTag();
+  explicit MyMoneyTag(const QString &id);
+
   explicit MyMoneyTag(const QString& name,
-                      const QColor& tagColor = QColor()
-                     );
-  /**
-    * This is the constructor for a tag that is described by a
-    * QDomElement (e.g. from a file).
-    *
-    * @param el const reference to the QDomElement from which to
-    *           create the object
-    */
-  MyMoneyTag(const QDomElement& el);
+                      const QColor& tagColor
+                      );
+
+  MyMoneyTag(const QString& id,
+             const MyMoneyTag& tag);
+
+  MyMoneyTag(const MyMoneyTag & other);
+  MyMoneyTag(MyMoneyTag && other);
+  MyMoneyTag & operator=(MyMoneyTag other);
+  friend void swap(MyMoneyTag& first, MyMoneyTag& second);
 
   ~MyMoneyTag();
 
-  // Simple get operations
-  const QString& name() const            {
-    return m_name;
-  }
-  bool isClosed() const {
-    return m_closed;
-  }
-  const QColor& tagColor() const         {
-    return m_tag_color;
-  }
-  const QString& notes() const           {
-    return m_notes;
-  }
+  QString name() const;
+  void setName(const QString& val);
 
-  // Simple set operations
-  void setName(const QString& val)      {
-    m_name = val;
-  }
-  void setTagColor(const QColor& val)      {
-    m_tag_color = val;
-  }
-  void setClosed(bool val) {
-    m_closed = val;
-  }
-  void setNotes(const QString& val)     {
-    m_notes = val;
-  };
+  bool isClosed() const;
+  void setClosed(bool val);
 
-  // Copy constructors
-  MyMoneyTag(const MyMoneyTag&);
+  QColor tagColor() const;
+  void setTagColor(const QColor& val);
+  void setNamedTagColor(const QString &val);
+
+  QString notes() const;
+  void setNotes(const QString& val);
 
   // Equality operator
   bool operator == (const MyMoneyTag &) const;
   bool operator <(const MyMoneyTag& right) const;
-
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
 
   /**
     * This method checks if a reference to the given object exists. It returns,
@@ -108,15 +87,32 @@ public:
     * @retval true This object references object with id @p id.
     * @retval false This object does not reference the object with id @p id.
     */
-  virtual bool hasReferenceTo(const QString& id) const;
+  bool hasReferenceTo(const QString& id) const override;
 
   static MyMoneyTag null;
 };
 
-inline bool operator==(const MyMoneyTag& lhs, const QString& rhs)
+inline void swap(MyMoneyTag& first, MyMoneyTag& second) // krazy:exclude=inline
 {
-  return lhs.id() == rhs;
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
 }
+
+inline MyMoneyTag::MyMoneyTag(MyMoneyTag && other) : MyMoneyTag() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyTag & MyMoneyTag::operator=(MyMoneyTag other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
+
+//inline bool operator==(const MyMoneyTag& lhs, const QString& rhs)
+//{
+//  return lhs.id() == rhs;
+//}
 
 /**
   * Make it possible to hold @ref MyMoneyTag objects inside @ref QVariant objects.

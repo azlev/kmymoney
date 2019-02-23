@@ -1,25 +1,21 @@
-/***************************************************************************
-                          kupdatestockpricedlg.h  -  description
-                             -------------------
-    begin                : Thu Feb 7 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-
+/*
+ * Copyright 2002-2004  Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2004-2010  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KUPDATESTOCKPRICEDLG_H
 #define KUPDATESTOCKPRICEDLG_H
@@ -27,8 +23,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QDateTime>
-#include <QPushButton>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -36,45 +31,36 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kupdatestockpricedlgdecl.h"
+namespace Ui { class KUpdateStockPriceDlg; }
 
-#include <mymoneyprice.h>
-#include <kmymoneydateinput.h>
-#include <kmymoneyedit.h>
+class QDate;
+
+class MyMoneyMoney;
 
 /**
   * @author Kevin Tambascio
   */
-class kUpdateStockPriceDecl : public QDialog, public Ui::kUpdateStockPriceDecl
-{
-public:
-  kUpdateStockPriceDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
 
-class KUpdateStockPriceDlg : public kUpdateStockPriceDecl
+class KUpdateStockPriceDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KUpdateStockPriceDlg)
 
 public:
-  KUpdateStockPriceDlg(QWidget* parent = 0);
+  explicit KUpdateStockPriceDlg(QWidget* parent = nullptr);
   ~KUpdateStockPriceDlg();
 
-  const QDate date() const {
-    return m_date->date();
-  };
-  const MyMoneyMoney price() const;
+  QDate date() const;
+  MyMoneyMoney price() const;
 
-public slots:
-  int exec();
+  Ui::KUpdateStockPriceDlg *ui;
 
-protected slots:
+public Q_SLOTS:
+  int exec() override;
+
+protected Q_SLOTS:
   void slotCheckData();
-
-private:
-  void init();
-
+  void slotCheckData(int idx);
 };
 
 #endif

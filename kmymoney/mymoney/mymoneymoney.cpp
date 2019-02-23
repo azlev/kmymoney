@@ -1,20 +1,26 @@
-/***************************************************************************
-                          mymoneymymoney.cpp  -  description
-                             -------------------
-    begin      : Thu Feb 21 2002
-    copyright  : (C) 2000-2002 by Michael Edwardes <mte@users.sourceforge.net>
-                 (C) 2001-2011 by Thomas Baumgart <tbaumgart@kde.org>
-                 (C) 2011 by Carlos Eduardo da Silva <kaduardo@gmail.com>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2004  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2001-2002  Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2002-2004  Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2005       Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2007-2010  Alvaro Soliverez <asoliverez@gmail.com>
+ * Copyright 2011       Carlos Eduardo da Silva <kaduardo@gmail.com>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 // make sure, that this is defined before we even include any other header file
 #ifndef __STDC_LIMIT_MACROS
@@ -23,29 +29,49 @@
 
 #include "mymoneymoney.h"
 
+#include <stdint.h>
+#include <gmpxx.h>
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QRegExp>
+#include <QString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneyaccount.h"
-#include "mymoneysecurity.h"
-
+#include "mymoneyexception.h"
+#include "mymoneyenums.h"
 
 const MyMoneyMoney MyMoneyMoney::ONE = MyMoneyMoney(1, 1);
 const MyMoneyMoney MyMoneyMoney::MINUS_ONE = MyMoneyMoney(-1, 1);
+namespace eMyMoney
+{
+  namespace Money {
 
-QChar MyMoneyMoney::_thousandSeparator = ',';
-QChar MyMoneyMoney::_decimalSeparator = '.';
-MyMoneyMoney::signPosition MyMoneyMoney::_negativeMonetarySignPosition = BeforeQuantityMoney;
-MyMoneyMoney::signPosition MyMoneyMoney::_positiveMonetarySignPosition = BeforeQuantityMoney;
-bool MyMoneyMoney::_negativePrefixCurrencySymbol = false;
-bool MyMoneyMoney::_positivePrefixCurrencySymbol = false;
+    enum fileVersionE : int {
+      FILE_4_BYTE_VALUE = 0,
+      FILE_8_BYTE_VALUE
+    };
 
-MyMoneyMoney::fileVersionE MyMoneyMoney::_fileVersion = MyMoneyMoney::FILE_4_BYTE_VALUE;
+    QChar _thousandSeparator = QLatin1Char(',');
+    QChar _decimalSeparator = QLatin1Char('.');
+    eMyMoney::Money::signPosition _negativeMonetarySignPosition = BeforeQuantityMoney;
+    eMyMoney::Money::signPosition _positiveMonetarySignPosition = BeforeQuantityMoney;
+    bool _negativePrefixCurrencySymbol = false;
+    bool _positivePrefixCurrencySymbol = false;
+    eMyMoney::Money::fileVersionE _fileVersion = fileVersionE::FILE_4_BYTE_VALUE;
+  }
+}
+
+//eMyMoney::Money::_thousandSeparator = QLatin1Char(',');
+//eMyMoney::Money::_decimalSeparator = QLatin1Char('.');
+//eMyMoney::Money::signPosition eMyMoney::Money::_negativeMonetarySignPosition = BeforeQuantityMoney;
+//eMyMoney::Money::signPosition eMyMoney::Money::_positiveMonetarySignPosition = BeforeQuantityMoney;
+//bool eMyMoney::Money::_negativePrefixCurrencySymbol = false;
+//bool eMyMoney::Money::_positivePrefixCurrencySymbol = false;
+
+//MyMoneyMoney::fileVersionE eMyMoney::Money::_fileVersion = MyMoneyMoney::FILE_4_BYTE_VALUE;
 
 MyMoneyMoney MyMoneyMoney::maxValue = MyMoneyMoney(INT64_MAX, 100);
 MyMoneyMoney MyMoneyMoney::minValue = MyMoneyMoney(INT64_MIN, 100);
@@ -53,78 +79,127 @@ MyMoneyMoney MyMoneyMoney::autoCalc = MyMoneyMoney(INT64_MIN + 1, 100);
 
 void MyMoneyMoney::setNegativePrefixCurrencySymbol(const bool flag)
 {
-  _negativePrefixCurrencySymbol = flag;
+  eMyMoney::Money::_negativePrefixCurrencySymbol = flag;
 }
 
 void MyMoneyMoney::setPositivePrefixCurrencySymbol(const bool flag)
 {
-  _positivePrefixCurrencySymbol = flag;
+  eMyMoney::Money::_positivePrefixCurrencySymbol = flag;
 }
 
-void MyMoneyMoney::setNegativeMonetarySignPosition(const signPosition pos)
+void MyMoneyMoney::setNegativeMonetarySignPosition(const eMyMoney::Money::signPosition pos)
 {
-  _negativeMonetarySignPosition = pos;
+  eMyMoney::Money::_negativeMonetarySignPosition = pos;
 }
 
-MyMoneyMoney::signPosition MyMoneyMoney::negativeMonetarySignPosition()
+eMyMoney::Money::signPosition MyMoneyMoney::negativeMonetarySignPosition()
 {
-  return _negativeMonetarySignPosition;
+  return eMyMoney::Money::_negativeMonetarySignPosition;
 }
 
-void MyMoneyMoney::setPositiveMonetarySignPosition(const signPosition pos)
+void MyMoneyMoney::setPositiveMonetarySignPosition(const eMyMoney::Money::signPosition pos)
 {
-  _positiveMonetarySignPosition = pos;
+  eMyMoney::Money::_positiveMonetarySignPosition = pos;
 }
 
-MyMoneyMoney::signPosition MyMoneyMoney::positiveMonetarySignPosition()
+eMyMoney::Money::signPosition MyMoneyMoney::positiveMonetarySignPosition()
 {
-  return _positiveMonetarySignPosition;
+  return eMyMoney::Money::_positiveMonetarySignPosition;
 }
 
 void MyMoneyMoney::setThousandSeparator(const QChar &separator)
 {
-  if (separator != ' ')
-    _thousandSeparator = separator;
+  if (separator != QLatin1Char(' '))
+    eMyMoney::Money::_thousandSeparator = separator;
   else
-    _thousandSeparator = 0;
+    eMyMoney::Money::_thousandSeparator = 0;
 }
 
 const QChar MyMoneyMoney::thousandSeparator()
 {
-  return _thousandSeparator;
+  return eMyMoney::Money::_thousandSeparator;
 }
 
 void MyMoneyMoney::setDecimalSeparator(const QChar &separator)
 {
-  if (separator != ' ')
-    _decimalSeparator = separator;
+  if (separator != QLatin1Char(' '))
+    eMyMoney::Money::_decimalSeparator = separator;
   else
-    _decimalSeparator = 0;
+    eMyMoney::Money::_decimalSeparator = 0;
 }
 
 const QChar MyMoneyMoney::decimalSeparator()
 {
-  return _decimalSeparator;
+  return eMyMoney::Money::_decimalSeparator;
 }
-
-void MyMoneyMoney::setFileVersion(fileVersionE version)
-{
-  _fileVersion = version;
-}
-
 
 MyMoneyMoney::MyMoneyMoney(const QString& pszAmount)
-    : AlkValue(pszAmount, _decimalSeparator)
+    : AlkValue(pszAmount, eMyMoney::Money::_decimalSeparator)
 {
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//      Name: MyMoneyMoney
+//   Purpose: Constructor - constructs object from an amount in a signed64 value
+//   Returns: None
+//    Throws: Nothing.
+// Arguments: Amount - signed 64 object containing amount
+//            denom  - denominator of the object
+//
+////////////////////////////////////////////////////////////////////////////////
+MyMoneyMoney::MyMoneyMoney(qint64 Amount, const unsigned int denom)
+{
+  if (denom == 0)
+    throw MYMONEYEXCEPTION_CSTRING("Denominator 0 not allowed!");
+
+  *this = AlkValue(QString::fromLatin1("%1/%2").arg(Amount).arg(denom), eMyMoney::Money::_decimalSeparator);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//      Name: MyMoneyMoney
+//   Purpose: Constructor - constructs object from an amount in a integer value
+//   Returns: None
+//    Throws: Nothing.
+// Arguments: iAmount - integer object containing amount
+//            denom   - denominator of the object
+//
+////////////////////////////////////////////////////////////////////////////////
+MyMoneyMoney::MyMoneyMoney(const int iAmount, const unsigned int denom)
+{
+  if (denom == 0)
+    throw MYMONEYEXCEPTION_CSTRING("Denominator 0 not allowed!");
+  *this = AlkValue(iAmount, denom);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//      Name: MyMoneyMoney
+//   Purpose: Constructor - constructs object from an amount in a long integer value
+//   Returns: None
+//    Throws: Nothing.
+// Arguments: iAmount - integer object containing amount
+//            denom   - denominator of the object
+//
+////////////////////////////////////////////////////////////////////////////////
+MyMoneyMoney::MyMoneyMoney(const long int iAmount, const unsigned int denom)
+{
+  if (denom == 0)
+    throw MYMONEYEXCEPTION_CSTRING("Denominator 0 not allowed!");
+  *this = AlkValue(QString::fromLatin1("%1/%2").arg(iAmount).arg(denom), eMyMoney::Money::_decimalSeparator);
+}
+
 
 MyMoneyMoney::~MyMoneyMoney()
 {
 }
 
+MyMoneyMoney MyMoneyMoney::abs() const
+{
+  return static_cast<const MyMoneyMoney>(AlkValue::abs());
+}
+
 QString MyMoneyMoney::formatMoney(int denom, bool showThousandSeparator) const
 {
-  return formatMoney("", denomToPrec(denom), showThousandSeparator);
+  return formatMoney(QString(), denomToPrec(denom), showThousandSeparator);
 }
 
 QString MyMoneyMoney::formatMoney(const QString& currency, const int prec, bool showThousandSeparator) const
@@ -150,13 +225,20 @@ QString MyMoneyMoney::formatMoney(const QString& currency, const int prec, bool 
   // and limit the precision to 9 digits (the max we can
   // present with 31 bits
 #if 1
-  signed int d;
+  // MPIR and GMP use different types for the return value of mpz_get_si()
+  // which causes warnings on some compilers.
+#ifdef mpir_version     // MPIR is used
+  mpir_si denominator;
+#else                   // GMP is used
+  long int denominator;
+#endif
+
   if (mpz_fits_sint_p(denom.get_mpz_t())) {
-    d = mpz_get_si(denom.get_mpz_t());
+    denominator = mpz_get_si(denom.get_mpz_t());
   } else {
-    d = 1000000000;
+    denominator = 1000000000;
   }
-  value = static_cast<const MyMoneyMoney>(convertDenominator(d)).valueRef().get_num();
+  value = static_cast<const MyMoneyMoney>(convertDenominator(denominator)).valueRef().get_num();
 #else
   value = static_cast<const MyMoneyMoney>(convertDenominator(denom)).valueRef().get_num();
 #endif
@@ -164,7 +246,7 @@ QString MyMoneyMoney::formatMoney(const QString& currency, const int prec, bool 
   // Once we really support multiple currencies then this method will
   // be much better than using KLocale::global()->formatMoney.
   bool bNegative = false;
-  mpz_class left = value / static_cast<MyMoneyMoney>(convertDenominator(d)).valueRef().get_den();
+  mpz_class left = value / static_cast<MyMoneyMoney>(convertDenominator(denominator)).valueRef().get_den();
   mpz_class right = mpz_class((valueRef() - mpq_class(left)) * denom);
 
   if (right < 0) {
@@ -191,47 +273,47 @@ QString MyMoneyMoney::formatMoney(const QString& currency, const int prec, bool 
     if (decimalSeparator() != 0)
       res += decimalSeparator();
 
-    QString rs  = QString("%1").arg(right.get_str().c_str());
+    auto rs  = QString::fromLatin1("%1").arg(right.get_str().c_str());
     if (prec != -1)
-      rs = rs.rightJustified(prec, '0', true);
+      rs = rs.rightJustified(prec, QLatin1Char('0'), true);
     else {
-      rs = rs.rightJustified(9, '0', true);
+      rs = rs.rightJustified(9, QLatin1Char('0'), true);
       // no trailing zeroes or decimal separators
-      while (rs.endsWith('0'))
+      while (rs.endsWith(QLatin1Char('0')))
         rs.truncate(rs.length() - 1);
-      while (rs.endsWith(QChar(decimalSeparator())))
+      while (rs.endsWith(decimalSeparator()))
         rs.truncate(rs.length() - 1);
     }
     res += rs;
   }
 
-  signPosition signpos = bNegative ? _negativeMonetarySignPosition : _positiveMonetarySignPosition;
-  QString sign = bNegative ? "-" : "";
+  eMyMoney::Money::signPosition signpos = bNegative ? eMyMoney::Money::_negativeMonetarySignPosition : eMyMoney::Money::_positiveMonetarySignPosition;
+  auto sign = bNegative ? QString::fromLatin1("-") : QString();
 
   switch (signpos) {
-    case ParensAround:
-      res.prepend('(');
-      res.append(')');
+    case eMyMoney::Money::ParensAround:
+      res.prepend(QLatin1Char('('));
+      res.append(QLatin1Char(')'));
       break;
-    case BeforeQuantityMoney:
+    case eMyMoney::Money::BeforeQuantityMoney:
       res.prepend(sign);
       break;
-    case AfterQuantityMoney:
+    case eMyMoney::Money::AfterQuantityMoney:
       res.append(sign);
       break;
-    case BeforeMoney:
+    case eMyMoney::Money::BeforeMoney:
       tmpCurrency.prepend(sign);
       break;
-    case AfterMoney:
+    case eMyMoney::Money::AfterMoney:
       tmpCurrency.append(sign);
       break;
   }
   if (!tmpCurrency.isEmpty()) {
-    if (bNegative ? _negativePrefixCurrencySymbol : _positivePrefixCurrencySymbol) {
-      res.prepend(' ');
+    if (bNegative ? eMyMoney::Money::_negativePrefixCurrencySymbol : eMyMoney::Money::_positivePrefixCurrencySymbol) {
+      res.prepend(QLatin1Char(' '));
       res.prepend(tmpCurrency);
     } else {
-      res.append(' ');
+      res.append(QLatin1Char(' '));
       res.append(tmpCurrency);
     }
   }
@@ -249,7 +331,7 @@ QString MyMoneyMoney::formatMoney(const QString& currency, const int prec, bool 
 ////////////////////////////////////////////////////////////////////////////////
 const MyMoneyMoney MyMoneyMoney::operator+(const MyMoneyMoney& _b) const
 {
-  return AlkValue::operator+(_b);
+  return static_cast<const MyMoneyMoney>(AlkValue::operator+(_b));
 }
 
 
@@ -263,7 +345,7 @@ const MyMoneyMoney MyMoneyMoney::operator+(const MyMoneyMoney& _b) const
 ////////////////////////////////////////////////////////////////////////////////
 const MyMoneyMoney MyMoneyMoney::operator-(const MyMoneyMoney& _b) const
 {
-  return AlkValue::operator-(_b);
+  return static_cast<const MyMoneyMoney>(AlkValue::operator-(_b));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -276,7 +358,7 @@ const MyMoneyMoney MyMoneyMoney::operator-(const MyMoneyMoney& _b) const
 ////////////////////////////////////////////////////////////////////////////////
 const MyMoneyMoney MyMoneyMoney::operator*(const MyMoneyMoney& _b) const
 {
-  return AlkValue::operator*(_b);
+  return static_cast<const MyMoneyMoney>(AlkValue::operator*(_b));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -289,13 +371,32 @@ const MyMoneyMoney MyMoneyMoney::operator*(const MyMoneyMoney& _b) const
 ////////////////////////////////////////////////////////////////////////////////
 const MyMoneyMoney MyMoneyMoney::operator/(const MyMoneyMoney& _b) const
 {
-  return AlkValue::operator/(_b);
+  return static_cast<const MyMoneyMoney>(AlkValue::operator/(_b));
 }
 
-
-MyMoneyMoney MyMoneyMoney::convert(const signed64 _denom, const roundingMethod how) const
+bool MyMoneyMoney::isNegative() const
 {
-  return convertDenominator(_denom, static_cast<RoundingMethod>(how));
+  return (valueRef() < 0) ? true : false;
+}
+
+bool MyMoneyMoney::isPositive() const
+{
+  return (valueRef() > 0) ? true : false;
+}
+
+bool MyMoneyMoney::isZero() const
+{
+  return valueRef() == 0;
+}
+
+bool MyMoneyMoney::isAutoCalc() const
+{
+  return (*this == autoCalc);
+}
+
+MyMoneyMoney MyMoneyMoney::convert(const signed64 _denom, const AlkValue::RoundingMethod how) const
+{
+  return static_cast<const MyMoneyMoney>(convertDenominator(_denom, how));
 }
 
 MyMoneyMoney MyMoneyMoney::reduce() const

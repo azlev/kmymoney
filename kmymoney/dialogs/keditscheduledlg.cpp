@@ -1,19 +1,20 @@
-/***************************************************************************
-                          keditscheduledlg.cpp  -  description
-                             -------------------
-    begin                : Mon Sep  3 2007
-    copyright            : (C) 2007 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "keditscheduledlg.h"
 
@@ -23,152 +24,217 @@
 #include <QTimer>
 #include <QCheckBox>
 #include <QLabel>
-#include <QLayout>
 #include <QList>
-#include <QResizeEvent>
 #include <QPushButton>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kmessagebox.h>
-#include <kstandardguiitem.h>
-#include <klineedit.h>
-#include <khelpclient.h>
-#include <KGuiItem>
 #include <KStandardGuiItem>
+#include <KLineEdit>
+#include <KHelpClient>
+#include <KMessageBox>
 #include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "ui_keditscheduledlg.h"
+
+#include "tabbar.h"
+#include "mymoneyexception.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "mymoneymoney.h"
+#include "mymoneyschedule.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
 #include "register.h"
 #include "transactionform.h"
 #include "transaction.h"
+#include "selectedtransactions.h"
 #include "transactioneditor.h"
 #include "kmymoneylineedit.h"
 #include "kmymoneydateinput.h"
 #include "kmymoneymvccombo.h"
 #include "kguiutils.h"
 #include "kmymoneyutils.h"
+#include "knewaccountdlg.h"
+#include "knewinvestmentwizard.h"
+#include "keditloanwizard.h"
+#include "kmymoneysettings.h"
+#include "mymoneyenums.h"
+#include "widgetenums.h"
 
-#include "kmymoney.h"
+using namespace eMyMoney;
 
-class KEditScheduleDlg::Private
+class KEditScheduleDlgPrivate
 {
+  Q_DISABLE_COPY(KEditScheduleDlgPrivate)
+  Q_DECLARE_PUBLIC(KEditScheduleDlg)
+
 public:
+  explicit KEditScheduleDlgPrivate(KEditScheduleDlg *qq) :
+    q_ptr(qq),
+    ui(new Ui::KEditScheduleDlg),
+    m_item(nullptr),
+    m_editor(nullptr),
+    m_requiredFields(nullptr)
+  {
+  }
+
+  ~KEditScheduleDlgPrivate()
+  {
+    delete ui;
+  }
+
+  void init()
+  {
+    Q_Q(KEditScheduleDlg);
+    ui->setupUi(q);
+
+    m_requiredFields = new KMandatoryFieldGroup(q);
+    m_requiredFields->setOkButton(ui->buttonBox->button(QDialogButtonBox::Ok)); // button to be enabled when all fields present
+
+    // make sure, we have a tabbar with the form
+    // insert it after the horizontal line
+    ui->m_paymentInformationLayout->insertWidget(2, ui->m_form->getTabBar(ui->m_form->parentWidget()));
+
+    // we never need to see the register
+    ui->m_register->hide();
+
+    // ... setup the form ...
+    ui->m_form->setupForm(m_schedule.account());
+
+    // ... and the register ...
+    ui->m_register->clear();
+
+    // ... now add the transaction to register and form ...
+    auto t = transaction();
+    if (m_schedule.transaction().splits().isEmpty())
+      m_item = KMyMoneyRegister::Register::transactionFactory(ui->m_register, t, MyMoneySplit(), 0);
+    else
+      m_item = KMyMoneyRegister::Register::transactionFactory(ui->m_register, t,
+                  m_schedule.transaction().splits().isEmpty() ? MyMoneySplit() : m_schedule.transaction().splits().front(), 0);
+    ui->m_register->selectItem(m_item);
+    // show the account row
+    m_item->setShowRowInForm(0, true);
+
+    ui->m_form->slotSetTransaction(m_item);
+
+    // setup widget contents
+    ui->m_nameEdit->setText(m_schedule.name());
+
+    ui->m_frequencyEdit->setCurrentItem((int)m_schedule.occurrencePeriod());
+    if (ui->m_frequencyEdit->currentItem() == Schedule::Occurrence::Any)
+      ui->m_frequencyEdit->setCurrentItem((int)Schedule::Occurrence::Monthly);
+    q->slotFrequencyChanged((int)ui->m_frequencyEdit->currentItem());
+    ui->m_frequencyNoEdit->setValue(m_schedule.occurrenceMultiplier());
+
+    // load option widgets
+    ui->m_paymentMethodEdit->insertItem(i18n("Direct deposit"), (int)Schedule::PaymentType::DirectDeposit);
+    ui->m_paymentMethodEdit->insertItem(i18n("Manual deposit"), (int)Schedule::PaymentType::ManualDeposit);
+    ui->m_paymentMethodEdit->insertItem(i18n("Direct debit"), (int)Schedule::PaymentType::DirectDebit);
+    ui->m_paymentMethodEdit->insertItem(i18n("Standing order"), (int)Schedule::PaymentType::StandingOrder);
+    ui->m_paymentMethodEdit->insertItem(i18n("Bank transfer"), (int)Schedule::PaymentType::BankTransfer);
+    ui->m_paymentMethodEdit->insertItem(i18n("Write check"), (int)Schedule::PaymentType::WriteChecque);
+    ui->m_paymentMethodEdit->insertItem(i18nc("Other payment method", "Other"), (int)Schedule::PaymentType::Other);
+
+    auto method = m_schedule.paymentType();
+    if (method == Schedule::PaymentType::Any)
+      method = Schedule::PaymentType::Other;
+    ui->m_paymentMethodEdit->setCurrentItem((int)method);
+
+    switch (m_schedule.weekendOption()) {
+      case Schedule::WeekendOption::MoveNothing:
+        ui->m_weekendOptionEdit->setCurrentIndex(0);
+        break;
+      case Schedule::WeekendOption::MoveBefore:
+        ui->m_weekendOptionEdit->setCurrentIndex(1);
+        break;
+      case Schedule::WeekendOption::MoveAfter:
+        ui->m_weekendOptionEdit->setCurrentIndex(2);
+        break;
+    }
+    ui->m_estimateEdit->setChecked(!m_schedule.isFixed());
+    ui->m_lastDayInMonthEdit->setChecked(m_schedule.lastDayInMonth());
+    ui->m_autoEnterEdit->setChecked(m_schedule.autoEnter());
+    ui->m_endSeriesEdit->setChecked(m_schedule.willEnd());
+
+    ui->m_endOptionsFrame->setEnabled(m_schedule.willEnd());
+    if (m_schedule.willEnd()) {
+      ui->m_RemainingEdit->setValue(m_schedule.transactionsRemaining());
+      ui->m_FinalPaymentEdit->setDate(m_schedule.endDate());
+    }
+
+    q->connect(ui->m_RemainingEdit, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            q, &KEditScheduleDlg::slotRemainingChanged);
+    q->connect(ui->m_FinalPaymentEdit, &KMyMoneyDateInput::dateChanged,
+            q, &KEditScheduleDlg::slotEndDateChanged);
+    q->connect(ui->m_frequencyEdit, &KMyMoneyGeneralCombo::itemSelected,
+            q, &KEditScheduleDlg::slotFrequencyChanged);
+    q->connect(ui->m_frequencyNoEdit, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            q, &KEditScheduleDlg::slotOccurrenceMultiplierChanged);
+    q->connect(ui->buttonBox, &QDialogButtonBox::helpRequested, q, &KEditScheduleDlg::slotShowHelp);
+
+    q->setModal(true);
+    // force the initial height to be as small as possible
+    QTimer::singleShot(0, q, SLOT(slotSetupSize()));
+
+    // we just hide the variation field for now and enable the logic
+    // once we have a respective member in the MyMoneySchedule object
+    ui->m_variation->hide();
+  }
+
+  /**
+    * Helper method to recalculate and update Transactions Remaining
+    * when other values are changed
+    */
+  void updateTransactionsRemaining()
+  {
+    auto remain = m_schedule.transactionsRemaining();
+    if (remain != ui->m_RemainingEdit->value()) {
+      ui->m_RemainingEdit->blockSignals(true);
+      ui->m_RemainingEdit->setValue(remain);
+      ui->m_RemainingEdit->blockSignals(false);
+    }
+  }
+
+  MyMoneyTransaction transaction() const
+  {
+    auto t = m_schedule.transaction();
+
+    if (m_editor) {
+      m_editor->createTransaction(t, m_schedule.transaction(), m_schedule.transaction().splits().isEmpty() ? MyMoneySplit() : m_schedule.transaction().splits().front(), false);
+    }
+
+    t.clearId();
+    t.setEntryDate(QDate());
+    return t;
+  }
+
+  KEditScheduleDlg              *q_ptr;
+  Ui::KEditScheduleDlg          *ui;
   MyMoneySchedule                m_schedule;
   KMyMoneyRegister::Transaction* m_item;
   QWidgetList                    m_tabOrderWidgets;
   TransactionEditor*             m_editor;
-  kMandatoryFieldGroup*          m_requiredFields;
+  KMandatoryFieldGroup*          m_requiredFields;
 };
 
 KEditScheduleDlg::KEditScheduleDlg(const MyMoneySchedule& schedule, QWidget *parent) :
-    KEditScheduleDlgDecl(parent),
-    d(new Private)
+  QDialog(parent),
+  d_ptr(new KEditScheduleDlgPrivate(this))
 {
-  setModal(true);
+  Q_D(KEditScheduleDlg);
   d->m_schedule = schedule;
   d->m_editor = 0;
-
-  KGuiItem::assign(buttonOk, KStandardGuiItem::ok());
-  KGuiItem::assign(buttonCancel, KStandardGuiItem::cancel());
-  KGuiItem::assign(buttonHelp, KStandardGuiItem::help());
-
-  d->m_requiredFields = new kMandatoryFieldGroup(this);
-  d->m_requiredFields->setOkButton(buttonOk); // button to be enabled when all fields present
-
-  // make sure, we have a tabbar with the form
-  // insert it after the horizontal line
-  m_paymentInformationLayout->insertWidget(2, m_form->tabBar(m_form->parentWidget()));
-
-  // we never need to see the register
-  m_register->hide();
-
-  // ... setup the form ...
-  m_form->setupForm(d->m_schedule.account());
-
-  // ... and the register ...
-  m_register->clear();
-
-  // ... now add the transaction to register and form ...
-  MyMoneyTransaction t = transaction();
-  if (d->m_schedule.transaction().splits().isEmpty())
-    d->m_item = KMyMoneyRegister::Register::transactionFactory(m_register, t, MyMoneySplit(), 0);
-  else
-    d->m_item = KMyMoneyRegister::Register::transactionFactory(m_register, t,
-                d->m_schedule.transaction().splits().isEmpty() ? MyMoneySplit() : d->m_schedule.transaction().splits().front(), 0);
-  m_register->selectItem(d->m_item);
-  // show the account row
-  d->m_item->setShowRowInForm(0, true);
-
-  m_form->slotSetTransaction(d->m_item);
-
-  // setup widget contents
-  m_nameEdit->setText(d->m_schedule.name());
-
-  m_frequencyEdit->setCurrentItem(d->m_schedule.occurrencePeriod());
-  if (m_frequencyEdit->currentItem() == MyMoneySchedule::OCCUR_ANY)
-    m_frequencyEdit->setCurrentItem(MyMoneySchedule::OCCUR_MONTHLY);
-  slotFrequencyChanged(m_frequencyEdit->currentItem());
-  m_frequencyNoEdit->setValue(d->m_schedule.occurrenceMultiplier());
-
-  // load option widgets
-  m_paymentMethodEdit->insertItem(i18n("Direct deposit"), MyMoneySchedule::STYPE_DIRECTDEPOSIT);
-  m_paymentMethodEdit->insertItem(i18n("Manual deposit"), MyMoneySchedule::STYPE_MANUALDEPOSIT);
-  m_paymentMethodEdit->insertItem(i18n("Direct debit"), MyMoneySchedule::STYPE_DIRECTDEBIT);
-  m_paymentMethodEdit->insertItem(i18n("Standing order"), MyMoneySchedule::STYPE_STANDINGORDER);
-  m_paymentMethodEdit->insertItem(i18n("Bank transfer"), MyMoneySchedule::STYPE_BANKTRANSFER);
-  m_paymentMethodEdit->insertItem(i18n("Write check"), MyMoneySchedule::STYPE_WRITECHEQUE);
-  m_paymentMethodEdit->insertItem(i18nc("Other payment method", "Other"), MyMoneySchedule::STYPE_OTHER);
-
-  MyMoneySchedule::paymentTypeE method = d->m_schedule.paymentType();
-  if (method == MyMoneySchedule::STYPE_ANY)
-    method = MyMoneySchedule::STYPE_OTHER;
-  m_paymentMethodEdit->setCurrentItem(method);
-
-  switch (d->m_schedule.weekendOption()) {
-    case MyMoneySchedule::MoveNothing:
-      m_weekendOptionEdit->setCurrentIndex(0);
-      break;
-    case MyMoneySchedule::MoveBefore:
-      m_weekendOptionEdit->setCurrentIndex(1);
-      break;
-    case MyMoneySchedule::MoveAfter:
-      m_weekendOptionEdit->setCurrentIndex(2);
-      break;
-  }
-  m_estimateEdit->setChecked(!d->m_schedule.isFixed());
-  m_autoEnterEdit->setChecked(d->m_schedule.autoEnter());
-  m_endSeriesEdit->setChecked(d->m_schedule.willEnd());
-
-  m_endOptionsFrame->setEnabled(d->m_schedule.willEnd());
-  if (d->m_schedule.willEnd()) {
-    m_RemainingEdit->setValue(d->m_schedule.transactionsRemaining());
-    m_FinalPaymentEdit->setDate(d->m_schedule.endDate());
-  }
-
-  connect(m_RemainingEdit, SIGNAL(valueChanged(int)),
-          this, SLOT(slotRemainingChanged(int)));
-  connect(m_FinalPaymentEdit, SIGNAL(dateChanged(QDate)),
-          this, SLOT(slotEndDateChanged(QDate)));
-  connect(m_frequencyEdit, SIGNAL(itemSelected(int)),
-          this, SLOT(slotFrequencyChanged(int)));
-  connect(m_frequencyNoEdit, SIGNAL(valueChanged(int)),
-          this, SLOT(slotOccurrenceMultiplierChanged(int)));
-  connect(buttonHelp, SIGNAL(clicked()), this, SLOT(slotShowHelp()));
-
-  // force the initial height to be as small as possible
-  QTimer::singleShot(0, this, SLOT(slotSetupSize()));
-
-  // we just hide the variation field for now and enable the logic
-  // once we have a respective member in the MyMoneySchedule object
-  m_variation->hide();
+  d->init();
 }
 
 KEditScheduleDlg::~KEditScheduleDlg()
 {
+  Q_D(KEditScheduleDlg);
   delete d;
 }
 
@@ -179,8 +245,9 @@ void KEditScheduleDlg::slotSetupSize()
 
 TransactionEditor* KEditScheduleDlg::startEdit()
 {
-  KMyMoneyRegister::SelectedTransactions list(m_register);
-  TransactionEditor* editor = d->m_item->createEditor(m_form, list, QDate());
+  Q_D(KEditScheduleDlg);
+  KMyMoneyRegister::SelectedTransactions list(d->ui->m_register);
+  TransactionEditor* editor = d->m_item->createEditor(d->ui->m_form, list, QDate());
 
   // check that we use the same transaction commodity in all selected transactions
   // if not, we need to update this in the editor's list. The user can also bail out
@@ -195,47 +262,43 @@ TransactionEditor* KEditScheduleDlg::startEdit()
   }
 
   if (editor) {
-    editor->m_scheduleInfo = m_nameEdit->text();
-    connect(editor, SIGNAL(transactionDataSufficient(bool)), buttonOk, SLOT(setEnabled(bool)));
-    connect(editor, SIGNAL(escapePressed()), buttonCancel, SLOT(animateClick()));
-    connect(editor, SIGNAL(returnPressed()), buttonOk, SLOT(animateClick()));
+    editor->setScheduleInfo(d->ui->m_nameEdit->text());
+    connect(editor, &TransactionEditor::transactionDataSufficient, d->ui->buttonBox->button(QDialogButtonBox::Ok), &QWidget::setEnabled);
+    connect(editor, &TransactionEditor::escapePressed, d->ui->buttonBox->button(QDialogButtonBox::Cancel), &QAbstractButton::animateClick);
+    connect(editor, &TransactionEditor::returnPressed, d->ui->buttonBox->button(QDialogButtonBox::Ok), &QAbstractButton::animateClick);
 
-    connect(MyMoneyFile::instance(), SIGNAL(dataChanged()), editor, SLOT(slotReloadEditWidgets()));
+    connect(MyMoneyFile::instance(), &MyMoneyFile::dataChanged, editor, &TransactionEditor::slotReloadEditWidgets);
     // connect(editor, SIGNAL(finishEdit(KMyMoneyRegister::SelectedTransactions)), this, SLOT(slotLeaveEditMode(KMyMoneyRegister::SelectedTransactions)));
-    connect(editor, SIGNAL(createPayee(QString,QString&)), kmymoney, SLOT(slotPayeeNew(QString,QString&)));
-    connect(editor, SIGNAL(createTag(QString,QString&)), kmymoney, SLOT(slotTagNew(QString,QString&)));
-    connect(editor, SIGNAL(createCategory(MyMoneyAccount&,MyMoneyAccount)), kmymoney, SLOT(slotCategoryNew(MyMoneyAccount&,MyMoneyAccount)));
-    connect(editor, SIGNAL(createSecurity(MyMoneyAccount&,MyMoneyAccount)), kmymoney, SLOT(slotInvestmentNew(MyMoneyAccount&,MyMoneyAccount)));
-    connect(MyMoneyFile::instance(), SIGNAL(dataChanged()), editor, SLOT(slotReloadEditWidgets()));
+    connect(MyMoneyFile::instance(), &MyMoneyFile::dataChanged, editor, &TransactionEditor::slotReloadEditWidgets);
 
     // create the widgets, place them in the parent and load them with data
     // setup tab order
     d->m_tabOrderWidgets.clear();
-    KMyMoneyRegister::Action action = KMyMoneyRegister::ActionWithdrawal;
+    eWidgets::eRegister::Action action = eWidgets::eRegister::Action::Withdrawal;
     switch (d->m_schedule.type()) {
-      case MyMoneySchedule::TYPE_DEPOSIT:
-        action = KMyMoneyRegister::ActionDeposit;
+      case Schedule::Type::Deposit:
+        action = eWidgets::eRegister::Action::Deposit;
         break;
-      case MyMoneySchedule::TYPE_BILL:
-        action = KMyMoneyRegister::ActionWithdrawal;
-        editor->m_paymentMethod = d->m_schedule.paymentType();
+      case Schedule::Type::Bill:
+        action = eWidgets::eRegister::Action::Withdrawal;
+        editor->setPaymentMethod(d->m_schedule.paymentType());
         break;
-      case MyMoneySchedule::TYPE_TRANSFER:
-        action = KMyMoneyRegister::ActionTransfer;
+      case Schedule::Type::Transfer:
+        action = eWidgets::eRegister::Action::Transfer;
         break;
       default:
         // if we end up here, we don't have a known schedule type (yet). in this case, we just glimpse
         // into the transaction and determine the type. in case we don't have a transaction with splits
         // we stick with the default action already set up
         if (d->m_schedule.transaction().splits().count() > 0) {
-          QList<MyMoneySplit>::const_iterator it_s;
-          bool isDeposit = false;
-          bool isTransfer = false;
-          for (it_s = d->m_schedule.transaction().splits().begin(); it_s != d->m_schedule.transaction().splits().end(); ++it_s) {
-            if ((*it_s).accountId() == d->m_schedule.account().id()) {
-              isDeposit = !((*it_s).shares().isNegative());
+          auto isDeposit = false;
+          auto isTransfer = false;
+          auto splits = d->m_schedule.transaction().splits();
+          foreach (const auto split, splits) {
+            if (split.accountId() == d->m_schedule.account().id()) {
+              isDeposit = !(split.shares().isNegative());
             } else {
-              MyMoneyAccount acc = MyMoneyFile::instance()->account((*it_s).accountId());
+              auto acc = MyMoneyFile::instance()->account(split.accountId());
               if (acc.isAssetLiability() && d->m_schedule.transaction().splits().count() == 2) {
                 isTransfer = true;
               }
@@ -243,9 +306,9 @@ TransactionEditor* KEditScheduleDlg::startEdit()
           }
 
           if (isTransfer)
-            action = KMyMoneyRegister::ActionTransfer;
+            action = eWidgets::eRegister::Action::Transfer;
           else if (isDeposit)
-            action = KMyMoneyRegister::ActionDeposit;
+            action = eWidgets::eRegister::Action::Deposit;
         }
         break;
     }
@@ -253,15 +316,18 @@ TransactionEditor* KEditScheduleDlg::startEdit()
 
     // if it's not a check, then we need to clear
     // a possibly assigned check number
-    if (d->m_schedule.paymentType() != MyMoneySchedule::STYPE_WRITECHEQUE) {
+    if (d->m_schedule.paymentType() != Schedule::PaymentType::WriteChecque) {
       QWidget* w = editor->haveWidget("number");
-      if (w)
-        dynamic_cast<kMyMoneyLineEdit*>(w)->loadText(QString());
+      if (w) {
+        if (auto numberWidget = dynamic_cast<KMyMoneyLineEdit*>(w)) {
+          numberWidget->loadText(QString());
+        }
+      }
     }
 
     Q_ASSERT(!d->m_tabOrderWidgets.isEmpty());
 
-    d->m_tabOrderWidgets.push_front(m_paymentMethodEdit);
+    d->m_tabOrderWidgets.push_front(d->ui->m_paymentMethodEdit);
 
     // editor->setup() leaves the tabbar as the last widget in the stack, but we
     // need it as first here. So we move it around.
@@ -276,23 +342,24 @@ TransactionEditor* KEditScheduleDlg::startEdit()
 
     // don't forget our three buttons and additional widgets
     // make sure to use the correct order
-    d->m_tabOrderWidgets.push_front(m_frequencyEdit);
-    d->m_tabOrderWidgets.push_front(m_frequencyNoEdit);
-    d->m_tabOrderWidgets.push_front(m_nameEdit);
+    d->m_tabOrderWidgets.push_front(d->ui->m_frequencyEdit);
+    d->m_tabOrderWidgets.push_front(d->ui->m_frequencyNoEdit);
+    d->m_tabOrderWidgets.push_front(d->ui->m_nameEdit);
 
-    d->m_tabOrderWidgets.append(m_weekendOptionEdit);
-    d->m_tabOrderWidgets.append(m_estimateEdit);
-    d->m_tabOrderWidgets.append(m_variation);
-    d->m_tabOrderWidgets.append(m_autoEnterEdit);
-    d->m_tabOrderWidgets.append(m_endSeriesEdit);
-    d->m_tabOrderWidgets.append(m_RemainingEdit);
-    d->m_tabOrderWidgets.append(m_FinalPaymentEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_weekendOptionEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_estimateEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_variation);
+    d->m_tabOrderWidgets.append(d->ui->m_lastDayInMonthEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_autoEnterEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_endSeriesEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_RemainingEdit);
+    d->m_tabOrderWidgets.append(d->ui->m_FinalPaymentEdit);
 
-    d->m_tabOrderWidgets.append(buttonOk);
-    d->m_tabOrderWidgets.append(buttonCancel);
-    d->m_tabOrderWidgets.append(buttonHelp);
-    for (int i = 0; i < d->m_tabOrderWidgets.size(); ++i) {
-      QWidget* w = d->m_tabOrderWidgets.at(i);
+    d->m_tabOrderWidgets.append(d->ui->buttonBox->button(QDialogButtonBox::Ok));
+    d->m_tabOrderWidgets.append(d->ui->buttonBox->button(QDialogButtonBox::Cancel));
+    d->m_tabOrderWidgets.append(d->ui->buttonBox->button(QDialogButtonBox::Help));
+    for (auto i = 0; i < d->m_tabOrderWidgets.size(); ++i) {
+      w = d->m_tabOrderWidgets.at(i);
       if (w) {
         w->installEventFilter(this);
         w->installEventFilter(editor);
@@ -300,29 +367,25 @@ TransactionEditor* KEditScheduleDlg::startEdit()
     }
 
     // connect the postdate modification signal to our update routine
-    kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(editor->haveWidget("postdate"));
-    if (dateEdit)
-      connect(dateEdit, SIGNAL(dateChanged(QDate)), this, SLOT(slotPostDateChanged(QDate)));
+    if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(editor->haveWidget("postdate")))
+      connect(dateEdit, &KMyMoneyDateInput::dateChanged, this, &KEditScheduleDlg::slotPostDateChanged);
 
-    m_nameEdit->setFocus();
+    d->ui->m_nameEdit->setFocus();
 
     // add the required fields to the mandatory group
-    d->m_requiredFields->add(m_nameEdit);
+    d->m_requiredFields->add(d->ui->m_nameEdit);
     d->m_requiredFields->add(editor->haveWidget("account"));
     d->m_requiredFields->add(editor->haveWidget("category"));
-    d->m_requiredFields->add(editor->haveWidget("amount"));
 
     // fix labels
-    QLabel* label = dynamic_cast<QLabel*>(editor->haveWidget("date-label"));
-    if (label) {
+    if (auto label = dynamic_cast<QLabel*>(editor->haveWidget("date-label")))
       label->setText(i18n("Next due date"));
-    }
 
     d->m_editor = editor;
-    slotSetPaymentMethod(d->m_schedule.paymentType());
+    slotSetPaymentMethod((int)d->m_schedule.paymentType());
 
-    connect(m_paymentMethodEdit, SIGNAL(itemSelected(int)), this, SLOT(slotSetPaymentMethod(int)));
-    connect(editor, SIGNAL(operationTypeChanged(int)), this, SLOT(slotFilterPaymentType(int)));
+    connect(d->ui->m_paymentMethodEdit, &KMyMoneyGeneralCombo::itemSelected, this, &KEditScheduleDlg::slotSetPaymentMethod);
+    connect(editor, &TransactionEditor::operationTypeChanged, this, &KEditScheduleDlg::slotFilterPaymentType);
   }
 
   return editor;
@@ -330,9 +393,10 @@ TransactionEditor* KEditScheduleDlg::startEdit()
 
 void KEditScheduleDlg::accept()
 {
+  Q_D(KEditScheduleDlg);
   // Force the focus to be on the OK button. This will trigger creation
   // of any unknown objects (payees, categories etc.)
-  buttonOk->setFocus();
+  d->ui->buttonBox->button(QDialogButtonBox::Ok)->setFocus();
 
   // only accept if the button is really still enabled. We could end
   // up here, if the user filled all fields, the focus is on the category
@@ -340,60 +404,64 @@ void KEditScheduleDlg::accept()
   // OK button in this context, he will be asked if he wants to create
   // the category or not. In case he decides no, we end up here with no
   // category filled in, so we don't run through the final acceptance.
-  if (buttonOk->isEnabled())
-    KEditScheduleDlgDecl::accept();
+  if (d->ui->buttonBox->button(QDialogButtonBox::Ok)->isEnabled())
+    QDialog::accept();
 }
 
-const MyMoneySchedule& KEditScheduleDlg::schedule() const
+const MyMoneySchedule& KEditScheduleDlg::schedule()
 {
+  Q_D(KEditScheduleDlg);
   if (d->m_editor) {
-    MyMoneyTransaction t = transaction();
+    auto t = d->transaction();
     if (d->m_schedule.nextDueDate() != t.postDate()) {
       d->m_schedule.setNextDueDate(t.postDate());
       d->m_schedule.setStartDate(t.postDate());
     }
     d->m_schedule.setTransaction(t);
-    d->m_schedule.setName(m_nameEdit->text());
-    d->m_schedule.setFixed(!m_estimateEdit->isChecked());
-    d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(m_frequencyEdit->currentItem()));
-    d->m_schedule.setOccurrenceMultiplier(m_frequencyNoEdit->value());
+    d->m_schedule.setName(d->ui->m_nameEdit->text());
+    d->m_schedule.setFixed(!d->ui->m_estimateEdit->isChecked());
+    d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(d->ui->m_frequencyEdit->currentItem()));
+    d->m_schedule.setOccurrenceMultiplier(d->ui->m_frequencyNoEdit->value());
 
-    switch (m_weekendOptionEdit->currentIndex())  {
+    switch (d->ui->m_weekendOptionEdit->currentIndex())  {
       case 0:
-        d->m_schedule.setWeekendOption(MyMoneySchedule::MoveNothing);
+        d->m_schedule.setWeekendOption(Schedule::WeekendOption::MoveNothing);
         break;
       case 1:
-        d->m_schedule.setWeekendOption(MyMoneySchedule::MoveBefore);
+        d->m_schedule.setWeekendOption(Schedule::WeekendOption::MoveBefore);
         break;
       case 2:
-        d->m_schedule.setWeekendOption(MyMoneySchedule::MoveAfter);
+        d->m_schedule.setWeekendOption(Schedule::WeekendOption::MoveAfter);
         break;
     }
 
-    d->m_schedule.setType(MyMoneySchedule::TYPE_BILL);
+    d->m_schedule.setType(Schedule::Type::Bill);
 
-    KMyMoneyTransactionForm::TabBar* tabbar = dynamic_cast<KMyMoneyTransactionForm::TabBar*>(d->m_editor->haveWidget("tabbar"));
-    if (tabbar) {
-      switch (static_cast<KMyMoneyRegister::Action>(tabbar->currentIndex())) {
-        case KMyMoneyRegister::ActionDeposit:
-          d->m_schedule.setType(MyMoneySchedule::TYPE_DEPOSIT);
+    if (auto tabbar = dynamic_cast<KMyMoneyTransactionForm::TabBar*>(d->m_editor->haveWidget("tabbar"))) {
+      switch (static_cast<eWidgets::eRegister::Action>(tabbar->currentIndex())) {
+        case eWidgets::eRegister::Action::Deposit:
+          d->m_schedule.setType(Schedule::Type::Deposit);
           break;
         default:
-        case KMyMoneyRegister::ActionWithdrawal:
-          d->m_schedule.setType(MyMoneySchedule::TYPE_BILL);
+        case eWidgets::eRegister::Action::Withdrawal:
+          d->m_schedule.setType(Schedule::Type::Bill);
           break;
-        case KMyMoneyRegister::ActionTransfer:
-          d->m_schedule.setType(MyMoneySchedule::TYPE_TRANSFER);
+        case eWidgets::eRegister::Action::Transfer:
+          d->m_schedule.setType(Schedule::Type::Transfer);
           break;
       }
     } else {
       qDebug("No tabbar found in KEditScheduleDlg::schedule(). Defaulting type to BILL");
     }
 
-    d->m_schedule.setAutoEnter(m_autoEnterEdit->isChecked());
-    d->m_schedule.setPaymentType(static_cast<MyMoneySchedule::paymentTypeE>(m_paymentMethodEdit->currentItem()));
-    if (m_endSeriesEdit->isEnabled() && m_endSeriesEdit->isChecked()) {
-      d->m_schedule.setEndDate(m_FinalPaymentEdit->date());
+    if(d->ui->m_lastDayInMonthEdit->isEnabled())
+      d->m_schedule.setLastDayInMonth(d->ui->m_lastDayInMonthEdit->isChecked());
+    else
+      d->m_schedule.setLastDayInMonth(false);
+    d->m_schedule.setAutoEnter(d->ui->m_autoEnterEdit->isChecked());
+    d->m_schedule.setPaymentType(static_cast<Schedule::PaymentType>(d->ui->m_paymentMethodEdit->currentItem()));
+    if (d->ui->m_endSeriesEdit->isEnabled() && d->ui->m_endSeriesEdit->isChecked()) {
+      d->m_schedule.setEndDate(d->ui->m_FinalPaymentEdit->date());
     } else {
       d->m_schedule.setEndDate(QDate());
     }
@@ -401,26 +469,123 @@ const MyMoneySchedule& KEditScheduleDlg::schedule() const
   return d->m_schedule;
 }
 
-MyMoneyTransaction KEditScheduleDlg::transaction() const
+void KEditScheduleDlg::newSchedule(const MyMoneyTransaction& _t, eMyMoney::Schedule::Occurrence occurrence)
 {
-  MyMoneyTransaction t = d->m_schedule.transaction();
+  MyMoneySchedule schedule;
+  schedule.setOccurrence(occurrence);
 
-  if (d->m_editor) {
-    d->m_editor->createTransaction(t, d->m_schedule.transaction(), d->m_schedule.transaction().splits().isEmpty() ? MyMoneySplit() : d->m_schedule.transaction().splits().front(), false);
+  // if the schedule is based on an existing transaction,
+  // we take the post date and project it to the next
+  // schedule in a month.
+  if (_t != MyMoneyTransaction()) {
+    MyMoneyTransaction t(_t);
+    schedule.setTransaction(t);
+    if (occurrence != eMyMoney::Schedule::Occurrence::Once)
+      schedule.setNextDueDate(schedule.nextPayment(t.postDate()));
   }
 
-  t.clearId();
-  t.setEntryDate(QDate());
-  return t;
+  QPointer<KEditScheduleDlg> dlg = new KEditScheduleDlg(schedule, nullptr);
+  QPointer<TransactionEditor> transactionEditor = dlg->startEdit();
+  if (transactionEditor) {
+    KMyMoneyMVCCombo::setSubstringSearchForChildren(dlg, !KMyMoneySettings::stringMatchFromStart());
+    if (dlg->exec() == QDialog::Accepted && dlg != 0) {
+      MyMoneyFileTransaction ft;
+      try {
+        schedule = dlg->schedule();
+        MyMoneyFile::instance()->addSchedule(schedule);
+        ft.commit();
+
+      } catch (const MyMoneyException &e) {
+        KMessageBox::error(nullptr, i18n("Unable to add scheduled transaction: %1", QString::fromLatin1(e.what())), i18n("Add scheduled transaction"));
+      }
+    }
+  }
+  delete transactionEditor;
+  delete dlg;
+}
+
+void KEditScheduleDlg::editSchedule(const MyMoneySchedule& inputSchedule)
+{
+    try {
+      auto schedule = MyMoneyFile::instance()->schedule(inputSchedule.id());
+
+      KEditScheduleDlg* sched_dlg = nullptr;
+      KEditLoanWizard* loan_wiz = nullptr;
+
+      switch (schedule.type()) {
+        case eMyMoney::Schedule::Type::Bill:
+        case eMyMoney::Schedule::Type::Deposit:
+        case eMyMoney::Schedule::Type::Transfer:
+        {
+          sched_dlg = new KEditScheduleDlg(schedule, nullptr);
+          QPointer<TransactionEditor> transactionEditor = sched_dlg->startEdit();
+          if (transactionEditor) {
+            KMyMoneyMVCCombo::setSubstringSearchForChildren(sched_dlg, !KMyMoneySettings::stringMatchFromStart());
+            if (sched_dlg->exec() == QDialog::Accepted) {
+              MyMoneyFileTransaction ft;
+              try {
+                MyMoneySchedule sched = sched_dlg->schedule();
+                // Check whether the new Schedule Date
+                // is at or before the lastPaymentDate
+                // If it is, ask the user whether to clear the
+                // lastPaymentDate
+                const auto& next = sched.nextDueDate();
+                const auto& last = sched.lastPayment();
+                if (next.isValid() && last.isValid() && next <= last) {
+                  // Entered a date effectively no later
+                  // than previous payment.  Date would be
+                  // updated automatically so we probably
+                  // want to clear it.  Let's ask the user.
+                  if (KMessageBox::questionYesNo(nullptr, i18n("<qt>You have entered a scheduled transaction date of <b>%1</b>.  Because the scheduled transaction was last paid on <b>%2</b>, KMyMoney will automatically adjust the scheduled transaction date to the next date unless the last payment date is reset.  Do you want to reset the last payment date?</qt>", QLocale().toString(next, QLocale::ShortFormat), QLocale().toString(last, QLocale::ShortFormat)), i18n("Reset Last Payment Date"), KStandardGuiItem::yes(), KStandardGuiItem::no()) == KMessageBox::Yes) {
+                    sched.setLastPayment(QDate());
+                  }
+                }
+                MyMoneyFile::instance()->modifySchedule(sched);
+                // delete the editor before we emit the dataChanged() signal from the
+                // engine. Calling this twice in a row does not hurt.
+                delete transactionEditor;
+                ft.commit();
+              } catch (const MyMoneyException &e) {
+                KMessageBox::detailedSorry(nullptr, i18n("Unable to modify scheduled transaction '%1'", inputSchedule.name()), QString::fromLatin1(e.what()));
+              }
+            }
+            delete transactionEditor;
+          }
+          delete sched_dlg;
+          break;
+        }
+        case eMyMoney::Schedule::Type::LoanPayment:
+        {
+          loan_wiz = new KEditLoanWizard(schedule.account(2));
+          if (loan_wiz->exec() == QDialog::Accepted) {
+            MyMoneyFileTransaction ft;
+            try {
+              MyMoneyFile::instance()->modifySchedule(loan_wiz->schedule());
+              MyMoneyFile::instance()->modifyAccount(loan_wiz->account());
+              ft.commit();
+            } catch (const MyMoneyException &e) {
+              KMessageBox::detailedSorry(nullptr, i18n("Unable to modify scheduled transaction '%1'", inputSchedule.name()), QString::fromLatin1(e.what()));
+            }
+          }
+          delete loan_wiz;
+          break;
+        }
+        case eMyMoney::Schedule::Type::Any:
+          break;
+      }
+
+    } catch (const MyMoneyException &e) {
+      KMessageBox::detailedSorry(nullptr, i18n("Unable to modify scheduled transaction '%1'", inputSchedule.name()), QString::fromLatin1(e.what()));
+    }
 }
 
 bool KEditScheduleDlg::focusNextPrevChild(bool next)
 {
-  bool rc = false;
-  QWidget *w = 0;
+  Q_D(KEditScheduleDlg);
+  auto rc = false;
 
-  w = qApp->focusWidget();
-  int currentWidgetIndex = d->m_tabOrderWidgets.indexOf(w);
+  auto w = qApp->focusWidget();
+  auto currentWidgetIndex = d->m_tabOrderWidgets.indexOf(w);
   while (w && currentWidgetIndex == -1) {
     // qDebug("'%s' not in list, use parent", qPrintable(w->objectName()));
     w = w->parentWidget();
@@ -451,125 +616,127 @@ bool KEditScheduleDlg::focusNextPrevChild(bool next)
 
 void KEditScheduleDlg::resizeEvent(QResizeEvent* ev)
 {
-  m_register->resize(KMyMoneyRegister::DetailColumn);
-  m_form->resize(KMyMoneyTransactionForm::ValueColumn1);
-  KEditScheduleDlgDecl::resizeEvent(ev);
+  Q_D(KEditScheduleDlg);
+  d->ui->m_register->resize((int)eWidgets::eTransaction::Column::Detail);
+  d->ui->m_form->resize((int)eWidgets::eTransactionForm::Column::Value1);
+  QDialog::resizeEvent(ev);
 }
 
 
 void KEditScheduleDlg::slotRemainingChanged(int value)
 {
+  Q_D(KEditScheduleDlg);
   // Make sure the required fields are set
-  kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(d->m_editor->haveWidget("postdate"));
-  d->m_schedule.setNextDueDate(dateEdit->date());
-  d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(m_frequencyEdit->currentItem()));
-  d->m_schedule.setOccurrenceMultiplier(m_frequencyNoEdit->value());
+  if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(d->m_editor->haveWidget("postdate")))
+    d->m_schedule.setNextDueDate(dateEdit->date());
+  d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(d->ui->m_frequencyEdit->currentItem()));
+  d->m_schedule.setOccurrenceMultiplier(d->ui->m_frequencyNoEdit->value());
 
   if (d->m_schedule.transactionsRemaining() != value) {
-    m_FinalPaymentEdit->blockSignals(true);
-    m_FinalPaymentEdit->setDate(d->m_schedule.dateAfter(value));
-    m_FinalPaymentEdit->blockSignals(false);
+    d->ui->m_FinalPaymentEdit->blockSignals(true);
+    d->ui->m_FinalPaymentEdit->setDate(d->m_schedule.dateAfter(value));
+    d->ui->m_FinalPaymentEdit->blockSignals(false);
   }
 }
 
 void KEditScheduleDlg::slotEndDateChanged(const QDate& date)
 {
+  Q_D(KEditScheduleDlg);
   // Make sure the required fields are set
-  kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(d->m_editor->haveWidget("postdate"));
-  d->m_schedule.setNextDueDate(dateEdit->date());
-  d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(m_frequencyEdit->currentItem()));
-  d->m_schedule.setOccurrenceMultiplier(m_frequencyNoEdit->value());
+  if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(d->m_editor->haveWidget("postdate")))
+    d->m_schedule.setNextDueDate(dateEdit->date());
+  d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(d->ui->m_frequencyEdit->currentItem()));
+  d->m_schedule.setOccurrenceMultiplier(d->ui->m_frequencyNoEdit->value());
 
   if (d->m_schedule.endDate() != date) {
     d->m_schedule.setEndDate(date);
-    updateTransactionsRemaining();
+    d->updateTransactionsRemaining();
   }
 }
 
 void KEditScheduleDlg::slotPostDateChanged(const QDate& date)
 {
+  Q_D(KEditScheduleDlg);
   if (d->m_schedule.nextDueDate() != date) {
-    if (m_endOptionsFrame->isEnabled()) {
+    if (d->ui->m_endOptionsFrame->isEnabled()) {
       d->m_schedule.setNextDueDate(date);
-      d->m_schedule.setOccurrenceMultiplier(m_frequencyNoEdit->value());
-      d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(m_frequencyEdit->currentItem()));
-      d->m_schedule.setEndDate(m_FinalPaymentEdit->date());
-      updateTransactionsRemaining();
+      d->m_schedule.setOccurrenceMultiplier(d->ui->m_frequencyNoEdit->value());
+      d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(d->ui->m_frequencyEdit->currentItem()));
+      d->m_schedule.setEndDate(d->ui->m_FinalPaymentEdit->date());
+      d->updateTransactionsRemaining();
     }
   }
 }
 
 void KEditScheduleDlg::slotSetPaymentMethod(int item)
 {
-  kMyMoneyLineEdit* dateEdit = dynamic_cast<kMyMoneyLineEdit*>(d->m_editor->haveWidget("number"));
-  if (dateEdit) {
-    dateEdit->setVisible(item == MyMoneySchedule::STYPE_WRITECHEQUE);
+  Q_D(KEditScheduleDlg);
+  const bool isWriteCheck = item == (int)Schedule::PaymentType::WriteChecque;
+  if (auto numberEdit = dynamic_cast<KMyMoneyLineEdit*>(d->m_editor->haveWidget("number"))) {
+    numberEdit->setVisible(isWriteCheck);
 
     // hiding the label does not work, because the label underneath will shine
     // through. So we either write the label or a blank
-    QLabel* label = dynamic_cast<QLabel *>(d->m_editor->haveWidget("number-label"));
-    if (label) {
-      label->setText((item == MyMoneySchedule::STYPE_WRITECHEQUE) ? i18n("Number") : " ");
-    }
+    if (auto label = dynamic_cast<QLabel *>(d->m_editor->haveWidget("number-label")))
+      label->setText(isWriteCheck ? i18n("Number") : QStringLiteral(" "));
   }
 }
 
 void KEditScheduleDlg::slotFrequencyChanged(int item)
 {
-  m_endSeriesEdit->setEnabled(item != MyMoneySchedule::OCCUR_ONCE);
-  bool isEndSeries = m_endSeriesEdit->isChecked();
+  Q_D(KEditScheduleDlg);
+  d->ui->m_endSeriesEdit->setEnabled(item != (int)Schedule::Occurrence::Once);
+  bool isEndSeries = d->ui->m_endSeriesEdit->isChecked();
   if (isEndSeries)
-    m_endOptionsFrame->setEnabled(item != MyMoneySchedule::OCCUR_ONCE);
+    d->ui->m_endOptionsFrame->setEnabled(item != (int)Schedule::Occurrence::Once);
   switch (item) {
-    case MyMoneySchedule::OCCUR_DAILY:
-    case MyMoneySchedule::OCCUR_WEEKLY:
-    case MyMoneySchedule::OCCUR_EVERYHALFMONTH:
-    case MyMoneySchedule::OCCUR_MONTHLY:
-    case MyMoneySchedule::OCCUR_YEARLY:
-      // Supports Frequency Number
-      m_frequencyNoEdit->setEnabled(true);
+    case (int)Schedule::Occurrence::Daily:
+    case (int)Schedule::Occurrence::Weekly:
+      d->ui->m_frequencyNoEdit->setEnabled(true);
+      d->ui->m_lastDayInMonthEdit->setEnabled(false);
       break;
+
+    case (int)Schedule::Occurrence::EveryHalfMonth:
+    case (int)Schedule::Occurrence::Monthly:
+    case (int)Schedule::Occurrence::Yearly:
+      // Supports Frequency Number
+      d->ui->m_frequencyNoEdit->setEnabled(true);
+      d->ui->m_lastDayInMonthEdit->setEnabled(true);
+      break;
+
     default:
       // Multiplier is always 1
-      m_frequencyNoEdit->setEnabled(false);
-      m_frequencyNoEdit->setValue(1);
+      d->ui->m_frequencyNoEdit->setEnabled(false);
+      d->ui->m_frequencyNoEdit->setValue(1);
+      d->ui->m_lastDayInMonthEdit->setEnabled(true);
       break;
   }
-  if (isEndSeries && (item != MyMoneySchedule::OCCUR_ONCE)) {
+  if (isEndSeries && (item != (int)Schedule::Occurrence::Once)) {
     // Changing the frequency changes the number
     // of remaining transactions
-    kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(d->m_editor->haveWidget("postdate"));
-    d->m_schedule.setNextDueDate(dateEdit->date());
-    d->m_schedule.setOccurrenceMultiplier(m_frequencyNoEdit->value());
-    d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(item));
-    d->m_schedule.setEndDate(m_FinalPaymentEdit->date());
-    updateTransactionsRemaining();
+    if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(d->m_editor->haveWidget("postdate")))
+      d->m_schedule.setNextDueDate(dateEdit->date());
+    d->m_schedule.setOccurrenceMultiplier(d->ui->m_frequencyNoEdit->value());
+    d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(item));
+    d->m_schedule.setEndDate(d->ui->m_FinalPaymentEdit->date());
+    d->updateTransactionsRemaining();
   }
 }
 
 void KEditScheduleDlg::slotOccurrenceMultiplierChanged(int multiplier)
 {
+  Q_D(KEditScheduleDlg);
   // Make sure the required fields are set
-  int oldOccurrenceMultiplier = d->m_schedule.occurrenceMultiplier();
+  auto oldOccurrenceMultiplier = d->m_schedule.occurrenceMultiplier();
   if (multiplier != oldOccurrenceMultiplier) {
-    if (m_endOptionsFrame->isEnabled()) {
-      kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(d->m_editor->haveWidget("postdate"));
-      d->m_schedule.setNextDueDate(dateEdit->date());
+    if (d->ui->m_endOptionsFrame->isEnabled()) {
+      if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(d->m_editor->haveWidget("postdate")))
+        d->m_schedule.setNextDueDate(dateEdit->date());
       d->m_schedule.setOccurrenceMultiplier(multiplier);
-      d->m_schedule.setOccurrencePeriod(static_cast<MyMoneySchedule::occurrenceE>(m_frequencyEdit->currentItem()));
-      d->m_schedule.setEndDate(m_FinalPaymentEdit->date());
-      updateTransactionsRemaining();
+      d->m_schedule.setOccurrencePeriod(static_cast<Schedule::Occurrence>(d->ui->m_frequencyEdit->currentItem()));
+      d->m_schedule.setEndDate(d->ui->m_FinalPaymentEdit->date());
+      d->updateTransactionsRemaining();
     }
-  }
-}
-
-void KEditScheduleDlg::updateTransactionsRemaining()
-{
-  int remain = d->m_schedule.transactionsRemaining();
-  if (remain != m_RemainingEdit->value()) {
-    m_RemainingEdit->blockSignals(true);
-    m_RemainingEdit->setValue(remain);
-    m_RemainingEdit->blockSignals(false);
   }
 }
 
@@ -580,31 +747,32 @@ void KEditScheduleDlg::slotShowHelp()
 
 void KEditScheduleDlg::slotFilterPaymentType(int index)
 {
+  Q_D(KEditScheduleDlg);
   //save selected item to reload if possible
-  int selectedId = m_paymentMethodEdit->itemData(m_paymentMethodEdit->currentIndex(), Qt::UserRole).toInt();
+  auto selectedId = d->ui->m_paymentMethodEdit->itemData(d->ui->m_paymentMethodEdit->currentIndex(), Qt::UserRole).toInt();
 
   //clear and reload the widget with the correct items
-  m_paymentMethodEdit->clear();
+  d->ui->m_paymentMethodEdit->clear();
 
   // load option widgets
-  KMyMoneyRegister::Action action = static_cast<KMyMoneyRegister::Action>(index);
-  if (action != KMyMoneyRegister::ActionWithdrawal) {
-    m_paymentMethodEdit->insertItem(i18n("Direct deposit"), MyMoneySchedule::STYPE_DIRECTDEPOSIT);
-    m_paymentMethodEdit->insertItem(i18n("Manual deposit"), MyMoneySchedule::STYPE_MANUALDEPOSIT);
+  eWidgets::eRegister::Action action = static_cast<eWidgets::eRegister::Action>(index);
+  if (action != eWidgets::eRegister::Action::Withdrawal) {
+    d->ui->m_paymentMethodEdit->insertItem(i18n("Direct deposit"), (int)Schedule::PaymentType::DirectDeposit);
+    d->ui->m_paymentMethodEdit->insertItem(i18n("Manual deposit"), (int)Schedule::PaymentType::ManualDeposit);
   }
-  if (action != KMyMoneyRegister::ActionDeposit) {
-    m_paymentMethodEdit->insertItem(i18n("Direct debit"), MyMoneySchedule::STYPE_DIRECTDEBIT);
-    m_paymentMethodEdit->insertItem(i18n("Write check"), MyMoneySchedule::STYPE_WRITECHEQUE);
+  if (action != eWidgets::eRegister::Action::Deposit) {
+    d->ui->m_paymentMethodEdit->insertItem(i18n("Direct debit"), (int)Schedule::PaymentType::DirectDebit);
+    d->ui->m_paymentMethodEdit->insertItem(i18n("Write check"), (int)Schedule::PaymentType::WriteChecque);
   }
-  m_paymentMethodEdit->insertItem(i18n("Standing order"), MyMoneySchedule::STYPE_STANDINGORDER);
-  m_paymentMethodEdit->insertItem(i18n("Bank transfer"), MyMoneySchedule::STYPE_BANKTRANSFER);
-  m_paymentMethodEdit->insertItem(i18nc("Other payment method", "Other"), MyMoneySchedule::STYPE_OTHER);
+  d->ui->m_paymentMethodEdit->insertItem(i18n("Standing order"), (int)Schedule::PaymentType::StandingOrder);
+  d->ui->m_paymentMethodEdit->insertItem(i18n("Bank transfer"), (int)Schedule::PaymentType::BankTransfer);
+  d->ui->m_paymentMethodEdit->insertItem(i18nc("Other payment method", "Other"), (int)Schedule::PaymentType::Other);
 
-  int newIndex = m_paymentMethodEdit->findData(QVariant(selectedId), Qt::UserRole, Qt::MatchExactly);
+  auto newIndex = d->ui->m_paymentMethodEdit->findData(QVariant(selectedId), Qt::UserRole, Qt::MatchExactly);
   if (newIndex > -1) {
-    m_paymentMethodEdit->setCurrentIndex(newIndex);
+    d->ui->m_paymentMethodEdit->setCurrentIndex(newIndex);
   } else {
-    m_paymentMethodEdit->setCurrentIndex(0);
+    d->ui->m_paymentMethodEdit->setCurrentIndex(0);
   }
 
 }

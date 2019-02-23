@@ -20,11 +20,11 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QDebug>
-#include <QTimer>
 #include <QHeaderView>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QDate>
+#include <QDebug>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -32,48 +32,74 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "ledgerproxymodel.h"
 #include "ledgerdelegate.h"
 #include "ledgermodel.h"
 #include "models.h"
+#include "mymoneymoney.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
 #include "accountsmodel.h"
 
 class LedgerView::Private
 {
 public:
   Private(LedgerView* p)
-  : parent(p)
-  , filterModel(new LedgerSortFilterProxyModel(parent))
-  , adjustableColumn(LedgerModel::DetailColumn)
+  : q(p)
+  , delegate(0)
+  , filterModel(new LedgerProxyModel(p))
+  , adjustableColumn((int)eLedgerModel::Column::Detail)
   , adjustingColumn(false)
   , showValuesInverted(false)
   , balanceCalculationPending(false)
   {
-    filterModel->setFilterRole(LedgerRole::AccountIdRole);
+    filterModel->setFilterRole((int)eLedgerModel::Role::AccountId);
     filterModel->setSourceModel(Models::instance()->ledgerModel());
+  }
+
+  void setDelegate(LedgerDelegate* _delegate)
+  {
+    delete delegate;
+    delegate = _delegate;
+  }
+
+  void setSortRole(eLedgerModel::Role role, int column)
+  {
+    Q_ASSERT(delegate);
+    Q_ASSERT(filterModel);
+
+    delegate->setSortRole(role);
+    filterModel->setSortRole((int)role);
+    filterModel->sort(column);
   }
 
   void recalculateBalances()
   {
-    QModelIndex start = filterModel->index(0, 0);
-    QModelIndexList indexes = filterModel->match(start, LedgerRole::AccountIdRole, account.id(), -1);
+    const auto start = filterModel->index(0, 0);
+    const auto indexes = filterModel->match(start, (int)eLedgerModel::Role::AccountId, account.id(), -1);
     MyMoneyMoney balance;
-    Q_FOREACH(QModelIndex index, indexes) {
+    for(const auto &index : indexes) {
       if(showValuesInverted) {
-        balance -= filterModel->data(index, LedgerRole::SplitSharesRole).value<MyMoneyMoney>();
+        balance -= filterModel->data(index, (int)eLedgerModel::Role::SplitShares).value<MyMoneyMoney>();
       } else {
-        balance += filterModel->data(index, LedgerRole::SplitSharesRole).value<MyMoneyMoney>();
+        balance += filterModel->data(index, (int)eLedgerModel::Role::SplitShares).value<MyMoneyMoney>();
       }
-      QString txt = balance.formatMoney(account.fraction());
-      QModelIndex dispIndex = filterModel->index(index.row(), LedgerModel::BalanceColumn);
+      const auto txt = balance.formatMoney(account.fraction());
+      const auto dispIndex = filterModel->index(index.row(), (int)eLedgerModel::Column::Balance);
       filterModel->setData(dispIndex, txt, Qt::DisplayRole);
     }
 
-    filterModel->invalidate();
+    // filterModel->invalidate();
+    const QModelIndex top = filterModel->index(0, (int)eLedgerModel::Column::Balance);
+    const QModelIndex bottom = filterModel->index(filterModel->rowCount()-1, (int)eLedgerModel::Column::Balance);
+
+    q->dataChanged(top, bottom);
     balanceCalculationPending = false;
   }
 
-  LedgerView*                 parent;
-  LedgerSortFilterProxyModel* filterModel;
+  LedgerView*                 q;
+  LedgerDelegate*             delegate;
+  LedgerProxyModel*           filterModel;
   MyMoneyAccount              account;
   int                         adjustableColumn;
   bool                        adjustingColumn;
@@ -87,6 +113,8 @@ LedgerView::LedgerView(QWidget* parent)
   : QTableView(parent)
   , d(new Private(this))
 {
+  verticalHeader()->setDefaultSectionSize(15);
+  verticalHeader()->setMinimumSectionSize(15);
   verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
   verticalHeader()->hide();
 
@@ -128,37 +156,44 @@ void LedgerView::setAccount(const MyMoneyAccount& acc)
 {
   d->account = acc;
   switch(acc.accountType()) {
-    case MyMoneyAccount::Investment:
+    case eMyMoney::Account::Type::Investment:
       break;
 
     default:
-      setColumnHidden(LedgerModel::SecurityColumn, true);
-      setColumnHidden(LedgerModel::CostCenterColumn, true);
-      setColumnHidden(LedgerModel::QuantityColumn, true);
-      setColumnHidden(LedgerModel::PriceColumn, true);
-      setColumnHidden(LedgerModel::AmountColumn, true);
-      setColumnHidden(LedgerModel::ValueColumn, true);
+      setColumnHidden((int)eLedgerModel::Column::Security, true);
+      setColumnHidden((int)eLedgerModel::Column::CostCenter, true);
+      setColumnHidden((int)eLedgerModel::Column::Quantity, true);
+      setColumnHidden((int)eLedgerModel::Column::Price, true);
+      setColumnHidden((int)eLedgerModel::Column::Amount, true);
+      setColumnHidden((int)eLedgerModel::Column::Value, true);
 
-      horizontalHeader()->resizeSection(LedgerModel::ReconciliationColumn, 20);
+      horizontalHeader()->resizeSection((int)eLedgerModel::Column::Reconciliation, 20);
 
-      setItemDelegate(new LedgerDelegate(this));
+      d->setDelegate(new LedgerDelegate(this));
+      setItemDelegate(d->delegate);
       break;
   }
 
   d->showValuesInverted = false;
-  if(acc.accountGroup() == MyMoneyAccount::Liability
-  || acc.accountGroup() == MyMoneyAccount::Income) {
+  if(acc.accountGroup() == eMyMoney::Account::Type::Liability
+  || acc.accountGroup() == eMyMoney::Account::Type::Income) {
     d->showValuesInverted = true;
   }
 
-  d->filterModel->setFilterRole(LedgerRole::AccountIdRole);
+  d->filterModel->setFilterRole((int)eLedgerModel::Role::AccountId);
+  d->filterModel->setFilterKeyColumn(0);
   d->filterModel->setFilterFixedString(acc.id());
   d->filterModel->setAccountType(acc.accountType());
-  d->filterModel->setSortRole(LedgerRole::PostDateRole);
-  d->filterModel->sort(LedgerModel::DateColumn);
 
-  // set the delegate for the markers by finding them in the model
-  /// @todo logic needs to be implemented
+  d->setSortRole(eLedgerModel::Role::PostDate, (int)eLedgerModel::Column::Date);
+
+  if (acc.hasOnlineMapping()) {
+    connect(Models::instance()->accountsModel(), &AccountsModel::dataChanged, this, &LedgerView::accountChanged);
+  } else {
+    disconnect(Models::instance()->accountsModel(), &AccountsModel::dataChanged, this, &LedgerView::accountChanged);
+    d->delegate->setOnlineBalance(QDate(), MyMoneyMoney());
+  }
+  accountChanged();
 
   // if balance calculation has not been triggered, then run it immediately
   if(!d->balanceCalculationPending) {
@@ -166,12 +201,14 @@ void LedgerView::setAccount(const MyMoneyAccount& acc)
   }
 
   if(d->filterModel->rowCount() > 0) {
-    // we need to check that the last row may contain a scheduled transaction
+    // we need to check that the last row may contain a scheduled transaction or
+    // the row that is shown for new transacations.
     // in that case, we need to go back to find the actual last transaction
     int row = d->filterModel->rowCount()-1;
     while(row >= 0) {
-      QModelIndex index = d->filterModel->index(row, 0);
-      if(index.model()->data(index, LedgerRole::ScheduleIdRole).toString().isEmpty()) {
+      const QModelIndex index = d->filterModel->index(row, 0);
+      if(d->filterModel->data(index, (int)eLedgerModel::Role::ScheduleId).toString().isEmpty()
+      && !d->filterModel->data(index, (int)eLedgerModel::Role::TransactionSplitId).toString().isEmpty() ) {
         setCurrentIndex(index);
         selectRow(index.row());
         scrollTo(index, PositionAtBottom);
@@ -185,9 +222,27 @@ void LedgerView::setAccount(const MyMoneyAccount& acc)
 QString LedgerView::accountId() const
 {
   QString id;
-  if(d->filterModel->filterRole() == LedgerRole::AccountIdRole)
+  if(d->filterModel->filterRole() == (int)eLedgerModel::Role::AccountId)
     id = d->account.id();
   return id;
+}
+
+void LedgerView::accountChanged()
+{
+  QString id = accountId();
+  if(!id.isEmpty()) {
+    d->account = MyMoneyFile::instance()->account(id);
+    QDate onlineBalanceDate = QDate::fromString(d->account.value(QLatin1String("lastImportedTransactionDate")), Qt::ISODate);
+    MyMoneyMoney amount(d->account.value(QLatin1String("lastStatementBalance")));
+    if (d->showValuesInverted) {
+      amount = -amount;
+    }
+    d->delegate->setOnlineBalance(onlineBalanceDate, amount, d->account.fraction());
+  } else {
+    d->delegate->setOnlineBalance(QDate(), MyMoneyMoney());
+  }
+  // force redraw
+  d->filterModel->invalidate();
 }
 
 void LedgerView::recalculateBalances()
@@ -225,10 +280,10 @@ bool LedgerView::edit(const QModelIndex& index, QAbstractItemView::EditTrigger t
     // the editor in that single cell
     closeEditor(indexWidget(index), QAbstractItemDelegate::NoHint);
 
-    bool haveEditorInOtherView = false;
+//    bool haveEditorInOtherView = false;
     /// @todo Here we need to make sure that only a single editor can be started at a time
 
-    if(!haveEditorInOtherView) {
+//    if(!haveEditorInOtherView) {
       emit aboutToStartEdit();
       setSpan(index.row(), 0, 1, horizontalHeader()->count());
       QModelIndex editIndex = model()->index(index.row(), 0);
@@ -237,11 +292,10 @@ bool LedgerView::edit(const QModelIndex& index, QAbstractItemView::EditTrigger t
       // make sure that the row gets resized according to the requirements of the editor
       // and is completely visible
       resizeRowToContents(index.row());
-      QMetaObject::invokeMethod(this, "scrollTo", Q_ARG(QModelIndex, index), Q_ARG(ScrollHint, EnsureVisible));
-
-    } else {
-      rc = false;
-    }
+      QMetaObject::invokeMethod(this, "ensureCurrentItemIsVisible", Qt::QueuedConnection);
+//    } else {
+//      rc = false;
+//    }
   }
 
   return rc;
@@ -257,7 +311,7 @@ void LedgerView::closeEditor(QWidget* editor, QAbstractItemDelegate::EndEditHint
 
   emit aboutToFinishEdit();
 
-  ensureCurrentItemIsVisible();
+  QMetaObject::invokeMethod(this, "ensureCurrentItemIsVisible", Qt::QueuedConnection);
 }
 
 void LedgerView::mousePressEvent(QMouseEvent* event)
@@ -270,8 +324,9 @@ void LedgerView::mousePressEvent(QMouseEvent* event)
 
 void LedgerView::mouseMoveEvent(QMouseEvent* event)
 {
+  Q_UNUSED(event);
   // qDebug() << "mouseMoveEvent";
-  QTableView::mouseMoveEvent(event);
+  // QTableView::mouseMoveEvent(event);
 }
 
 void LedgerView::mouseDoubleClickEvent(QMouseEvent* event)
@@ -294,7 +349,7 @@ void LedgerView::currentChanged(const QModelIndex& current, const QModelIndex& p
   if(current.isValid()) {
     QModelIndex index = current.model()->index(current.row(), 0);
     scrollTo(index, EnsureVisible);
-    QString id = current.model()->data(index, LedgerRole::TransactionSplitIdRole).toString();
+    QString id = current.model()->data(index, (int)eLedgerModel::Role::TransactionSplitId).toString();
     // For a new transaction the id is completely empty, for a split view the transaction
     // part is filled but the split id is empty and the string ends with a dash
     if(id.isEmpty() || id.endsWith('-')) {
@@ -354,10 +409,9 @@ int LedgerView::sizeHintForRow(int row) const
   // time in large ledgers. In case the editor is open in the row, we
   // use the regular method.
   QModelIndex index = d->filterModel->index(row, 0);
-  LedgerDelegate* delegate = qobject_cast<LedgerDelegate*>(itemDelegate(index));
-  if(delegate && (delegate->editorRow() != row)) {
+  if(d->delegate && (d->delegate->editorRow() != row)) {
     QStyleOptionViewItem opt;
-    int hint = delegate->sizeHint(opt, index).height();
+    int hint = d->delegate->sizeHint(opt, index).height();
     if(showGrid())
       hint += 1;
     return hint;
@@ -405,14 +459,9 @@ void LedgerView::adjustDetailColumn(int newViewportWidth)
   d->adjustingColumn = false;
 }
 
-void LedgerView::scrollTo(const QModelIndex& index, QAbstractItemView::ScrollHint hint)
-{
-  QTableView::scrollTo(index, hint);
-}
-
 void LedgerView::ensureCurrentItemIsVisible()
 {
-  QMetaObject::invokeMethod(this, "scrollTo", Q_ARG(QModelIndex, currentIndex()), Q_ARG(ScrollHint, EnsureVisible));
+  scrollTo(currentIndex(), EnsureVisible);
 }
 
 void LedgerView::setShowEntryForNewTransaction(bool show)

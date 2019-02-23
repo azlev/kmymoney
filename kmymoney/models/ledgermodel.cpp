@@ -1,23 +1,22 @@
-/***************************************************************************
-                          ledgermodel.cpp
-                             -------------------
-    begin                : Sat Aug 8 2015
-    copyright            : (C) 2015 by Thomas Baumgart
-    email                : Thomas Baumgart <tbaumgart@kde.org>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2016-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "ledgermodel.h"
-#include "models.h"
-#include "costcentermodel.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
@@ -33,415 +32,38 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "ledgerschedule.h"
+
+#include "mymoneyschedule.h"
+#include "mymoneysplit.h"
 #include "mymoneytransaction.h"
+#include "mymoneytransactionfilter.h"
 #include "mymoneyfile.h"
 #include "mymoneymoney.h"
+#include "mymoneyexception.h"
 #include "kmymoneyutils.h"
-#include "kmymoneyglobalsettings.h"
+#include "kmymoneysettings.h"
+#include "mymoneyenums.h"
+#include "modelenums.h"
 
-LedgerItem::LedgerItem()
+using namespace eLedgerModel;
+using namespace eMyMoney;
+
+class LedgerModelPrivate
 {
-}
-
-LedgerItem::~LedgerItem()
-{
-}
-
-LedgerTransaction::LedgerTransaction(const MyMoneyTransaction& t, const MyMoneySplit& s)
-  : LedgerItem()
-  , m_transaction(t)
-  , m_split(s)
-  , m_erroneous(false)
-{
-  // extract the payee id
-  QString payeeId = m_split.payeeId();
-  if(payeeId.isEmpty()) {
-    QList<MyMoneySplit>::const_iterator it;
-    for(it = m_transaction.splits().constBegin(); it != m_transaction.splits().constEnd(); ++it) {
-      if(!(*it).payeeId().isEmpty()) {
-        payeeId = (*it).payeeId();
-        break;
-      }
-    }
-  }
-  if(!payeeId.isEmpty()) {
-    m_payeeId = payeeId;
-    m_payeeName = MyMoneyFile::instance()->payee(payeeId).name();
-  }
-
-  m_account = MyMoneyFile::instance()->accountToCategory(m_split.accountId());
-  m_costCenterId = m_split.costCenterId();
-
-  // A transaction can have more than 2 splits ...
-  if(m_transaction.splitCount() > 2) {
-    m_counterAccount = i18n("Split transaction");
-
-  // ... exactly two splits ...
-  } else if(m_transaction.splitCount() == 2) {
-    QList<MyMoneySplit>::const_iterator it;
-    for(it = m_transaction.splits().constBegin(); it != m_transaction.splits().constEnd(); ++it) {
-      if((*it).id() != m_split.id()) {
-        m_counterAccountId = (*it).accountId();
-        m_counterAccount = MyMoneyFile::instance()->accountToCategory(m_counterAccountId);
-        // in case the own split does not have a costcenter, but the counter split does
-        // we use it nevertheless
-        if(m_costCenterId.isEmpty())
-          m_costCenterId = (*it).costCenterId();
-        break;
-      }
-    }
-
-  // ... or a single split
-  } else if(!m_split.shares().isZero()) {
-    m_counterAccount = i18n("*** UNASSIGNED ***");
-  }
-
-  // The transaction is erroneous in case it is not balanced
-  m_erroneous = !m_transaction.splitSum().isZero();
-
-  // now take care of the values
-  setupValueDisplay();
-}
-
-
-LedgerTransaction::~LedgerTransaction()
-{
-}
-
-void LedgerTransaction::setupValueDisplay()
-{
-  const MyMoneyFile* file = MyMoneyFile::instance();
-  const MyMoneyAccount acc = file->account(m_split.accountId());
-
-  MyMoneyMoney value = m_split.value(m_transaction.commodity(), acc.currencyId());
-  m_signedShares = value.formatMoney(acc.fraction());
-
-  if(value.isNegative()) {
-    m_shares = m_payment = (-value).formatMoney(acc.fraction());
-  } else {
-    m_shares = m_deposit = m_signedShares;
-  }
-
-  // figure out if it is a debit or credit split. s.a. https://en.wikipedia.org/wiki/Debits_and_credits#Aspects_of_transactions
-  if(m_split.shares().isNegative()) {
-    m_sharesSuffix = i18nc("Credit suffix", "Cr.");
-  } else {
-    m_sharesSuffix = i18nc("Debit suffix", "Dr.");
-  }
-}
-
-QDate LedgerTransaction::postDate() const
-{
-  return m_transaction.postDate();
-}
-
-QString LedgerTransaction::transactionSplitId() const
-{
-  QString rc;
-  if(!m_transaction.id().isEmpty()) {
-    rc = QString("%1-%2").arg(m_transaction.id()).arg(m_split.id());
-  }
-  return rc;
-}
-
-MyMoneySplit::reconcileFlagE LedgerTransaction::reconciliationState() const
-{
-  return m_split.reconcileFlag();
-}
-
-QString LedgerTransaction::reconciliationStateShort() const
-{
-  QString rc;
-  switch(m_split.reconcileFlag()) {
-    case MyMoneySplit::NotReconciled:
-    default:
-      break;
-    case MyMoneySplit::Cleared:
-      rc = i18nc("Reconciliation flag C", "C");
-      break;
-    case MyMoneySplit::Reconciled:
-      rc = i18nc("Reconciliation flag R", "R");
-      break;
-    case MyMoneySplit::Frozen:
-      rc = i18nc("Reconciliation flag F", "F");
-      break;
-  }
-  return rc;
-}
-
-QString LedgerTransaction::reconciliationStateLong() const
-{
-  QString rc;
-  switch(m_split.reconcileFlag()) {
-    case MyMoneySplit::NotReconciled:
-    default:
-      rc = i18nc("Reconciliation flag empty", "Not reconciled");
-      break;
-    case MyMoneySplit::Cleared:
-      rc = i18nc("Reconciliation flag C", "Cleared");
-      break;
-    case MyMoneySplit::Reconciled:
-      rc = i18nc("Reconciliation flag R", "Reconciled");
-      break;
-    case MyMoneySplit::Frozen:
-      rc = i18nc("Reconciliation flag F", "Frozen");
-      break;
-  }
-  return rc;
-}
-
-
-void LedgerTransaction::setBalance(QString txt)
-{
-  m_balance = txt;
-}
-
-QString LedgerTransaction::memo() const
-{
-  QString memo = m_split.memo();
-  if(memo.isEmpty()) {
-    memo = m_transaction.memo();
-  }
-  return memo;
-}
-
-LedgerTransaction LedgerTransaction::newTransactionEntry()
-{
-  // create a dummy entry for new transactions
-  MyMoneyTransaction t;
-  t.setPostDate(QDate(2900,12,31));
-  return LedgerTransaction(t, MyMoneySplit());
-}
-
-bool LedgerTransaction::isNewTransactionEntry() const
-{
-  return m_transaction.id().isEmpty() && m_split.id().isEmpty();
-}
-
-QString LedgerTransaction::transactionCommodity() const
-{
-  return m_transaction.commodity();
-}
-
-
-
-
-QString LedgerSchedule::transactionSplitId() const
-{
-  return QString("%1-%2").arg(m_schedule.id()).arg(m_split.id());
-}
-
-LedgerSchedule::LedgerSchedule(const MyMoneySchedule& s, const MyMoneyTransaction& t, const MyMoneySplit& sp)
-  : LedgerTransaction(t, sp)
-  , m_schedule(s)
-{
-}
-
-LedgerSchedule::~LedgerSchedule()
-{
-}
-
-QString LedgerSchedule::scheduleId() const
-{
-  return m_schedule.id();
-}
-
-
-LedgerSplit::LedgerSplit(const MyMoneyTransaction& t, const MyMoneySplit& s)
-  : LedgerTransaction(t, s)
-{
-  // override the settings made in the base class
-  m_payeeName.clear();
-  m_payeeId = m_split.payeeId();
-  if(!m_payeeId.isEmpty()) {
-    try {
-      m_payeeName = MyMoneyFile::instance()->payee(m_payeeId).name();
-    } catch(MyMoneyException&) {
-      qDebug() << "payee" << m_payeeId << "not found.";
-    }
-  }
-}
-
-LedgerSplit::~LedgerSplit()
-{
-}
-
-QString LedgerSplit::memo() const
-{
-  return m_split.memo();
-}
-
-
-
-
-
-
-
-
-LedgerSortFilterProxyModel::LedgerSortFilterProxyModel(QObject* parent)
-  : QSortFilterProxyModel(parent)
-  , m_showNewTransaction(false)
-  , m_accountType(MyMoneyAccount::Asset)
-{
-  setFilterRole(LedgerRole::AccountIdRole);
-  setFilterKeyColumn(0);
-  setSortRole(LedgerRole::PostDateRole);
-  setDynamicSortFilter(true);
-}
-
-LedgerSortFilterProxyModel::~LedgerSortFilterProxyModel()
-{
-}
-
-void LedgerSortFilterProxyModel::setAccountType(MyMoneyAccount::accountTypeE type)
-{
-  m_accountType = type;
-}
-
-QVariant LedgerSortFilterProxyModel::headerData(int section, Qt::Orientation orientation, int role) const
-{
-  if(orientation == Qt::Horizontal && role == Qt::DisplayRole) {
-    switch(section) {
-      case LedgerModel::PaymentColumn:
-        switch(m_accountType) {
-          case MyMoneyAccount::CreditCard:
-            return i18nc("Payment made with credit card", "Charge");
-
-          case MyMoneyAccount::Asset:
-          case MyMoneyAccount::AssetLoan:
-            return i18nc("Decrease of asset/liability value", "Decrease");
-
-          case MyMoneyAccount::Liability:
-          case MyMoneyAccount::Loan:
-            return i18nc("Increase of asset/liability value", "Increase");
-
-          case MyMoneyAccount::Income:
-          case MyMoneyAccount::Expense:
-            return i18n("Income");
-
-          default:
-            break;
-        }
-        break;
-
-      case LedgerModel::DepositColumn:
-        switch(m_accountType) {
-          case MyMoneyAccount::CreditCard:
-            return i18nc("Payment towards credit card", "Payment");
-
-          case MyMoneyAccount::Asset:
-          case MyMoneyAccount::AssetLoan:
-            return i18nc("Increase of asset/liability value", "Increase");
-
-          case MyMoneyAccount::Liability:
-          case MyMoneyAccount::Loan:
-            return i18nc("Decrease of asset/liability value", "Decrease");
-
-          case MyMoneyAccount::Income:
-          case MyMoneyAccount::Expense:
-            return i18n("Expense");
-
-          default:
-            break;
-        }
-        break;
-    }
-  }
-  return QSortFilterProxyModel::headerData(section, orientation, role);
-}
-
-bool LedgerSortFilterProxyModel::lessThan(const QModelIndex& left, const QModelIndex& right) const
-{
-  // make sure that the dummy transaction is shown last in any case
-  if(left.data(LedgerRole::TransactionSplitIdRole).toString().isEmpty()) {
-    return false;
-  } else if(right.data(LedgerRole::TransactionSplitIdRole).toString().isEmpty()) {
-    return true;
-  }
-
-  // make sure schedules are shown past real transactions
-  if(!left.data(LedgerRole::ScheduleIdRole).toString().isEmpty()
-  && right.data(LedgerRole::ScheduleIdRole).toString().isEmpty()) {
-    // left is schedule, right is not
-    return false;
-
-  } else if(left.data(LedgerRole::ScheduleIdRole).toString().isEmpty()
-         && !right.data(LedgerRole::ScheduleIdRole).toString().isEmpty()) {
-    // right is schedule, left is not
-    return true;
-  }
-
-  // otherwise use normal sorting
-  return QSortFilterProxyModel::lessThan(left, right);
-}
-
-bool LedgerSortFilterProxyModel::filterAcceptsRow(int source_row, const QModelIndex& source_parent) const
-{
-  if(m_showNewTransaction) {
-    QModelIndex idx = sourceModel()->index(source_row, 0, source_parent);
-    if(idx.data(LedgerRole::TransactionSplitIdRole).toString().isEmpty()) {
-      return true;
-    }
-  }
-  return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
-}
-
-bool LedgerSortFilterProxyModel::setData(const QModelIndex& index, const QVariant& value, int role)
-{
-  QModelIndex sourceIndex = mapToSource(index);
-  return sourceModel()->setData(sourceIndex, value, role);
-}
-
-void LedgerSortFilterProxyModel::setShowNewTransaction(bool show)
-{
-  const bool changed = show != m_showNewTransaction;
-  m_showNewTransaction = show;
-  if(changed) {
-    invalidate();
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-struct LedgerModel::Private
-{
-  Private() {}
-
-  ~Private() {
-    for(int i = 0; i < m_ledgerItems.count(); ++i) {
-      delete m_ledgerItems.at(i);
-    }
+public:
+  ~LedgerModelPrivate() {
+    qDeleteAll(m_ledgerItems);
+    m_ledgerItems.clear();
   }
   MyMoneyTransaction    m_lastTransactionStored;
   QVector<LedgerItem*>  m_ledgerItems;
 };
 
-
-
-LedgerModel::LedgerModel(QObject* parent)
-  : QAbstractTableModel(parent)
-  , d(new Private)
+LedgerModel::LedgerModel(QObject* parent) :
+  QAbstractTableModel(parent),
+  d_ptr(new LedgerModelPrivate)
 {
-  MyMoneyFile* file = MyMoneyFile::instance();
-
-  connect(file, SIGNAL(objectAdded(MyMoneyFile::notificationObjectT,MyMoneyObject*const)), this, SLOT(addTransaction(MyMoneyFile::notificationObjectT,MyMoneyObject*const)));
-  connect(file, SIGNAL(objectModified(MyMoneyFile::notificationObjectT,MyMoneyObject*const)), this, SLOT(modifyTransaction(MyMoneyFile::notificationObjectT,MyMoneyObject*const)));
-  connect(file, SIGNAL(objectRemoved(MyMoneyFile::notificationObjectT,QString)), this, SLOT(removeTransaction(MyMoneyFile::notificationObjectT,QString)));
-
-  connect(file, SIGNAL(objectAdded(MyMoneyFile::notificationObjectT,MyMoneyObject*const)), this, SLOT(addSchedule(MyMoneyFile::notificationObjectT,MyMoneyObject*const)));
-  connect(file, SIGNAL(objectModified(MyMoneyFile::notificationObjectT,MyMoneyObject*const)), this, SLOT(modifySchedule(MyMoneyFile::notificationObjectT,MyMoneyObject*const)));
-  connect(file, SIGNAL(objectRemoved(MyMoneyFile::notificationObjectT,QString)), this, SLOT(removeSchedule(MyMoneyFile::notificationObjectT,QString)));
 }
 
 LedgerModel::~LedgerModel()
@@ -456,17 +78,19 @@ int LedgerModel::rowCount(const QModelIndex& parent) const
     return 0;
   }
 
+  Q_D(const LedgerModel);
   return d->m_ledgerItems.count();
 }
 
 int LedgerModel::columnCount(const QModelIndex& parent) const
 {
   Q_UNUSED(parent);
-  return NumberOfLedgerColumns;
+  return (int)Column::LastColumn;
 }
 
 Qt::ItemFlags LedgerModel::flags(const QModelIndex& index) const
 {
+  Q_D(const LedgerModel);
   Qt::ItemFlags flags;
 
   if(!index.isValid())
@@ -482,51 +106,45 @@ QVariant LedgerModel::headerData(int section, Qt::Orientation orientation, int r
 {
   if(orientation == Qt::Horizontal && role == Qt::DisplayRole) {
     switch(section) {
-      case NumberColumn:
+      case (int)Column::Number:
         return i18nc("Cheque Number", "No.");
-      case DateColumn:
+      case (int)Column::Date:
         return i18n("Date");
-        break;
-      case SecurityColumn:
+      case (int)Column::Security:
         return i18n("Security");
-        break;
-      case CostCenterColumn:
+      case (int)Column::CostCenter:
         return i18n("CC");
-        break;
-      case DetailColumn:
+      case (int)Column::Detail:
         return i18n("Detail");
-        break;
-      case ReconciliationColumn:
+      case (int)Column::Reconciliation:
         return i18n("C");
-        break;
-      case PaymentColumn:
+      case (int)Column::Payment:
         return i18nc("Payment made from account", "Payment");
-        break;
-      case DepositColumn:
+      case (int)Column::Deposit:
         return i18nc("Deposit into account", "Deposit");
-        break;
-      case QuantityColumn:
+      case (int)Column::Quantity:
         return i18n("Quantity");
-        break;
-      case PriceColumn:
+      case (int)Column::Price:
         return i18n("Price");
-        break;
-      case AmountColumn:
+      case (int)Column::Amount:
         return i18n("Amount");
-        break;
-      case ValueColumn:
+      case (int)Column::Value:
         return i18n("Value");
-        break;
-      case BalanceColumn:
+      case (int)Column::Balance:
         return i18n("Balance");
-        break;
     }
+  }
+  else if(orientation == Qt::Vertical && role == Qt::SizeHintRole) {
+    // as small as possible, so that the delegate has a chance
+    // to override the information
+    return QSize(10, 10);
   }
   return QAbstractItemModel::headerData(section, orientation, role);
 }
 
 QVariant LedgerModel::data(const QModelIndex& index, int role) const
 {
+  Q_D(const LedgerModel);
   if(!index.isValid())
     return QVariant();
   if(index.row() < 0 || index.row() >= d->m_ledgerItems.count())
@@ -538,28 +156,28 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
       // make sure to never return any displayable text for the dummy entry
       if(!d->m_ledgerItems[index.row()]->transactionSplitId().isEmpty()) {
         switch(index.column()) {
-          case NumberColumn:
+          case (int)Column::Number:
             rc = d->m_ledgerItems[index.row()]->transactionNumber();
             break;
-          case DateColumn:
+          case (int)Column::Date:
             rc = QLocale().toString(d->m_ledgerItems[index.row()]->postDate(), QLocale::ShortFormat);
             break;
-          case DetailColumn:
+          case (int)Column::Detail:
             rc = d->m_ledgerItems[index.row()]->counterAccount();
             break;
-          case ReconciliationColumn:
+          case (int)Column::Reconciliation:
             rc = d->m_ledgerItems[index.row()]->reconciliationStateShort();
             break;
-          case PaymentColumn:
+          case (int)Column::Payment:
             rc = d->m_ledgerItems[index.row()]->payment();
             break;
-          case DepositColumn:
+          case (int)Column::Deposit:
             rc = d->m_ledgerItems[index.row()]->deposit();
             break;
-          case AmountColumn:
+          case (int)Column::Amount:
             rc = d->m_ledgerItems[index.row()]->signedSharesAmount();
             break;
-          case BalanceColumn:
+          case (int)Column::Balance:
             rc = d->m_ledgerItems[index.row()]->balance();
             break;
         }
@@ -568,14 +186,14 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
 
     case Qt::TextAlignmentRole:
       switch(index.column()) {
-        case PaymentColumn:
-        case DepositColumn:
-        case AmountColumn:
-        case BalanceColumn:
-        case ValueColumn:
+        case (int)Column::Payment:
+        case (int)Column::Deposit:
+        case (int)Column::Amount:
+        case (int)Column::Balance:
+        case (int)Column::Value:
           rc = QVariant(Qt::AlignRight| Qt::AlignTop);
           break;
-        case ReconciliationColumn:
+        case (int)Column::Reconciliation:
           rc = QVariant(Qt::AlignHCenter | Qt::AlignTop);
           break;
         default:
@@ -586,75 +204,76 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
 
     case Qt::BackgroundColorRole:
       if(d->m_ledgerItems[index.row()]->isImported()) {
-        return KMyMoneyGlobalSettings::importedTransactionColor();
+        return KMyMoneySettings::schemeColor(SchemeColor::TransactionImported);
       }
       break;
 
-    case LedgerRole::CounterAccountRole:
+    case (int)Role::CounterAccount:
       rc = d->m_ledgerItems[index.row()]->counterAccount();
       break;
 
-    case LedgerRole::SplitCountRole:
+    case (int)Role::SplitCount:
       rc = d->m_ledgerItems[index.row()]->splitCount();
+      break;
 
-    case LedgerRole::CostCenterIdRole:
+    case (int)Role::CostCenterId:
       rc = d->m_ledgerItems[index.row()]->costCenterId();
       break;
 
-    case LedgerRole::PostDateRole:
+    case (int)Role::PostDate:
       rc = d->m_ledgerItems[index.row()]->postDate();
       break;
 
-    case LedgerRole::PayeeNameRole:
+    case (int)Role::PayeeName:
       rc = d->m_ledgerItems[index.row()]->payeeName();
       break;
 
-    case LedgerRole::PayeeIdRole:
+    case (int)Role::PayeeId:
       rc = d->m_ledgerItems[index.row()]->payeeId();
       break;
 
-    case LedgerRole::AccountIdRole:
+    case (int)Role::AccountId:
       rc = d->m_ledgerItems[index.row()]->accountId();
       break;
 
     case Qt::EditRole:
-    case LedgerRole::TransactionSplitIdRole:
+    case (int)Role::TransactionSplitId:
       rc = d->m_ledgerItems[index.row()]->transactionSplitId();
       break;
 
-    case LedgerRole::TransactionIdRole:
+    case (int)Role::TransactionId:
       rc = d->m_ledgerItems[index.row()]->transactionId();
       break;
 
-    case LedgerRole::ReconciliationRole:
-      rc = d->m_ledgerItems[index.row()]->reconciliationState();
+    case (int)Role::Reconciliation:
+      rc = (int)d->m_ledgerItems[index.row()]->reconciliationState();
       break;
 
-    case LedgerRole::ReconciliationRoleShort:
+    case (int)Role::ReconciliationShort:
       rc = d->m_ledgerItems[index.row()]->reconciliationStateShort();
       break;
 
-    case LedgerRole::ReconciliationRoleLong:
+    case (int)Role::ReconciliationLong:
       rc = d->m_ledgerItems[index.row()]->reconciliationStateLong();
       break;
 
-    case LedgerRole::SplitValueRole:
+    case (int)Role::SplitValue:
       rc.setValue(d->m_ledgerItems[index.row()]->value());
       break;
 
-    case LedgerRole::SplitSharesRole:
+    case (int)Role::SplitShares:
       rc.setValue(d->m_ledgerItems[index.row()]->shares());
       break;
 
-    case LedgerRole::ShareAmountRole:
+    case (int)Role::ShareAmount:
       rc.setValue(d->m_ledgerItems[index.row()]->sharesAmount());
       break;
 
-    case LedgerRole::ShareAmountSuffixRole:
+    case (int)Role::ShareAmountSuffix:
       rc.setValue(d->m_ledgerItems[index.row()]->sharesSuffix());
       break;
 
-    case LedgerRole::ScheduleIdRole:
+    case (int)Role::ScheduleId:
       {
       LedgerSchedule* schedule = 0;
       schedule = dynamic_cast<LedgerSchedule*>(d->m_ledgerItems[index.row()]);
@@ -664,10 +283,10 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
       break;
     }
 
-    case LedgerRole::MemoRole:
-    case LedgerRole::SingleLineMemoRole:
+    case (int)Role::Memo:
+    case (int)Role::SingleLineMemo:
       rc.setValue(d->m_ledgerItems[index.row()]->memo());
-      if(role == LedgerRole::SingleLineMemoRole) {
+      if(role == (int)Role::SingleLineMemo) {
         QString txt = rc.toString();
         // remove empty lines
         txt.replace("\n\n", "\n");
@@ -677,31 +296,31 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
       }
       break;
 
-    case LedgerRole::NumberRole:
+    case (int)Role::Number:
       rc = d->m_ledgerItems[index.row()]->transactionNumber();
       break;
 
-    case LedgerRole::ErroneousRole:
+    case (int)Role::Erroneous:
       rc = d->m_ledgerItems[index.row()]->isErroneous();
       break;
 
-    case LedgerRole::ImportRole:
+    case (int)Role::Import:
       rc = d->m_ledgerItems[index.row()]->isImported();
       break;
 
-    case LedgerRole::CounterAccountIdRole:
+    case (int)Role::CounterAccountId:
       rc = d->m_ledgerItems[index.row()]->counterAccountId();
       break;
 
-    case LedgerRole::TransactionCommodityRole:
+    case (int)Role::TransactionCommodity:
       rc = d->m_ledgerItems[index.row()]->transactionCommodity();
       break;
 
-    case LedgerRole::TransactionRole:
+    case (int)Role::Transaction:
       rc.setValue(d->m_ledgerItems[index.row()]->transaction());
       break;
 
-    case LedgerRole::SplitRole:
+    case (int)Role::Split:
       rc.setValue(d->m_ledgerItems[index.row()]->split());
       break;
   }
@@ -710,10 +329,11 @@ QVariant LedgerModel::data(const QModelIndex& index, int role) const
 
 bool LedgerModel::setData(const QModelIndex& index, const QVariant& value, int role)
 {
+  Q_D(LedgerModel);
   if(!index.isValid()) {
     return false;
   }
-  if(role == Qt::DisplayRole && index.column() == BalanceColumn) {
+  if(role == Qt::DisplayRole && index.column() == (int)Column::Balance) {
     d->m_ledgerItems[index.row()]->setBalance(value.toString());
     return true;
   }
@@ -725,6 +345,7 @@ bool LedgerModel::setData(const QModelIndex& index, const QVariant& value, int r
 
 void LedgerModel::unload()
 {
+  Q_D(LedgerModel);
   if(rowCount() > 0) {
     beginRemoveRows(QModelIndex(), 0, rowCount() - 1);
     for(int i = 0; i < rowCount(); ++i) {
@@ -737,6 +358,7 @@ void LedgerModel::unload()
 
 void LedgerModel::addTransactions(const QList< QPair<MyMoneyTransaction, MyMoneySplit> >& list)
 {
+  Q_D(LedgerModel);
   if(list.count() > 0) {
     beginInsertRows(QModelIndex(), rowCount(), rowCount() + list.count() - 1);
     QList< QPair<MyMoneyTransaction, MyMoneySplit> >::const_iterator it;
@@ -749,6 +371,7 @@ void LedgerModel::addTransactions(const QList< QPair<MyMoneyTransaction, MyMoney
 
 void LedgerModel::addTransaction(const LedgerTransaction& t)
 {
+  Q_D(LedgerModel);
   beginInsertRows(QModelIndex(), rowCount(), rowCount());
   d->m_ledgerItems.append(new LedgerTransaction(t.transaction(), t.split()));
   endInsertRows();
@@ -756,6 +379,7 @@ void LedgerModel::addTransaction(const LedgerTransaction& t)
 
 void LedgerModel::addTransaction(const QString& transactionSplitId)
 {
+  Q_D(LedgerModel);
   QRegExp transactionSplitIdExp("^(\\w+)-(\\w+)$");
   if(transactionSplitIdExp.exactMatch(transactionSplitId)) {
     const QString transactionId = transactionSplitIdExp.cap(1);
@@ -763,7 +387,7 @@ void LedgerModel::addTransaction(const QString& transactionSplitId)
     if(transactionId != d->m_lastTransactionStored.id()) {
       try {
         d->m_lastTransactionStored = MyMoneyFile::instance()->transaction(transactionId);
-      } catch(MyMoneyException& e) {
+      } catch (const MyMoneyException &) {
         d->m_lastTransactionStored = MyMoneyTransaction();
       }
     }
@@ -772,7 +396,7 @@ void LedgerModel::addTransaction(const QString& transactionSplitId)
       beginInsertRows(QModelIndex(), rowCount(), rowCount());
       d->m_ledgerItems.append(new LedgerTransaction(d->m_lastTransactionStored, split));
       endInsertRows();
-    } catch(MyMoneyException& e) {
+    } catch (const MyMoneyException &) {
       d->m_lastTransactionStored = MyMoneyTransaction();
     }
   }
@@ -780,6 +404,7 @@ void LedgerModel::addTransaction(const QString& transactionSplitId)
 
 void LedgerModel::addSchedules(const QList<MyMoneySchedule> & list, int previewPeriod)
 {
+  Q_D(LedgerModel);
   if(list.count() > 0) {
     QVector<LedgerItem*> newList;
 
@@ -814,13 +439,9 @@ void LedgerModel::addSchedules(const QList<MyMoneySchedule> & list, int previewP
           t.setPostDate(schedule.adjustedNextDueDate());
         }
 
-        const QList<MyMoneySplit>& splits = t.splits();
-        QList<MyMoneySplit>::const_iterator it_s;
-
         // create a model entry for each split of the schedule
-        for(it_s = splits.constBegin(); it_s != splits.constEnd(); ++it_s) {
-          newList.append(new LedgerSchedule(schedule, t, (*it_s)));
-        }
+        foreach (const auto split, t.splits())
+          newList.append(new LedgerSchedule(schedule, t, split));
 
         // keep track of this payment locally (not in the engine)
         if (schedule.isOverdue()) {
@@ -830,7 +451,7 @@ void LedgerModel::addSchedules(const QList<MyMoneySchedule> & list, int previewP
         }
 
         // if this is a one time schedule, we can bail out here as we're done
-        if (schedule.occurrence() == MyMoneySchedule::OCCUR_ONCE)
+        if (schedule.occurrence() == Schedule::Occurrence::Once)
           break;
 
         // for all others, we check if the next payment date is still 'in range'
@@ -842,9 +463,11 @@ void LedgerModel::addSchedules(const QList<MyMoneySchedule> & list, int previewP
         }
       }
     }
-    beginInsertRows(QModelIndex(), rowCount(), rowCount() + newList.count() - 1);
-    d->m_ledgerItems += newList;
-    endInsertRows();
+    if(!newList.isEmpty()) {
+      beginInsertRows(QModelIndex(), rowCount(), rowCount() + newList.count() - 1);
+      d->m_ledgerItems += newList;
+      endInsertRows();
+    }
   }
 }
 
@@ -858,10 +481,10 @@ void LedgerModel::load()
   addTransactions(tList);
   qDebug() << "Loaded" << rowCount() << "elements";
 
-  // load all scheduled transactoins and splits into the model
+  // load all scheduled transactions and splits into the model
   const int splitCount = rowCount();
   QList<MyMoneySchedule> sList = MyMoneyFile::instance()->scheduleList();
-  addSchedules(sList, KMyMoneyGlobalSettings::schedulePreview());
+  addSchedules(sList, KMyMoneySettings::schedulePreview());
   qDebug() << "Loaded" << rowCount()-splitCount << "elements";
 
   // create a dummy entry for new transactions
@@ -870,37 +493,37 @@ void LedgerModel::load()
   qDebug() << "Loaded" << rowCount() << "elements";
 }
 
-void LedgerModel::addTransaction(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj)
+void LedgerModel::slotAddTransaction(File::Object objType, const QString& id)
 {
-  if(objType != MyMoneyFile::notifyTransaction) {
+  if(objType != File::Object::Transaction) {
     return;
   }
+  Q_D(LedgerModel);
+  qDebug() << "Adding transaction" << id;
 
-  qDebug() << "Adding transaction" << obj->id();
+  const auto t = MyMoneyFile::instance()->transaction(id);
 
-  const MyMoneyTransaction * const t = static_cast<const MyMoneyTransaction * const>(obj);
-
-  beginInsertRows(QModelIndex(), rowCount(), rowCount() + t->splitCount() - 1);
-  foreach(MyMoneySplit s, t->splits()) {
-    d->m_ledgerItems.append(new LedgerTransaction(*t, s));
-  }
+  beginInsertRows(QModelIndex(), rowCount(), rowCount() + t.splitCount() - 1);
+  foreach (auto s, t.splits())
+    d->m_ledgerItems.append(new LedgerTransaction(t, s));
   endInsertRows();
 
   // just make sure we're in sync
   Q_ASSERT(d->m_ledgerItems.count() == rowCount());
 }
 
-void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, const MyMoneyObject* const obj)
+void LedgerModel::slotModifyTransaction(File::Object objType, const QString& id)
 {
-  if(objType != MyMoneyFile::notifyTransaction) {
+  if(objType != File::Object::Transaction) {
     return;
   }
 
-  const MyMoneyTransaction * const t = static_cast<const MyMoneyTransaction * const>(obj);
+  Q_D(LedgerModel);
+  const auto t = MyMoneyFile::instance()->transaction(id);
   // get indexes of all existing splits for this transaction
-  QModelIndexList list = match(index(0, 0), LedgerRole::TransactionIdRole, obj->id(), -1);
+  auto list = match(index(0, 0), (int)Role::TransactionId, id, -1);
   // get list of splits to be stored
-  QList<MyMoneySplit> splits = t->splits();
+  auto splits = t.splits();
 
   int lastRowUsed = -1;
   int firstRowUsed = 99999999;
@@ -915,9 +538,9 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
     QModelIndex index = list.takeFirst();
     MyMoneySplit split = splits.takeFirst();
     // get rid of the old split and store new split
-    qDebug() << "Modify split in row:" << index.row() << t->id() << split.id();
+    qDebug() << "Modify split in row:" << index.row() << t.id() << split.id();
     delete d->m_ledgerItems[index.row()];
-    d->m_ledgerItems[index.row()] = new LedgerTransaction(*t, split);
+    d->m_ledgerItems[index.row()] = new LedgerTransaction(t, split);
   }
 
   // inform every one else about the changes
@@ -935,7 +558,7 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
     d->m_ledgerItems.insert(lastRowUsed, splits.count(), 0);
     while(!splits.isEmpty()) {
       MyMoneySplit split = splits.takeFirst();
-      d->m_ledgerItems[lastRowUsed] = new LedgerTransaction(*t, split);
+      d->m_ledgerItems[lastRowUsed] = new LedgerTransaction(t, split);
       lastRowUsed++;
     }
     endInsertRows();
@@ -950,7 +573,7 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
       ++count;
       QModelIndex index = list.takeFirst();
       // get rid of the old split and store new split
-      qDebug() << "Delete split in row:" << index.row() << data(index, LedgerRole::TransactionSplitIdRole).toString();
+      qDebug() << "Delete split in row:" << index.row() << data(index, (int)Role::TransactionSplitId).toString();
       delete d->m_ledgerItems[index.row()];
     }
     d->m_ledgerItems.remove(firstRowUsed, count);
@@ -961,13 +584,14 @@ void LedgerModel::modifyTransaction(MyMoneyFile::notificationObjectT objType, co
   Q_ASSERT(d->m_ledgerItems.count() == rowCount());
 }
 
-void LedgerModel::removeTransaction(MyMoneyFile::notificationObjectT objType, const QString& id)
+void LedgerModel::slotRemoveTransaction(File::Object objType, const QString& id)
 {
-  if(objType != MyMoneyFile::notifyTransaction) {
+  if(objType != File::Object::Transaction) {
     return;
   }
+  Q_D(LedgerModel);
 
-  QModelIndexList list = match(index(0, 0), LedgerRole::TransactionIdRole, id, -1);
+  QModelIndexList list = match(index(0, 0), (int)Role::TransactionId, id, -1);
 
   if(list.count()) {
     const int firstRowUsed = list[0].row();
@@ -983,30 +607,30 @@ void LedgerModel::removeTransaction(MyMoneyFile::notificationObjectT objType, co
   }
 }
 
-void LedgerModel::addSchedule(MyMoneyFile::notificationObjectT objType, const MyMoneyObject*const obj)
+void LedgerModel::slotAddSchedule(File::Object objType, const QString& id)
 {
-  Q_UNUSED(obj);
-  if(objType != MyMoneyFile::notifySchedule) {
+  Q_UNUSED(id);
+  if(objType != File::Object::Schedule) {
     return;
   }
 
   /// @todo implement LedgerModel::addSchedule
 }
 
-void LedgerModel::modifySchedule(MyMoneyFile::notificationObjectT objType, const MyMoneyObject*const obj)
+void LedgerModel::slotModifySchedule(File::Object objType, const QString& id)
 {
-  Q_UNUSED(obj);
-  if(objType != MyMoneyFile::notifySchedule) {
+  Q_UNUSED(id);
+  if(objType != File::Object::Schedule) {
     return;
   }
 
   /// @todo implement LedgerModel::modifySchedule
 }
 
-void LedgerModel::removeSchedule(MyMoneyFile::notificationObjectT objType, const QString& id)
+void LedgerModel::slotRemoveSchedule(File::Object objType, const QString& id)
 {
   Q_UNUSED(id);
-  if(objType != MyMoneyFile::notifySchedule) {
+  if(objType != File::Object::Schedule) {
     return;
   }
 
@@ -1021,421 +645,3 @@ QString LedgerModel::transactionIdFromTransactionSplitId(const QString& transact
   }
   return QString();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-struct SplitModel::Private
-{
-  Private()
-  : m_invertValues(false)
-  {}
-
-  bool isCreateSplitEntry(const QString& id) const {
-    return id.isEmpty();
-  }
-
-  MyMoneyTransaction    m_transaction;
-  QVector<MyMoneySplit> m_splits;
-  bool                  m_invertValues;
-};
-
-
-
-
-SplitModel::SplitModel(QObject* parent)
-  : QAbstractTableModel(parent)
-  , d(new Private)
-{
-}
-
-SplitModel::~SplitModel()
-{
-}
-
-
-QString SplitModel::newSplitId()
-{
-  return QLatin1String("New-ID");
-}
-
-bool SplitModel::isNewSplitId(const QString& id)
-{
-  return id.compare(newSplitId()) == 0;
-}
-
-
-int SplitModel::rowCount(const QModelIndex& parent) const
-{
-  Q_UNUSED(parent);
-  return d->m_splits.count();
-}
-
-int SplitModel::columnCount(const QModelIndex& parent) const
-{
-  Q_UNUSED(parent);
-  return NumberOfLedgerColumns;
-}
-
-
-void SplitModel::deepCopy(const SplitModel& right, bool revertSplitSign)
-{
-  beginInsertRows(QModelIndex(), 0, right.rowCount());
-  d->m_splits = right.d->m_splits;
-  d->m_transaction = right.d->m_transaction;
-  if(revertSplitSign) {
-    for(int idx = 0; idx < d->m_splits.count(); ++idx) {
-      MyMoneySplit& split = d->m_splits[idx];
-      split.setShares(-split.shares());
-      split.setValue(-split.value());
-    }
-  }
-  endInsertRows();
-}
-
-QVariant SplitModel::headerData(int section, Qt::Orientation orientation, int role) const
-{
-  if(orientation == Qt::Horizontal && role == Qt::DisplayRole) {
-    switch(section) {
-      case CostCenterColumn:
-        return i18n("Cost Center");
-        break;
-      case DetailColumn:
-        return i18n("Category");
-        break;
-      case NumberColumn:
-        return i18n("No");
-        break;
-      case DateColumn:
-        return i18n("Date");
-        break;
-      case SecurityColumn:
-        return i18n("Security");
-        break;
-      case ReconciliationColumn:
-        return i18n("C");
-        break;
-      case PaymentColumn:
-        return i18n("Payment");
-        break;
-      case DepositColumn:
-        return i18n("Deposit");
-        break;
-      case QuantityColumn:
-        return i18n("Quantity");
-        break;
-      case PriceColumn:
-        return i18n("Price");
-        break;
-      case AmountColumn:
-        return i18n("Amount");
-        break;
-      case ValueColumn:
-        return i18n("Value");
-        break;
-      case BalanceColumn:
-        return i18n("Balance");
-        break;
-    }
-  }
-  return QAbstractItemModel::headerData(section, orientation, role);
-}
-
-QVariant SplitModel::data(const QModelIndex& index, int role) const
-{
-  if(!index.isValid())
-    return QVariant();
-  if(index.row() < 0 || index.row() >= d->m_splits.count())
-    return QVariant();
-
-  QVariant rc;
-  MyMoneyAccount acc;
-  MyMoneyMoney value;
-  const MyMoneySplit& split = d->m_splits[index.row()];
-  QModelIndex subIndex;
-  CostCenterModel* ccModel = Models::instance()->costCenterModel();
-
-  switch(role) {
-    case Qt::DisplayRole:
-      // make sure to never return any displayable text for the dummy entry
-      if(!d->isCreateSplitEntry(split.id())) {
-        switch(index.column()) {
-          case DetailColumn:
-            rc = MyMoneyFile::instance()->accountToCategory(split.accountId());
-            break;
-          case CostCenterColumn:
-            subIndex = Models::indexById(ccModel, CostCenterModel::CostCenterIdRole, split.costCenterId());
-            rc = ccModel->data(subIndex);
-            break;
-          case NumberColumn:
-            rc = split.number();
-            break;
-          case ReconciliationColumn:
-            rc = KMyMoneyUtils::reconcileStateToString(split.reconcileFlag(), false);
-            break;
-          case PaymentColumn:
-            if(split.value().isNegative()) {
-              acc = MyMoneyFile::instance()->account(split.accountId());
-              rc = (-split).value(d->m_transaction.commodity(), acc.currencyId()).formatMoney(acc.fraction());
-            }
-            break;
-          case DepositColumn:
-            if(!split.value().isNegative()) {
-              acc = MyMoneyFile::instance()->account(split.accountId());
-              rc = split.value(d->m_transaction.commodity(), acc.currencyId()).formatMoney(acc.fraction());
-            }
-            break;
-          default:
-            break;
-        }
-      }
-      break;
-
-    case Qt::TextAlignmentRole:
-      switch(index.column()) {
-        case PaymentColumn:
-        case DepositColumn:
-        case AmountColumn:
-        case BalanceColumn:
-        case ValueColumn:
-          rc = QVariant(Qt::AlignRight| Qt::AlignTop);
-          break;
-        case ReconciliationColumn:
-          rc = QVariant(Qt::AlignHCenter | Qt::AlignTop);
-          break;
-        default:
-          rc = QVariant(Qt::AlignLeft | Qt::AlignTop);
-          break;
-      }
-      break;
-
-    case LedgerRole::AccountIdRole:
-      rc = split.accountId();
-      break;
-
-    case LedgerRole::AccountRole:
-      rc = MyMoneyFile::instance()->accountToCategory(split.accountId());
-      break;
-
-    case LedgerRole::TransactionIdRole:
-      rc = QString("%1").arg(d->m_transaction.id());
-      break;
-
-    case LedgerRole::TransactionSplitIdRole:
-      rc = QString("%1-%2").arg(d->m_transaction.id()).arg(split.id());
-      break;
-
-    case LedgerRole::SplitIdRole:
-      rc = split.id();
-      break;
-
-    case LedgerRole::MemoRole:
-    case LedgerRole::SingleLineMemoRole:
-      rc = split.memo();
-      if(role == LedgerRole::SingleLineMemoRole) {
-        QString txt = rc.toString();
-        // remove empty lines
-        txt.replace("\n\n", "\n");
-        // replace '\n' with ", "
-        txt.replace('\n', ", ");
-        rc = txt;
-      }
-      break;
-
-    case LedgerRole::SplitSharesRole:
-      rc = QVariant::fromValue<MyMoneyMoney>(split.shares());
-      break;
-
-    case LedgerRole::SplitValueRole:
-      acc = MyMoneyFile::instance()->account(split.accountId());
-      rc = QVariant::fromValue<MyMoneyMoney>(split.value(d->m_transaction.commodity(), acc.currencyId()));
-      break;
-
-    case LedgerRole::PayeeNameRole:
-      try {
-        rc = MyMoneyFile::instance()->payee(split.payeeId()).name();
-      } catch(MyMoneyException&e) {
-      }
-      break;
-
-    case LedgerRole::CostCenterIdRole:
-      rc = split.costCenterId();
-      break;
-
-    case LedgerRole::TransactionCommodityRole:
-      return d->m_transaction.commodity();
-      break;
-
-    case LedgerRole::NumberRole:
-      rc = split.number();
-      break;
-
-    case LedgerRole::PayeeIdRole:
-      rc = split.payeeId();
-      break;
-
-    default:
-      if(role >= Qt::UserRole) {
-        qWarning() << "Undefined role" << role << "(" << role-Qt::UserRole << ") in SplitModel::data";
-      }
-      break;
-  }
-  return rc;
-}
-
-bool SplitModel::setData(const QModelIndex& index, const QVariant& value, int role)
-{
-  bool rc = false;
-  if(index.isValid()) {
-    MyMoneySplit& split = d->m_splits[index.row()];
-    if(split.id().isEmpty()) {
-      split = MyMoneySplit(newSplitId(), split);
-    }
-    QString val;
-    rc = true;
-    switch(role) {
-      case LedgerRole::PayeeIdRole:
-        split.setPayeeId(value.toString());
-        break;
-
-      case LedgerRole::AccountIdRole:
-        split.setAccountId(value.toString());
-        break;
-
-      case LedgerRole::MemoRole:
-        split.setMemo(value.toString());
-        break;
-
-      case LedgerRole::CostCenterIdRole:
-        val = value.toString();
-        split.setCostCenterId(value.toString());
-        break;
-
-      case LedgerRole::NumberRole:
-        split.setNumber(value.toString());
-        break;
-
-      case LedgerRole::SplitSharesRole:
-        split.setShares(value.value<MyMoneyMoney>());
-        break;
-
-      case LedgerRole::SplitValueRole:
-        split.setValue(value.value<MyMoneyMoney>());
-        break;
-
-      case LedgerRole::EmitDataChangedRole:
-        {
-          // the whole row changed
-          QModelIndex topLeft = this->index(index.row(), 0);
-          QModelIndex bottomRight = this->index(index.row(), this->columnCount()-1);
-          emit dataChanged(topLeft, bottomRight);
-        }
-        break;
-
-      default:
-        rc = false;
-        break;
-    }
-  }
-
-  return rc;
-}
-
-
-void SplitModel::addSplit(const QString& transactionSplitId)
-{
-  QRegExp transactionSplitIdExp("^(\\w+)-(\\w+)$");
-  if(transactionSplitIdExp.exactMatch(transactionSplitId)) {
-    const QString transactionId = transactionSplitIdExp.cap(1);
-    const QString splitId = transactionSplitIdExp.cap(2);
-    if(transactionId != d->m_transaction.id()) {
-      try {
-        d->m_transaction = MyMoneyFile::instance()->transaction(transactionId);
-      } catch(MyMoneyException& e) {
-        d->m_transaction = MyMoneyTransaction();
-      }
-    }
-    try {
-      beginInsertRows(QModelIndex(), rowCount(), rowCount());
-      d->m_splits.append(d->m_transaction.splitById(splitId));
-      endInsertRows();
-    } catch(MyMoneyException& e) {
-      d->m_transaction = MyMoneyTransaction();
-    }
-  }
-}
-
-void SplitModel::addEmptySplitEntry()
-{
-  QModelIndexList list = match(index(0, 0), LedgerRole::SplitIdRole, QString(), -1, Qt::MatchExactly);
-  if(list.count() == 0) {
-    beginInsertRows(QModelIndex(), rowCount(), rowCount());
-    // d->m_splits.append(MyMoneySplit(d->newSplitEntryId(), MyMoneySplit()));
-    d->m_splits.append(MyMoneySplit());
-    endInsertRows();
-  }
-}
-
-void SplitModel::removeEmptySplitEntry()
-{
-  // QModelIndexList list = match(index(0, 0), SplitIdRole, d->newSplitEntryId(), -1, Qt::MatchExactly);
-  QModelIndexList list = match(index(0, 0), LedgerRole::SplitIdRole, QString(), -1, Qt::MatchExactly);
-  if(list.count()) {
-    QModelIndex index = list.at(0);
-    beginRemoveRows(QModelIndex(), index.row(), index.row());
-    d->m_splits.remove(index.row(), 1);
-    endRemoveRows();
-  }
-}
-
-bool SplitModel::removeRows(int row, int count, const QModelIndex& parent)
-{
-  bool rc = false;
-  if(count > 0) {
-    beginRemoveRows(parent, row, row + count - 1);
-    d->m_splits.remove(row, count);
-    endRemoveRows();
-    rc = true;
-  }
-  return rc;
-}
-
-Qt::ItemFlags SplitModel::flags(const QModelIndex& index) const
-{
-  Qt::ItemFlags flags;
-
-  if(!index.isValid())
-    return flags;
-  if(index.row() < 0 || index.row() >= d->m_splits.count())
-    return flags;
-
-  return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable;
-}
-
-
-#if 0
-void SplitModel::removeSplit(const LedgerTransaction& t)
-{
-  QModelIndexList list = match(index(0, 0), TransactionSplitIdRole, t.transactionSplitId(), -1, Qt::MatchExactly);
-  if(list.count()) {
-    QModelIndex index = list.at(0);
-    beginRemoveRows(QModelIndex(), index.row(), index.row());
-    delete d->m_ledgerItems[index.row()];
-    d->m_ledgerItems.remove(index.row(), 1);
-    endRemoveRows();
-
-    // just make sure we're in sync
-    Q_ASSERT(d->m_ledgerItems.count() == rowCount());
-  }
-}
-#endif

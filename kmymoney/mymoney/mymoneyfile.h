@@ -1,18 +1,25 @@
-/***************************************************************************
-                          mymoneyfile.h
-                             -------------------
-    copyright            : (C) 2002, 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001-2002  Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2002-2004  Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2004-2005  Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2006-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2006       Darren Gould <darren_gould@gmx.de>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYFILE_H
 #define MYMONEYFILE_H
@@ -21,37 +28,15 @@
 // QT Includes
 
 #include <QObject>
-#include <QString>
-#include <QMap>
-#include <QStringList>
 
 // ----------------------------------------------------------------------------
 // Project Includes
-
-#include <imymoneystorage.h>
-#include <mymoneyexception.h>
-#include <mymoneyutils.h>
-#include <mymoneyinstitution.h>
-#include <mymoneyaccount.h>
-#include <mymoneytransaction.h>
-#include <mymoneypayee.h>
-#include <mymoneytag.h>
-#include <mymoneykeyvaluecontainer.h>
-#include <mymoneysecurity.h>
-#include <mymoneyprice.h>
-#include <mymoneyreport.h>
-#include <mymoneybudget.h>
-#include <onlinejob.h>
-#include "mymoneyschedule.h"
-#include <kmm_mymoney_export.h>
-#include <mymoneyunittestable.h>
+#include "kmm_mymoney_export.h"
+#include "mymoneyunittestable.h"
 
 /**
   * @author Thomas Baumgart, Michael Edwardes, Kevin Tambascio, Christian Dávid
   */
-
-class IMyMoneyStorage;
-class MyMoneyTransactionFilter;
 
 /**
   * This class represents the interface to the MyMoney engine.
@@ -74,13 +59,13 @@ class MyMoneyTransactionFilter;
   * As the MyMoneyFile object represents the business logic, a storage
   * manager must be attached to it. This mechanism allows to use different
   * access methods to store the objects. The interface to access such an
-  * storage manager is defined in the class IMyMoneyStorage. The methods
+  * storage manager is defined in the class MyMoneyStorageMgr. The methods
   * attachStorage() and detachStorage() are used to attach/detach a
   * storage manager object. The following code can be used to create a
   * functional MyMoneyFile instance:
   *
   * @code
-  * IMyMoneyStorage *storage = ....
+  * MyMoneyStorageMgr *storage = ....
   * MyMoneyFile *file = MyMoneyFile::instance();
   * file->attachStorage(storage);
   * @endcode
@@ -118,7 +103,7 @@ class MyMoneyTransactionFilter;
   * implement the general access to multiple currencies held in the engine.
   * The methods baseCurrency() and setBaseCurrency() allow to retrieve/set
   * the currency selected by the user as base currency. If a currency
-  * reference is emtpy, it will usually be interpreted as baseCurrency().
+  * reference is empty, it will usually be interpreted as baseCurrency().
   *
   * The methods liability(), asset(), expense(), income() and equity() are
   * used to retrieve the five standard accounts. isStandardAccount()
@@ -129,7 +114,7 @@ class MyMoneyTransactionFilter;
   * The MyMoneyFile object emits the dataChanged() signal when data
   * has been changed.
   *
-  * For abritrary values that have to be stored with the storage object
+  * For arbitrary values that have to be stored with the storage object
   * but are of importance to the application only, the object is derived
   * for MyMoneyKeyValueContainer which provides a container to store
   * these values indexed by an alphanumeric key.
@@ -138,46 +123,52 @@ class MyMoneyTransactionFilter;
   * while the engine code is running. The MyMoneyException:: object
   * describes the problem.
   */
+template <class Key, class T> class QMap;
+class QString;
+class QStringList;
+class QBitArray;
+class MyMoneyStorageMgr;
+class MyMoneyCostCenter;
+class MyMoneyAccount;
+class MyMoneyInstitution;
+class MyMoneySecurity;
+class MyMoneyPrice;
+typedef QPair<QString, QString> MyMoneySecurityPair;
+typedef QMap<QDate, MyMoneyPrice> MyMoneyPriceEntries;
+typedef QMap<MyMoneySecurityPair, MyMoneyPriceEntries> MyMoneyPriceList;
+class MyMoneySchedule;
+class MyMoneyTag;
+class MyMoneyPayee;
+class MyMoneyBudget;
+class MyMoneyReport;
+class MyMoneyMoney;
+class MyMoneySplit;
+class MyMoneyObject;
+class MyMoneyTransaction;
+class MyMoneyTransactionFilter;
+class onlineJob;
+
+namespace eMyMoney { namespace Account { enum class Type; }
+                     namespace File { enum class Object; }
+                     namespace Schedule { enum class Type;
+                                          enum class Occurrence;
+                                          enum class PaymentType; }
+                     namespace TransactionFilter { enum class State; }
+                   }
+
 class KMM_MYMONEY_EXPORT MyMoneyFile : public QObject
 {
   Q_OBJECT
   KMM_MYMONEY_UNIT_TESTABLE
 
 public:
-  /**
-    * notificationObject identifies the type of the object
-    * for which this notification is stored
-    */
-  typedef enum {
-    notifyAccount = 1,
-    notifyInstitution,
-    notifyPayee,
-    notifyTransaction,
-    notifyTag,
-    notifySchedule,
-    notifySecurity,
-    notifyOnlineJob
-  } notificationObjectT;
-
-  /**
-    * notificationMode identifies the type of notifiation
-    * (add, modify, remove)
-    */
-  typedef enum {
-    notifyAdd = 1,
-    notifyModify,
-    notifyRemove
-  } notificationModeT;
-
   friend class MyMoneyNotifier;
 
   /**
     * This is the function to access the MyMoneyFile object.
     * It returns a pointer to the single instance of the object.
     */
-  static inline MyMoneyFile* instance() {
-    return &file;
-  }
+  static MyMoneyFile* instance();
 
   /**
     * This is the destructor for any MyMoneyFile object
@@ -188,13 +179,13 @@ public:
     * @deprecated This is a convenience constructor. Do not use it anymore.
     * It will be deprecated in a future version of the engine.
     *
-    * @param storage pointer to object that implements the IMyMoneyStorage
+    * @param storage pointer to object that implements the MyMoneyStorageMgr
     *                interface.
     */
-  MyMoneyFile(IMyMoneyStorage *storage);
+  explicit MyMoneyFile(MyMoneyStorageMgr *storage);
 
   // general get functions
-  const MyMoneyPayee& user() const;
+  MyMoneyPayee user() const;
 
   // general set functions
   void setUser(const MyMoneyPayee& user);
@@ -213,24 +204,24 @@ public:
     * - there is no other @a storage object attached (use detachStorage()
     *   to revert the attachStorage() operation.
     *
-    * @param storage pointer to object that implements the IMyMoneyStorage
+    * @param storage pointer to object that implements the MyMoneyStorageMgr
     *                interface.
     *
     * @sa detachStorage()
     */
-  void attachStorage(IMyMoneyStorage* const storage);
+  void attachStorage(MyMoneyStorageMgr* const storage);
 
   /**
     * This method is used to detach a previously attached storage
     * object from the MyMoneyFile object. If no storage object
     * is attached to the engine, this is a NOP.
     *
-    * @param storage pointer to object that implements the IMyMoneyStorage
+    * @param storage pointer to object that implements the MyMoneyStorageMgr
     *                interface.
     *
     * @sa attachStorage()
     */
-  void detachStorage(IMyMoneyStorage* const storage = 0);
+  void detachStorage(MyMoneyStorageMgr* const storage = 0);
 
   /**
     * This method returns whether a storage is currently attached to
@@ -246,7 +237,7 @@ public:
     * @return const pointer to the current attached storage object.
     *         If no object is attached, returns 0.
     */
-  IMyMoneyStorage* storage() const;
+  MyMoneyStorageMgr* storage() const;
 
   /**
     * This method must be called before any single change or a series of changes
@@ -278,37 +269,37 @@ public:
     * This method is used to return the standard liability account
     * @return MyMoneyAccount liability account(group)
     */
-  const MyMoneyAccount& liability() const;
+  MyMoneyAccount liability() const;
 
   /**
     * This method is used to return the standard asset account
     * @return MyMoneyAccount asset account(group)
     */
-  const MyMoneyAccount& asset() const;
+  MyMoneyAccount asset() const;
 
   /**
     * This method is used to return the standard expense account
     * @return MyMoneyAccount expense account(group)
     */
-  const MyMoneyAccount& expense() const;
+  MyMoneyAccount expense() const;
 
   /**
     * This method is used to return the standard income account
     * @return MyMoneyAccount income account(group)
     */
-  const MyMoneyAccount& income() const;
+  MyMoneyAccount income() const;
 
   /**
     * This method is used to return the standard equity account
     * @return MyMoneyAccount equity account(group)
     */
-  const MyMoneyAccount& equity() const;
+  MyMoneyAccount equity() const;
 
   /**
     * This method returns the account information for the opening
     * balances account for the given @p security. If the respective
     * account does not exist, it will be created. The name is constructed
-    * using MyMoneyFile::OpeningBalancesPrefix and appending " (xxx)" in
+    * using MyMoneyFile::openingBalancesPrefix() and appending " (xxx)" in
     * case the @p security is not the baseCurrency(). The account created
     * will be a sub-account of the standard equity account provided by equity().
     *
@@ -318,7 +309,7 @@ public:
     *
     * @note No notifications will be sent!
     */
-  const MyMoneyAccount openingBalanceAccount(const MyMoneySecurity& security);
+  MyMoneyAccount openingBalanceAccount(const MyMoneySecurity& security);
 
   /**
     * This method is essentially the same as the above, except it works on
@@ -331,7 +322,7 @@ public:
     *
     * @note No notifications will be sent!
     */
-  const MyMoneyAccount openingBalanceAccount(const MyMoneySecurity& security) const;
+  MyMoneyAccount openingBalanceAccount(const MyMoneySecurity& security) const;
 
   /**
     * Create an opening balance transaction for the account @p acc
@@ -409,6 +400,7 @@ public:
     */
   void removeInstitution(const MyMoneyInstitution& institution);
 
+  void createAccount(MyMoneyAccount& newAccount, MyMoneyAccount& parentAccount, MyMoneyAccount& brokerageAccount, MyMoneyMoney openingBal);
   /**
     * Adds an account to the file-global account pool. A respective
     * account-ID will be generated within this record. The modified
@@ -464,7 +456,7 @@ public:
   unsigned int moveSplits(const QString& oldAccount, const QString& newAccount);
 
   /**
-    * This method is used to determince, if the account with the
+    * This method is used to determine, if the account with the
     * given ID is referenced by any split in m_transactionList.
     *
     * @param id id of the account to be checked for
@@ -513,7 +505,7 @@ public:
   void removeAccount(const MyMoneyAccount& account);
 
   /**
-    * Deletes existing accounts and their subaccounts recursivly
+    * Deletes existing accounts and their subaccounts recursively
     * from the global account pool.
     * This method expects that all accounts and their subaccounts
     * are no longer assigned to any transactions or splits.
@@ -578,7 +570,7 @@ public:
     * @param id id of transaction as QString.
     * @return reference to the requested transaction
     */
-  const MyMoneyTransaction transaction(const QString& id) const;
+  MyMoneyTransaction transaction(const QString& id) const;
 
   /**
     * This method is used to extract a transaction from the file global
@@ -588,7 +580,7 @@ public:
     * @param idx number of transaction in this account
     * @return reference to MyMoneyTransaction object
     */
-  const MyMoneyTransaction transaction(const QString& account, const int idx) const;
+  MyMoneyTransaction transaction(const QString& account, const int idx) const;
 
   /**
     * This method is used to pull a list of transactions from the file
@@ -603,7 +595,7 @@ public:
     *
     * @return set of transactions in form of a QList<MyMoneyTransaction>
     */
-  const QList<MyMoneyTransaction> transactionList(MyMoneyTransactionFilter& filter) const;
+  QList<MyMoneyTransaction> transactionList(MyMoneyTransactionFilter& filter) const;
 
   void transactionList(QList<MyMoneyTransaction>& list, MyMoneyTransactionFilter& filter) const;
 
@@ -628,19 +620,20 @@ public:
     * @param date return balance for specific date (default = QDate())
     * @return balance of the account as MyMoneyMoney object
     */
-  const MyMoneyMoney balance(const QString& id, const QDate& date = QDate()) const;
+  MyMoneyMoney balance(const QString& id, const QDate& date) const;
+  MyMoneyMoney balance(const QString& id) const;
 
   /**
     * This method is used to return the cleared balance of an account
     * without it's sub-ordinate accounts for a specific date. All
     * recorded  transactions are included in the balance.
-    * This method is used by the reconcialition functionality
+    * This method is used by the reconciliation functionality
     *
     * @param id id of the account in question
     * @param date return cleared balance for specific date
     * @return balance of the account as MyMoneyMoney object
     */
-  const MyMoneyMoney clearedBalance(const QString& id, const QDate& date) const;
+  MyMoneyMoney clearedBalance(const QString& id, const QDate& date) const;
 
 
   /**
@@ -654,7 +647,8 @@ public:
     * @param date return balance for specific date (default = QDate())
     * @return balance of the account as MyMoneyMoney object
     */
-  const MyMoneyMoney totalBalance(const QString& id, const QDate& date = QDate()) const;
+  MyMoneyMoney totalBalance(const QString& id, const QDate& date) const;
+  MyMoneyMoney totalBalance(const QString& id) const;
 
   /**
     * This method returns the number of transactions currently known to file
@@ -667,7 +661,8 @@ public:
     *
     * @return number of transactions in journal/account
     */
-  unsigned int transactionCount(const QString& account = QString()) const;
+  unsigned int transactionCount(const QString& account) const;
+  unsigned int transactionCount() const;
 
   /**
     * This method returns a QMap filled with the number of transactions
@@ -678,7 +673,7 @@ public:
     *
     * @return QMap with numbers of transactions per account
     */
-  const QMap<QString, unsigned long> transactionCountMap() const;
+  QMap<QString, unsigned long> transactionCountMap() const;
 
   /**
     * This method returns the number of institutions currently known to file
@@ -703,15 +698,7 @@ public:
     * @return MyMoneyInstitution object filled with data. If the institution
     *         could not be found, an exception will be thrown
     */
-  const MyMoneyInstitution& institution(const QString& id) const;
-
-  /**
-    * This method returns a list of the institutions
-    * inside a MyMoneyFile object
-    *
-    * @param list reference to the list. It will be cleared by this method first
-    */
-  void institutionList(QList<MyMoneyInstitution>& list) const;
+  MyMoneyInstitution institution(const QString& id) const;
 
   /**
     * This method returns a list of the institutions
@@ -720,7 +707,7 @@ public:
     *
     * @return QList containing the institution objects
     */
-  const QList<MyMoneyInstitution> institutionList() const;
+  QList<MyMoneyInstitution> institutionList() const;
 
   /**
     * Returns the account addressed by its id.
@@ -729,7 +716,7 @@ public:
     * @return MyMoneyAccount object carrying the @p id. An exception is thrown
     *         if the id is unknown
     */
-  const MyMoneyAccount& account(const QString& id) const;
+  MyMoneyAccount account(const QString& id) const;
 
   /**
    * Returns the account addressed by its name.
@@ -738,7 +725,7 @@ public:
    * @return First MyMoneyAccount object found carrying the @p name.
    * An empty MyMoneyAccount object will be returned if the name is not found.
    */
-  const MyMoneyAccount& accountByName(const QString& name) const;
+  MyMoneyAccount accountByName(const QString& name) const;
 
   /**
    * Returns the sub-account addressed by its name.
@@ -748,11 +735,11 @@ public:
    * @return First MyMoneyAccount object found carrying the @p name.
    * An empty MyMoneyAccount object will be returned if the name is not found.
    */
-  const MyMoneyAccount& subAccountByName(const MyMoneyAccount& acc, const QString& name) const;
+  MyMoneyAccount subAccountByName(const MyMoneyAccount& account, const QString& name) const;
 
   /**
     * This method returns a list of accounts inside a MyMoneyFile object.
-    * An optional parameter is a list of id's. If this list is emtpy (the default)
+    * An optional parameter is a list of id's. If this list is empty (the default)
     * the returned list contains all accounts, otherwise only those referenced
     * in the id-list.
     *
@@ -769,7 +756,7 @@ public:
     * This method is used to convert an account id to a string representation
     * of the names which can be used as a category description. If the account
     * is part of a hierarchy, the category name will be the concatenation of
-    * the single account names separated by MyMoneyAccount::AccountSeperator.
+    * the single account names separated by MyMoneyFile::AccountSeparator.
     *
     * @param accountId QString reference of the account's id
     * @param includeStandardAccounts if true, the standard top account will be part
@@ -783,21 +770,22 @@ public:
     * This method is used to convert a string representing a category to
     * an account id. A category can be the concatenation of multiple accounts
     * representing a hierarchy of accounts. They have to be separated by
-    * MyMoneyAccount::AccountSeperator.
+    * MyMoneyFile::AccountSeparator.
     *
     * @param category const reference to QString containing the category
-    * @param type account type if a specific type is required (defaults to UnknownAccountType)
+    * @param type account type if a specific type is required (defaults to Unknown)
     *
     * @return QString of the corresponding account. If account was not found
     *         the return value will be an empty string.
     */
-  QString categoryToAccount(const QString& category, MyMoneyAccount::accountTypeE type = MyMoneyAccount::UnknownAccountType) const;
+  QString categoryToAccount(const QString& category, eMyMoney::Account::Type type) const;
+  QString categoryToAccount(const QString& category) const;
 
   /**
     * This method is used to convert a string representing an asset or
     * liability account to an account id. An account name can be the
     * concatenation of multiple accounts representing a hierarchy of
-    * accounts. They have to be separated by MyMoneyAccount::AccountSeperator.
+    * accounts. They have to be separated by MyMoneyFile::AccountSeparator.
     *
     * @param name const reference to QString containing the account name
     *
@@ -808,7 +796,7 @@ public:
 
   /**
     * This method is used to extract the parent part of an account hierarchy
-    * name who's parts are separated by MyMoneyAccount::AccountSeperator.
+    * name who's parts are separated by MyMoneyFile::AccountSeparator.
     *
     * @param name full account name
     * @return parent name (full account name excluding the last part)
@@ -832,7 +820,7 @@ public:
     *
     * @return MyMoneyPayee object of payee
     */
-  const MyMoneyPayee& payee(const QString& id) const;
+  MyMoneyPayee payee(const QString& id) const;
 
   /**
     * This method is used to retrieve the id to a corresponding
@@ -843,7 +831,7 @@ public:
     *
     * @return MyMoneyPayee object of payee
     */
-  const MyMoneyPayee& payeeByName(const QString& payee) const;
+  MyMoneyPayee payeeByName(const QString& payee) const;
 
   /**
     * This method is used to modify an existing payee
@@ -871,7 +859,7 @@ public:
     *
     * @return QList<MyMoneyPayee> containing the payee information
     */
-  const QList<MyMoneyPayee> payeeList() const;
+  QList<MyMoneyPayee> payeeList() const;
 
   /**
     * This method is used to create a new tag
@@ -890,7 +878,7 @@ public:
     *
     * @return MyMoneyTag object of tag
     */
-  const MyMoneyTag& tag(const QString& id) const;
+  MyMoneyTag tag(const QString& id) const;
 
   /**
     * This method is used to retrieve the id to a corresponding
@@ -901,7 +889,7 @@ public:
     *
     * @return MyMoneyTag object of tag
     */
-  const MyMoneyTag& tagByName(const QString& tag) const;
+  MyMoneyTag tagByName(const QString& tag) const;
 
   /**
     * This method is used to modify an existing tag
@@ -929,7 +917,7 @@ public:
     *
     * @return QList<MyMoneyTag> containing the tag information
     */
-  const QList<MyMoneyTag> tagList() const;
+  QList<MyMoneyTag> tagList() const;
 
   /**
     * This method returns a list of the cost centers
@@ -957,7 +945,7 @@ public:
     * @param key const reference to QString containing the key
     * @param val const reference to QString containing the value
     *
-    * @note Keys starting with the leadin @p kmm- are reserved for internal use
+    * @note Keys starting with the leading @p kmm- are reserved for internal use
     *       by the MyMoneyFile object.
     */
   void setValue(const QString& key, const QString& val);
@@ -1023,7 +1011,7 @@ public:
     * @param id QString containing the id of the MyMoneySchedule object
     * @return MyMoneySchedule object
     */
-  const MyMoneySchedule schedule(const QString& id) const;
+  MyMoneySchedule schedule(const QString& id) const;
 
   /**
     * This method is used to extract a list of scheduled transactions
@@ -1033,15 +1021,15 @@ public:
     *                  account @p accountId. If accountId is the empty string,
     *                  this filter is off. Default is @p QString().
     * @param type      only schedules of type @p type are searched for.
-    *                  See MyMoneySchedule::typeE for details.
-    *                  Default is MyMoneySchedule::TYPE_ANY
+    *                  See eMyMoney::Schedule::Type for details.
+    *                  Default is eMyMoney::Schedule::Type::Any
     * @param occurrence only schedules of occurrence type @p occurrence are searched for.
-    *                  See MyMoneySchedule::occurrenceE for details.
-    *                  Default is MyMoneySchedule::OCCUR_ANY
+    *                  See eMyMoney::Schedule::Occurrence for details.
+    *                  Default is eMyMoney::Schedule::Occurrence::Any
     * @param paymentType only schedules of payment method @p paymentType
     *                  are searched for.
-    *                  See MyMoneySchedule::paymentTypeE for details.
-    *                  Default is MyMoneySchedule::STYPE_ANY
+    *                  See eMyMoney::Schedule::PaymentType for details.
+    *                  Default is eMyMoney::Schedule::PaymentType::Any
     * @param startDate only schedules with payment dates after @p startDate
     *                  are searched for. Default is all dates (QDate()).
     * @param endDate   only schedules with payment dates ending prior to @p endDate
@@ -1051,28 +1039,30 @@ public:
     *
     * @return const QList<MyMoneySchedule> list of schedule objects.
     */
-  const QList<MyMoneySchedule> scheduleList(const QString& accountId = QString(),
-      const MyMoneySchedule::typeE type = MyMoneySchedule::TYPE_ANY,
-      const MyMoneySchedule::occurrenceE occurrence = MyMoneySchedule::OCCUR_ANY,
-      const MyMoneySchedule::paymentTypeE paymentType = MyMoneySchedule::STYPE_ANY,
-      const QDate& startDate = QDate(),
-      const QDate& endDate = QDate(),
-      const bool overdue = false) const;
+  QList<MyMoneySchedule> scheduleList(const QString& accountId,
+      const eMyMoney::Schedule::Type type,
+      const eMyMoney::Schedule::Occurrence occurrence,
+      const eMyMoney::Schedule::PaymentType paymentType,
+      const QDate& startDate,
+      const QDate& endDate,
+      const bool overdue) const;
+  QList<MyMoneySchedule> scheduleList(const QString& accountId) const;
+  QList<MyMoneySchedule> scheduleList() const;
 
-  const QStringList consistencyCheck();
+  QStringList consistencyCheck();
 
   /**
-    * MyMoneyFile::OpeningBalancesPrefix is a special string used
+    * MyMoneyFile::openingBalancesPrefix() is a special string used
     * to generate the name for opening balances accounts. See openingBalanceAccount()
     * for details.
     */
-  static const QString OpeningBalancesPrefix;
+  static QString openingBalancesPrefix();
 
   /**
-    * MyMoneyFile::AccountSeperator is used as the separator
+    * MyMoneyFile::AccountSeparator is used as the separator
     * between account names to form a hierarchy.
     */
-  static const QString AccountSeperator;
+  static const QString AccountSeparator;
 
   /**
     * createCategory creates a category from a text name.
@@ -1094,11 +1084,21 @@ public:
     **/
   QString createCategory(const MyMoneyAccount& base, const QString& name);
 
-  const QList<MyMoneySchedule> scheduleListEx(int scheduleTypes,
-      int scheduleOcurrences,
-      int schedulePaymentTypes,
-      QDate startDate,
-      const QStringList& accounts = QStringList()) const;
+  /**
+    * This method is used to get the account id of the split for
+    * a transaction from the text found in the QIF $ or L record.
+    * If an account with the name is not found, the user is asked
+    * if it should be created.
+    *
+    * @param name name of account as found in the QIF file
+    * @param value value found in the T record
+    * @param value2 value found in the $ record for split transactions
+    *
+    * @return id of the account for the split. If no name is specified
+    *            or the account was not found and not created the
+    *            return value will be "".
+    */
+  QString checkCategory(const QString& name, const MyMoneyMoney& value, const MyMoneyMoney& value2);
 
   /**
     * This method is used to add a new security object to the engine.
@@ -1142,12 +1142,12 @@ public:
     * @param id QString containing the id of the MyMoneySecurity object
     * @return MyMoneySecurity object
     */
-  const MyMoneySecurity& security(const QString& id) const;
+  MyMoneySecurity security(const QString& id) const;
 
   /**
     * This method is used to retrieve a list of all MyMoneySecurity objects.
     */
-  const QList<MyMoneySecurity> securityList() const;
+  QList<MyMoneySecurity> securityList() const;
 
   /**
     * This method is used to add a new currency object to the engine.
@@ -1181,26 +1181,47 @@ public:
   void removeCurrency(const MyMoneySecurity& currency);
 
   /**
-    * This method is used to retrieve a single MyMoneySchedule object.
+    * This method is used to retrieve a single MyMoneySecurity object.
     * The id of the object must be supplied in the parameter @p id.
-    * If @p id is empty, this method returns baseCurrency().
+    * If @p id is empty, this method returns baseCurrency(). In case
+    * no currency is found, @p id is searched in the loaded set of securities.
     *
     * An exception will be thrown upon erroneous situations.
     *
     * @param id QString containing the id of the MyMoneySchedule object
     * @return MyMoneySchedule object
     */
-  const MyMoneySecurity& currency(const QString& id) const;
+  MyMoneySecurity currency(const QString& id) const;
 
   /**
-    * This method is used to retrieve the list of all currencies
+    * This method is used to retrieve the map of ancient currencies (together with their last prices)
+    * known to the engine.
+    *
+    * An exception will be thrown upon erroneous situations.
+    *
+    * @return QMap of all MyMoneySecurity and MyMoneyPrice objects.
+    */
+  QMap<MyMoneySecurity, MyMoneyPrice> ancientCurrencies() const;
+
+  /**
+    * This method is used to retrieve the list of available currencies
     * known to the engine.
     *
     * An exception will be thrown upon erroneous situations.
     *
     * @return QList of all MyMoneySecurity objects.
     */
-  const QList<MyMoneySecurity> currencyList() const;
+  QList<MyMoneySecurity> availableCurrencyList() const;
+
+  /**
+    * This method is used to retrieve the list of stored currencies
+    * known to the engine.
+    *
+    * An exception will be thrown upon erroneous situations.
+    *
+    * @return QList of all MyMoneySecurity objects.
+    */
+  QList<MyMoneySecurity> currencyList() const;
 
   /**
     * This method retrieves a MyMoneySecurity object representing
@@ -1213,14 +1234,14 @@ public:
     *
     * @return MyMoneySecurity describing base currency
     */
-  const MyMoneySecurity& baseCurrency() const;
+  MyMoneySecurity baseCurrency() const;
 
   /**
     * This method returns the foreign currency of the given two
     * currency ids. If second is the base currency id then @a first
     * is returned otherwise @a second is returned.
     */
-  const QString& foreignCurrency(const QString& first, const QString& second) const;
+  QString foreignCurrency(const QString& first, const QString& second) const;
 
   /**
     * This method allows to select the base currency. It does
@@ -1251,7 +1272,7 @@ public:
     * is available, 1.0 will be returned as price.
     *
     * @param fromId the id of the currency in question
-    * @param toId the id of the currency to convert to (if emtpy, baseCurrency)
+    * @param toId the id of the currency to convert to (if empty, baseCurrency)
     * @param date the date for which the price should be returned (default = today)
     * @param exactDate if true, entry for date must exist, if false any price information
     *                  with a date less or equal to @p date will be returned
@@ -1259,14 +1280,16 @@ public:
     * @return price found as MyMoneyPrice object
     * @note This throws an exception when the base currency is not set and toId is empty
     */
-  MyMoneyPrice price(const QString& fromId, const QString& toId = QString(), const QDate& date = QDate::currentDate(), const bool exactDate = false) const;
+  MyMoneyPrice price(const QString& fromId, const QString& toId, const QDate& date, const bool exactDate = false) const;
+  MyMoneyPrice price(const QString& fromId, const QString& toId) const;
+  MyMoneyPrice price(const QString& fromId) const;
 
   /**
     * This method returns a list of all prices.
     *
     * @return MyMoneyPriceList of all MyMoneyPrice objects.
     */
-  const MyMoneyPriceList priceList() const;
+  MyMoneyPriceList priceList() const;
 
   /**
     * This method allows to interrogate the engine, if a known account
@@ -1287,7 +1310,7 @@ public:
     *
     * @return QList of all MyMoneyReport objects.
     */
-  const QList<MyMoneyReport> reportList() const;
+  QList<MyMoneyReport> reportList() const;
 
   /**
     * Adds a report to the file-global institution pool. A
@@ -1328,7 +1351,7 @@ public:
     * @param id QString containing the id of the MyMoneyReport object
     * @return MyMoneyReport object
     */
-  const MyMoneyReport report(const QString& id) const;
+  MyMoneyReport report(const QString& id) const;
 
   /**
     * This method is used to remove an existing MyMoneyReport object
@@ -1348,7 +1371,7 @@ public:
     *
     * @return QList of all MyMoneyBudget objects.
     */
-  const QList<MyMoneyBudget> budgetList() const;
+  QList<MyMoneyBudget> budgetList() const;
 
   /**
     * Adds a budget to the file-global institution pool. A
@@ -1360,7 +1383,7 @@ public:
     * @param budget The complete budget information in a
     *        MyMoneyBudget object
     */
-  void addBudget(MyMoneyBudget& budget);
+  void addBudget(MyMoneyBudget &budget);
 
 
   /**
@@ -1370,9 +1393,9 @@ public:
     *
     * @param budget QString reference to name of budget
     *
-    * @return MyMoneyBudget refernce to object of budget
+    * @return MyMoneyBudget reference to object of budget
     */
-  const MyMoneyBudget budgetByName(const QString& budget) const;
+  MyMoneyBudget budgetByName(const QString& budget) const;
 
 
   /**
@@ -1402,7 +1425,7 @@ public:
     * @param id QString containing the id of the MyMoneyBudget object
     * @return MyMoneyBudget object
     */
-  const MyMoneyBudget budget(const QString& id) const;
+  MyMoneyBudget budget(const QString& id) const;
 
   /**
     * This method is used to remove an existing MyMoneyBudget object
@@ -1424,20 +1447,35 @@ public:
     *
     * @return true if a VAT split has been added
     */
-  bool addVATSplit(MyMoneyTransaction& transaction, const MyMoneyAccount& account, const MyMoneyAccount& category, const MyMoneyMoney& amount);
+  bool addVATSplit(MyMoneyTransaction& transaction, const MyMoneyAccount& account, const MyMoneyAccount& category, const MyMoneyMoney& amount) const;
+
+  /**
+    * This method checks if the @a transaction has two or three splits and
+    * one references an asset or liability, one references an income or expense and one
+    * references a tax account. All three accounts must be denominated in the same
+    * transaction.commodity(). Also, if there is a tax split it must reference the
+    * same account as the one that is assigned to the income/expense category.
+    *
+    * If that all matches, the @a transaction is updated such that the amount
+    * of the asset/liability is split according to the tax settings.
+    *
+    * @param transaction reference to the transaction
+    */
+  void updateVAT(MyMoneyTransaction& transaction) const;
 
   /**
     * This method checks, if the given @p object is referenced
     * by another engine object.
     *
     * @param obj const reference to object to be checked
-    * @param skipCheck MyMoneyFileBitArray with ReferenceCheckBits set for which
+    * @param skipCheck QBitArray with eStorage::Reference bits set for which
     *                  the check should be skipped
     *
     * @retval false @p object is not referenced
     * @retval true @p institution is referenced
     */
-  bool isReferenced(const MyMoneyObject& obj, const MyMoneyFileBitArray& skipCheck = MyMoneyFileBitArray()) const;
+  bool isReferenced(const MyMoneyObject& obj, const QBitArray& skipCheck) const;
+  bool isReferenced(const MyMoneyObject& obj) const;
 
   /**
     * Returns true if any of the accounts referenced by the splits
@@ -1489,11 +1527,7 @@ public:
     */
   void clearCache();
 
-  void forceDataChanged() {
-    emit dataChanged();
-  }
-
-  void preloadCache();
+  void forceDataChanged();
 
   /**
     * This returns @p true if file and online balance of a specific
@@ -1512,7 +1546,8 @@ public:
     * @param state @p state reconciliation state
     * @return number of transactions with state @p state
     */
-  int countTransactionsWithSpecificReconciliationState(const QString& accId, enum MyMoneyTransactionFilter::stateOptionE state) const;
+  int countTransactionsWithSpecificReconciliationState(const QString& accId, eMyMoney::TransactionFilter::State state) const;
+  QMap< QString, QVector<int> > countTransactionsWithSpecificReconciliationState() const;
 
   /**
    * @brief Saves a new onlineJob
@@ -1531,13 +1566,13 @@ public:
    * @param jobId
    * @return
    */
-  const onlineJob getOnlineJob(const QString &jobId) const;
+  onlineJob getOnlineJob(const QString &jobId) const;
 
   /**
    * @brief Returns all onlineJobs
    * @return all online jobs, caller gains ownership
    */
-  const QList<onlineJob> onlineJobList() const;
+  QList<onlineJob> onlineJobList() const;
 
   /**
    * @brief Returns the number of onlineJobs
@@ -1588,7 +1623,7 @@ Q_SIGNALS:
     * had been added. The data for the new object is contained in
     * @a obj.
     */
-  void objectAdded(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
+  void objectAdded(eMyMoney::File::Object objType, const QString& id);
 
   /**
     * This signal is emitted by the engine whenever an object
@@ -1599,14 +1634,14 @@ Q_SIGNALS:
     * method anymore as the object is already deleted in the storage
     * when the signal is emitted.
     */
-  void objectRemoved(MyMoneyFile::notificationObjectT objType, const QString& id);
+  void objectRemoved(eMyMoney::File::Object objType, const QString& id);
 
   /**
     * This signal is emitted by the engine whenever an object
     * had been changed. The new state of the object is contained
     * in @a obj.
     */
-  void objectModified(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
+  void objectModified(eMyMoney::File::Object objType, const QString& id);
 
   /**
     * This signal is emitted by the engine whenever the balance
@@ -1636,15 +1671,15 @@ private:
 
   /**
     * This method creates an opening balances account. The name is constructed
-    * using MyMoneyFile::OpeningBalancesPrefix and appending " (xxx)" in
+    * using MyMoneyFile::openingBalancesPrefix() and appending " (xxx)" in
     * case the @p security is not the baseCurrency(). The account created
     * will be a sub-account of the standard equity account provided by equity().
     *
     * @param security Security for which the account is searched
     */
-  const MyMoneyAccount createOpeningBalanceAccount(const MyMoneySecurity& security);
+  MyMoneyAccount createOpeningBalanceAccount(const MyMoneySecurity& security);
 
-  const MyMoneyAccount openingBalanceAccount_internal(const MyMoneySecurity& security) const;
+  MyMoneyAccount openingBalanceAccount_internal(const MyMoneySecurity& security) const;
 
   /**
    * Make sure that the splits value has the precision of the corresponding account
@@ -1658,8 +1693,11 @@ private:
   Private* const d;
 };
 
+class MyMoneyFileTransactionPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyFileTransaction
 {
+  Q_DISABLE_COPY(MyMoneyFileTransaction)
+
 public:
   MyMoneyFileTransaction();
   ~MyMoneyFileTransaction();
@@ -1677,8 +1715,8 @@ public:
   void restart();
 
 private:
-  bool m_isNested;
-  bool m_needRollback;
+  MyMoneyFileTransactionPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(MyMoneyFileTransaction)
 };
 
 #endif

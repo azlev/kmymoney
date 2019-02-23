@@ -1,19 +1,20 @@
-/***************************************************************************
-                          kaccounttemplateselector.h  -  description
-                             -------------------
-    begin                : Tue Feb 5 2008
-    copyright            : (C) 2008 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2008-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KACCOUNTTEMPLATESELECTOR_H
 #define KACCOUNTTEMPLATESELECTOR_H
@@ -21,7 +22,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QList>
+#include <QWidget>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -29,46 +30,32 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kaccounttemplateselectordecl.h"
-
 class MyMoneyTemplate;
-
-class KAccountTemplateSelectorDecl : public QWidget, public Ui::KAccountTemplateSelectorDecl
-{
-public:
-  KAccountTemplateSelectorDecl(QWidget *parent) : QWidget(parent) {
-    setupUi(this);
-  }
-};
 
 /**
  * @author Thomas Baumgart <ipwizard@users.sourceforge.net>
  */
 
-class KAccountTemplateSelector : public KAccountTemplateSelectorDecl
+class KAccountTemplateSelectorPrivate;
+class KAccountTemplateSelector : public QWidget
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KAccountTemplateSelector)
 
 public:
-  enum KAccountTemplateSelectorItemRoles {
-    IdRole = Qt::UserRole,      /**< The id is stored in this role in column 0 as a string.*/
-  };
-
-  KAccountTemplateSelector(QWidget* parent = 0);
+  explicit KAccountTemplateSelector(QWidget* parent = nullptr);
   ~KAccountTemplateSelector();
 
   QList<MyMoneyTemplate> selectedTemplates() const;
 
-private slots:
+private Q_SLOTS:
   void slotLoadHierarchy();
   void slotLoadCountry();
   void slotLoadTemplateList();
 
 private:
-  /// \internal d-pointer class.
-  class Private;
-  /// \internal d-pointer instance.
-  Private* const d;
+  KAccountTemplateSelectorPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KAccountTemplateSelector)
 };
 
 #endif

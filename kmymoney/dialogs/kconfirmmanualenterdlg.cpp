@@ -1,19 +1,20 @@
-/***************************************************************************
-                          kconfirmmanualenterdlg.cpp
-                             -------------------
-    begin                : Mon Apr  9 2007
-    copyright            : (C) 2007 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kconfirmmanualenterdlg.h"
 
@@ -22,55 +23,61 @@
 
 #include <QButtonGroup>
 #include <QRadioButton>
-#include <QPushButton>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <ktextedit.h>
-#include <kmessagebox.h>
+#include <KTextEdit>
+#include <KMessageBox>
 #include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyfile.h>
-#include <kmymoneyutils.h>
-#include <mymoneytransaction.h>
-#include "ui_kconfirmmanualenterdlgdecl.h"
+#include "ui_kconfirmmanualenterdlg.h"
 
-struct KConfirmManualEnterDlg::Private {
-  Ui::KConfirmManualEnterDlgDecl ui;
-};
+#include "mymoneymoney.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "mymoneysecurity.h"
+#include "mymoneypayee.h"
+#include "mymoneysplit.h"
+#include "mymoneyschedule.h"
+#include "mymoneyexception.h"
+#include "kmymoneyutils.h"
+#include "mymoneytransaction.h"
+#include "mymoneyenums.h"
 
 KConfirmManualEnterDlg::KConfirmManualEnterDlg(const MyMoneySchedule& schedule, QWidget* parent) :
-    QDialog(parent), d(new Private)
+    QDialog(parent),
+    ui(new Ui::KConfirmManualEnterDlg)
 {
-  d->ui.setupUi(this);
-  d->ui.buttonGroup1->setId(d->ui.m_discardRadio, 0);
-  d->ui.buttonGroup1->setId(d->ui.m_onceRadio, 1);
-  d->ui.buttonGroup1->setId(d->ui.m_setRadio, 2);
+  ui->setupUi(this);
+  ui->buttonGroup1->setId(ui->m_discardRadio, 0);
+  ui->buttonGroup1->setId(ui->m_onceRadio, 1);
+  ui->buttonGroup1->setId(ui->m_setRadio, 2);
 
-  d->ui.m_onceRadio->setChecked(true);
+  ui->m_onceRadio->setChecked(true);
 
-  if (schedule.type() == MyMoneySchedule::TYPE_LOANPAYMENT) {
-    d->ui.m_setRadio->setEnabled(false);
-    d->ui.m_discardRadio->setEnabled(false);
+  if (schedule.type() == eMyMoney::Schedule::Type::LoanPayment) {
+    ui->m_setRadio->setEnabled(false);
+    ui->m_discardRadio->setEnabled(false);
   }
 }
 
 KConfirmManualEnterDlg::~KConfirmManualEnterDlg()
 {
-  delete d;
+  delete ui;
 }
 
 void KConfirmManualEnterDlg::loadTransactions(const MyMoneyTransaction& to, const MyMoneyTransaction& tn)
 {
   QString messageDetail("<qt>");
-  MyMoneyFile* file = MyMoneyFile::instance();
-  int noItemsChanged = 0;
+  auto file = MyMoneyFile::instance();
 
   try {
+    int noItemsChanged = 0;
+
     if (to.splits().isEmpty())
       throw MYMONEYEXCEPTION(i18n("Transaction %1 has no splits", to.id()));
     if (tn.splits().isEmpty())
@@ -161,7 +168,7 @@ void KConfirmManualEnterDlg::loadTransactions(const MyMoneyTransaction& to, cons
       messageDetail += i18n("<p>Amount changed.<br/>&nbsp;&nbsp;&nbsp;Old: <b>%1</b>, New: <b>%2</b></p>", ao.formatMoney(sec.smallestAccountFraction()), an.formatMoney(sec.smallestAccountFraction()));
     }
 
-    MyMoneySplit::reconcileFlagE fo, fn;
+    eMyMoney::Split::State fo, fn;
     fo = to.splits().front().reconcileFlag();
     fn = tn.splits().front().reconcileFlag();
     if (fo != fn) {
@@ -169,19 +176,19 @@ void KConfirmManualEnterDlg::loadTransactions(const MyMoneyTransaction& to, cons
       messageDetail += i18n("<p>Reconciliation flag changed.<br/>&nbsp;&nbsp;&nbsp;Old: <b>%1</b>, New: <b>%2</b></p>",    KMyMoneyUtils::reconcileStateToString(fo, true), KMyMoneyUtils::reconcileStateToString(fn, true));
     }
   } catch (const MyMoneyException &e) {
-    KMessageBox::error(this, i18n("Fatal error in determining data: %1", e.what()));
+    KMessageBox::error(this, i18n("Fatal error in determining data: %1", QString::fromLatin1(e.what())));
   }
 
   messageDetail += "</qt>";
-  d->ui.m_details->setText(messageDetail);
+  ui->m_details->setText(messageDetail);
   return;
 }
 
 KConfirmManualEnterDlg::Action KConfirmManualEnterDlg::action() const
 {
-  if (d->ui.m_discardRadio->isChecked())
+  if (ui->m_discardRadio->isChecked())
     return UseOriginal;
-  if (d->ui.m_setRadio->isChecked())
+  if (ui->m_setRadio->isChecked())
     return ModifyAlways;
   return ModifyOnce;
 }

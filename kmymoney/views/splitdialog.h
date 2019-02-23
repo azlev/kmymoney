@@ -30,10 +30,11 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "newtransactioneditor.h"
+#include "mymoneymoney.h"
 
 class QAbstractItemModel;
 class MyMoneyAccount;
+class NewTransactionEditor;
 
 class SplitDialog : public QDialog
 {
@@ -52,8 +53,8 @@ public:
   MyMoneyMoney transactionAmount() const;
 
 public Q_SLOTS:
-  virtual void accept();
-  virtual int exec();
+  void accept() final override;
+  int exec() final override;
 
 private Q_SLOTS:
   void adjustSummary();
@@ -72,7 +73,7 @@ protected Q_SLOTS:
   void updateButtonState();
 
 protected:
-  virtual void resizeEvent(QResizeEvent* ev);
+  void resizeEvent(QResizeEvent* ev) final override;
   void adjustSummaryWidth();
 
 private:

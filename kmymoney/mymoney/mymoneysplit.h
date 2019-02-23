@@ -1,96 +1,80 @@
-/***************************************************************************
-                          mymoneysplit.h  -  description
-                             -------------------
-    begin                : Sun Apr 28 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2004       Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2005-2006  Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYSPLIT_H
 #define MYMONEYSPLIT_H
 
+#include "kmm_mymoney_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QDateTime>
+#include <QMetaType>
+
+// ----------------------------------------------------------------------------
+// KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneyexception.h"
-#include "mymoneyutils.h"
-#include "mymoneymoney.h"
-#include <kmm_mymoney_export.h>
-#include <mymoneyobject.h>
-#include <mymoneykeyvaluecontainer.h>
+#include "mymoneyobject.h"
+#include "mymoneykeyvaluecontainer.h"
+
+class QString;
+class QDate;
+
+class MyMoneyMoney;
 class MyMoneyTransaction;
+
+namespace eMyMoney { namespace Split { enum class InvestmentTransactionType; } }
+namespace eMyMoney { namespace Split { enum class State; } }
+namespace eMyMoney { namespace Split { enum class Action; } }
 
 /**
   * @author Thomas Baumgart
+  * @author Łukasz Wojniłowicz
   */
 
 /**
   * This class represents a split of a transaction.
   */
+class MyMoneySplitPrivate;
 class KMM_MYMONEY_EXPORT MyMoneySplit : public MyMoneyObject, public MyMoneyKeyValueContainer
 {
-public:
-  /**
-    * This enum defines the possible reconciliation states a split
-    * can be in. Possible values are as follows:
-    *
-    * @li NotReconciled
-    * @li Cleared
-    * @li Reconciled
-    * @li Frozen
-    *
-    * Whenever a new split is created, it has the status NotReconciled. It
-    * can be set to cleared when the transaction has been performed. Once the
-    * account is reconciled, cleared splits will be set to Reconciled. The
-    * state Frozen will be used, when the concept of books is introduced into
-    * the engine and a split must not be changed anymore.
-    */
-  enum reconcileFlagE {
-    Unknown = -1,
-    NotReconciled = 0,
-    Cleared,
-    Reconciled,
-    Frozen,
-    // insert new values above
-    MaxReconcileState
-  };
+  Q_DECLARE_PRIVATE_D(MyMoneyObject::d_ptr, MyMoneySplit)
 
-  typedef enum {
-    UnknownTransactionType = -1,
-    BuyShares = 0,
-    SellShares,
-    Dividend,
-    ReinvestDividend,
-    Yield,
-    AddShares,
-    RemoveShares,
-    SplitShares,
-    InterestIncome///
-  } investTransactionTypeE;
+  KMM_MYMONEY_UNIT_TESTABLE
+
+public:
 
   MyMoneySplit();
-  MyMoneySplit(const QDomElement& node);
-  MyMoneySplit(const QString& id, const MyMoneySplit& right);
+  explicit MyMoneySplit(const QString &id);
+
+  MyMoneySplit(const QString& id,
+               const MyMoneySplit& other);
+
+  MyMoneySplit(const MyMoneySplit & other);
+  MyMoneySplit(MyMoneySplit && other);
+  MyMoneySplit & operator=(MyMoneySplit other);
+  friend void swap(MyMoneySplit& first, MyMoneySplit& second);
+
   ~MyMoneySplit();
 
   bool operator == (const MyMoneySplit&) const;
@@ -101,8 +85,6 @@ public:
    */
   MyMoneySplit operator-() const;
 
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
-
   /**
     * This method checks if a reference to the given object exists. It returns,
     * a @p true if the object is referencing the one requested by the
@@ -112,14 +94,10 @@ public:
     * @retval true This object references object with id @p id.
     * @retval false This object does not reference the object with id @p id.
     */
-  virtual bool hasReferenceTo(const QString& id) const;
+  bool hasReferenceTo(const QString& id) const override;
 
-  const MyMoneyMoney& shares() const {
-    return m_shares;
-  }
-  const MyMoneyMoney& value() const {
-    return m_value;
-  }
+  MyMoneyMoney shares() const;
+  void setShares(const MyMoneyMoney& shares);
 
   /**
    * This method returns the price. If the member m_price is not zero
@@ -131,73 +109,22 @@ public:
   /** This method just returns what is in m_price, so when we write to the
    *  database, we don't just generate prices
   */
-  MyMoneyMoney actualPrice() const {
-    return m_price;
-  }
+  MyMoneyMoney actualPrice() const;
+  void setPrice(const MyMoneyMoney& price);
 
-  const MyMoneyMoney value(const QString& transactionCurrencyId, const QString& splitCurrencyId) const;
+  MyMoneyMoney value() const;
+  MyMoneyMoney value(const QString& transactionCurrencyId, const QString& splitCurrencyId) const;
 
   /**
    * Required to have (direct) access to the MyMoneyKeyValueContainer::value() method.
    */
-  const QString& value(const QString& key) const {
-    return MyMoneyKeyValueContainer::value(key);
-  }
+  QString value(const QString& key) const;
 
   /**
    * Required to have (direct) access to the MyMoneyKeyValueContainer::setValue() method.
    */
-  void setValue(const QString& key, const QString& value) {
-    MyMoneyKeyValueContainer::setValue(key, value);
-  }
-
-  const QString& accountId() const {
-    return m_account;
-  }
-  const QString& costCenterId() const {
-    return m_costCenter;
-  }
-  const QString& memo() const {
-    return m_memo;
-  }
-  reconcileFlagE reconcileFlag() const {
-    return m_reconcileFlag;
-  }
-  const QDate& reconcileDate() const {
-    return m_reconcileDate;
-  }
-  const QString& payeeId() const {
-    return m_payee;
-  }
-  const QList<QString>& tagIdList() const {
-    return m_tagList;
-  }
-  const QString& action() const {
-    return m_action;
-  }
-  const QString& number() const {
-    return m_number;
-  }
-  bool isAmortizationSplit() const {
-    return m_action == ActionAmortization;
-  }
-  bool isInterestSplit() const {
-    return m_action == ActionInterest;
-  }
-  bool isAutoCalc() const {
-    return (m_shares == MyMoneyMoney::autoCalc) || (m_value == MyMoneyMoney::autoCalc);
-  }
-  const QString& bankID() const {
-    return m_bankID;
-  }
-  const QString& transactionId() const {
-    return m_transactionId;
-  }
-
-  void setShares(const MyMoneyMoney& shares);
+  void setValue(const QString& key, const QString& value);
   void setValue(const MyMoneyMoney& value);
-  void setPrice(const MyMoneyMoney& price);
-
   /**
     * This method is used to set either the shares or the value depending on
     * the currencies assigned to the split/account and the transaction.
@@ -213,22 +140,44 @@ public:
     */
   void setValue(const MyMoneyMoney& value, const QString& transactionCurrencyId, const QString& splitCurrencyId);
 
+
+  QString accountId() const;
   void setAccountId(const QString& account);
+
+  QString costCenterId() const;
   void setCostCenterId(const QString& costCenter);
+
+  QString memo() const;
   void setMemo(const QString& memo);
-  void setReconcileFlag(const reconcileFlagE flag);
+
+  eMyMoney::Split::State reconcileFlag() const;
+  void setReconcileFlag(const eMyMoney::Split::State flag);
+
+  QDate reconcileDate() const;
   void setReconcileDate(const QDate& date);
+
+  QString payeeId() const;
   void setPayeeId(const QString& payee);
+
+  QList<QString> tagIdList() const;
   void setTagIdList(const QList<QString>& tagList);
+
+  QString action() const;
   void setAction(const QString& action);
-  void setAction(investTransactionTypeE type);
+  void setAction(eMyMoney::Split::InvestmentTransactionType type);
+  bool isAmortizationSplit() const;
+  bool isInterestSplit() const;
+
+  QString number() const;
   void setNumber(const QString& number);
-  void setBankID(const QString& bankID) {
-    m_bankID = bankID;
-  };
-  void setTransactionId(const QString& id) {
-    m_transactionId = id;
-  }
+
+  bool isAutoCalc() const;
+
+  QString bankID() const;
+  void setBankID(const QString& bankID);
+
+  QString transactionId() const;
+  void setTransactionId(const QString& id);
 
   /**
   * returns @a true if this its a transaction matched against an imported
@@ -264,114 +213,27 @@ public:
    */
   bool replaceId(const QString& newId, const QString& oldId);
 
-  static const char ActionCheck[];
-  static const char ActionDeposit[];
-  static const char ActionTransfer[];
-  static const char ActionWithdrawal[];
-  static const char ActionATM[];
-
-  static const char ActionAmortization[];
-  static const char ActionInterest[];
-
-  static const char ActionBuyShares[];  // negative amount is sellShares
-  static const char ActionDividend[];
-  static const char ActionReinvestDividend[];
-  static const char ActionYield[];
-  static const char ActionAddShares[];  // negative amount is removeShares
-  static const char ActionSplitShares[];
-  static const char ActionInterestIncome[];
-
-private:
-  /**
-    * This member contains the ID of the transaction
-    */
-  QString      m_id;
-
-  /**
-    * This member contains the ID of the payee
-    */
-  QString      m_payee;
-
-  /**
-    * This member contains a list of the IDs of the tags
-    */
-  QList<QString> m_tagList;
-
-  /**
-    * This member contains the ID of the account
-    */
-  QString       m_account;
-
-  /**
-   * This member contains the ID of the cost center
-   */
-  QString       m_costCenter;
-
-  /**
-    */
-  MyMoneyMoney  m_shares;
-
-  /**
-    */
-  MyMoneyMoney  m_value;
-
-
-  /**
-    * If the quotient of m_shares divided by m_values is not the correct price
-    * because of truncation, the price can be stored in this member. For display
-    * purpose and transaction edit this value can be used by the application.
-    */
-  MyMoneyMoney  m_price;
-
-  QString       m_memo;
-
-  /**
-    * This member contains information about the reconciliation
-    * state of the split. Possible values are
-    *
-    * @li NotReconciled
-    * @li Cleared
-    * @li Reconciled
-    * @li Frozen
-    *
-    */
-  reconcileFlagE m_reconcileFlag;
-
-  /**
-    * In case the reconciliation flag is set to Reconciled or Frozen
-    * this member contains the date of the reconciliation.
-    */
-  QDate         m_reconcileDate;
-
-  /**
-    * The m_action member is an arbitrary string, but is intended to
-    * be conveniently limited to a menu of selections such as
-    * "Buy", "Sell", "Interest", etc.
-    */
-  QString      m_action;
-
-  /**
-    * The m_number member is used to store a reference number to
-    * the split supplied by the user (e.g. check number, etc.).
-    */
-  QString       m_number;
-
-  /**
-    * This member keeps the bank's unique ID for the split, so we can
-    * avoid duplicates.  This is only used for electronic statement downloads.
-    *
-    * This should only be set on the split which refers to the account
-    * that was downloaded.
-    */
-  QString m_bankID;
-
-  /**
-    * This member keeps a backward id to the transaction that this
-    * split can be found in. It is the purpose of the MyMoneyTransaction
-    * object to maintain this member variable.
-    */
-  QString      m_transactionId;
+  static QString actionName(eMyMoney::Split::Action action);
 };
+
+
+inline void swap(MyMoneySplit& first, MyMoneySplit& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.MyMoneyObject::d_ptr, second.MyMoneyObject::d_ptr);
+  swap(first.MyMoneyKeyValueContainer::d_ptr, second.MyMoneyKeyValueContainer::d_ptr);
+}
+
+inline MyMoneySplit::MyMoneySplit(MyMoneySplit && other) : MyMoneySplit() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneySplit & MyMoneySplit::operator=(MyMoneySplit other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 /**
   * Make it possible to hold @ref MyMoneySplit objects inside @ref QVariant objects.

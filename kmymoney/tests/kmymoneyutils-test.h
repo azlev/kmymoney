@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2012 Thomas Baumgart <ipwizard@users.sourceforge.net>
  * Copyright (C) 2015 Christian Dávid <christian-david@web.de>
  *
@@ -20,8 +20,8 @@
 #ifndef KMYMONEYUTILSTEST_H
 #define KMYMONEYUTILSTEST_H
 
-#include <QtCore/QObject>
-#include <QtCore/QList>
+#include <QObject>
+#include <QList>
 
 #define KMM_MYMONEY_UNIT_TESTABLE friend class KMyMoneyUtilsTest;
 
@@ -32,7 +32,7 @@ class KMyMoneyUtilsTest : public QObject
   Q_OBJECT
 protected:
 
-private slots:
+private Q_SLOTS:
   void initTestCase();
   void init();
   void cleanup();

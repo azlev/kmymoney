@@ -1,13 +1,10 @@
 /*
- * Copyright 2014  Cristian Oneț <onet.cristian@gmail.com>
+ * Copyright 2014-2015  Cristian Oneț <onet.cristian@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of
- * the License or (at your option) version 3 or any later version
- * accepted by the membership of KDE e.V. (or its successor approved
- * by the membership of KDE e.V.), which shall act as a proxy
- * defined in Section 14 of version 3 of the license.
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,14 +13,13 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 #include <config-kmymoney.h>
 
 #include "mymoneycontact.h"
 
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
 #include <KIdentityManagement/IdentityManager>
 #include <KIdentityManagement/Identity>
 #include <AkonadiCore/RecursiveItemFetchJob>
@@ -39,7 +35,7 @@ MyMoneyContact::MyMoneyContact(QObject *parent) : QObject(parent)
 
 bool MyMoneyContact::ownerExists() const
 {
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
   KIdentityManagement::IdentityManager im;
   KIdentityManagement::Identity id = im.defaultIdentity();
   return !id.isNull();
@@ -50,7 +46,7 @@ bool MyMoneyContact::ownerExists() const
 
 QString MyMoneyContact::ownerEmail() const
 {
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
   KIdentityManagement::IdentityManager im;
   KIdentityManagement::Identity id = im.defaultIdentity();
   return id.primaryEmailAddress();
@@ -61,7 +57,7 @@ QString MyMoneyContact::ownerEmail() const
 
 QString MyMoneyContact::ownerFullName() const
 {
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
   KIdentityManagement::IdentityManager im;
   KIdentityManagement::Identity id = im.defaultIdentity();
   return id.fullName();
@@ -72,7 +68,7 @@ QString MyMoneyContact::ownerFullName() const
 
 void MyMoneyContact::fetchContact(const QString &email)
 {
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
   QRegularExpression re(".+@.+");
   if (!re.match(email).hasMatch()) {
     ContactData contact;
@@ -87,6 +83,7 @@ void MyMoneyContact::fetchContact(const QString &email)
     job->start();
   }
 #else
+  Q_UNUSED(email);
   ContactData contact;
   emit contactFetched(contact);
 #endif
@@ -94,7 +91,7 @@ void MyMoneyContact::fetchContact(const QString &email)
 
 void MyMoneyContact::searchContactResult(KJob *job)
 {
-#ifdef KMM_ADDRESSBOOK_FOUND
+#ifdef ENABLE_ADDRESSBOOK
   const Akonadi::RecursiveItemFetchJob *contactJob = qobject_cast<Akonadi::RecursiveItemFetchJob*>(job);
   Akonadi::Item::List items;
   if (contactJob)

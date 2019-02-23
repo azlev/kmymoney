@@ -10,15 +10,14 @@ set(kmm_mymoney_LIB_SRCS
   mymoneyobject.cpp
   mymoneypayeeidentifiercontainer.cpp
   mymoneysplit.cpp mymoneyinstitution.cpp
-  mymoneyexception.cpp mymoneyinvesttransaction.cpp mymoneyutils.cpp
+  mymoneyinvesttransaction.cpp mymoneyutils.cpp
   mymoneysecurity.cpp mymoneytransaction.cpp mymoneyschedule.cpp
-  mymoneypayee.cpp
+  mymoneypayee.cpp mymoneytracer.cpp
   mymoneytag.cpp
   mymoneycategory.cpp
   mymoneycostcenter.cpp
-  mymoneyaccount.cpp
+  mymoneyaccount.cpp mymoneyaccountloan.cpp
   mymoneyreport.cpp mymoneystatement.cpp mymoneyprice.cpp mymoneybudget.cpp
-  mymoneyobjectcontainer.cpp
   mymoneyforecast.cpp
   mymoneybalancecache.cpp
   onlinejob.cpp
@@ -29,6 +28,34 @@ set(kmm_mymoney_LIB_SRCS
   payeeidentifiermodel.cpp
   )
 
+  # storage_a_SOURCES cannot be set in storage directory on MS Windows
+  # because, while building kmm_storage, linker reports many undefined symbols
+  # which are in fact available in kmm_mymoney
+  set(storage_a_SOURCES
+    ./storage/imymoneystorageformat.cpp
+    ./storage/mymoneystoragemgr.cpp
+    )
+
+  set(onlineTask_a_SOURCES
+  ./onlinetasks/sepa/sepaonlinetransferimpl.cpp
+  ./onlinetasks/sepa/sepaonlinetransfer.cpp
+  ./onlinetasks/unavailabletask/tasks/unavailabletask.cpp
+  )
+
+  # NOTE: this payeeIdentifier and its cmake file cannot be used as a template
+  # This payeeIdentifier must be linked with payeeIdentifierLoader because it
+  # is a fallback if something failed during loading of plugins (for xml files only)
+  set(payeeidentifier_a_SOURCES
+  ./payeeidentifier/ibanbic/ibanbic.cpp
+  ./payeeidentifier/nationalaccount/nationalaccount.cpp
+  ./payeeidentifier/unavailableplugin/unavailableplugin.cpp
+  )
+
+list(APPEND storage_a_SOURCES $<$<OR:$<CONFIG:Debug>,$<CONFIG:DebugFull>,$<CONFIG:DebugKMM>>: ./storage/mymoneystoragedump.cpp>)
+
+list(APPEND kmm_mymoney_LIB_SRCS ${storage_a_SOURCES})
+list(APPEND kmm_mymoney_LIB_SRCS ${onlineTask_a_SOURCES})
+list(APPEND kmm_mymoney_LIB_SRCS ${payeeidentifier_a_SOURCES})
 
 set(mymoney_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/kmm_mymoney_export.h
   mymoneyobject.h mymoneyaccount.h mymoneycategory.h mymoneyexception.h
@@ -37,10 +64,11 @@ set(mymoney_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/kmm_mymoney_export.h
   mymoneypayee.h mymoneytag.h mymoneyprice.h mymoneyreport.h
   mymoneyschedule.h mymoneysecurity.h mymoneysplit.h mymoneystatement.h
   mymoneytransactionfilter.h mymoneytransaction.h
-  mymoneyutils.h mymoneybudget.h mymoneyobjectcontainer.h mymoneyforecast.h
+  mymoneyutils.h mymoneybudget.h mymoneyforecast.h
   imymoneyprocessingcalendar.h
-  mymoneyfile.h mymoneycostcenter.h
-  mymoneyunittestable.h imymoneyprocessingcalendar.h
+  mymoneycostcenter.h
+  mymoneyenums.h
+  mymoneyunittestable.h
   mymoneypayeeidentifiercontainer.h
   onlinejob.h
   onlinejobtyped.h
@@ -50,31 +78,26 @@ set(mymoney_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/kmm_mymoney_export.h
 
 add_library(kmm_mymoney SHARED ${kmm_mymoney_LIB_SRCS})
 
-target_compile_features(kmm_mymoney PUBLIC cxx_nullptr PRIVATE cxx_decltype cxx_lambdas cxx_constexpr cxx_range_for)
-
 generate_export_header(kmm_mymoney BASE_NAME kmm_mymoney)
 
 target_link_libraries(kmm_mymoney
                       PUBLIC
-                      Qt5::Gui
+                      kmm_icons
                       Qt5::Xml
                       Qt5::Core
-                      KF5::IconThemes
+                      Qt5::Gui
                       KF5::Service
+                      KF5::I18n
                       Alkimia::alkimia
-                      kmm_storage
-#                     onlinetask_interfaces
-                      onlinetask_unavailabletask
-                      kmm_payeeidentifier_loader
                       kmm_payeeidentifier
-                      payeeidentifier_iban_bic
-                      payeeidentifier_nationalAccount
-                      kmm_config
+                      kmm_plugin
                       # TODO: fix this
                       KF5::XmlGui
+                      PRIVATE
+                      onlinetask_interfaces
 )
 
-if(KMM_ADDRESSBOOK_FOUND)
+if(ENABLE_ADDRESSBOOK)
 target_link_libraries(kmm_mymoney PUBLIC KF5::IdentityManagement KF5::AkonadiCore KF5::Contacts)
 endif()
 
@@ -90,4 +113,6 @@ install(FILES ${mymoney_HEADERS}
 
 ############## tests ####################
 
-add_subdirectory(tests)
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()

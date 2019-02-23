@@ -1,18 +1,20 @@
-/***************************************************************************
-                          mymoneyobject.h
-                             -------------------
-    copyright            : (C) 2005 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYOBJECT_H
 #define MYMONEYOBJECT_H
@@ -20,16 +22,15 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QDateTime>
-class QDomDocument;
-class QDomElement;
+#include <qglobal.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneyunittestable.h>
+#include "kmm_mymoney_export.h"
+#include "mymoneyunittestable.h"
+
+class QString;
 
 /**
   * @author Thomas Baumgart
@@ -38,16 +39,14 @@ class QDomElement;
 /**
   * This class represents the base class of all MyMoney objects.
   */
+class MyMoneyObjectPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyObject
 {
+  Q_DECLARE_PRIVATE(MyMoneyObject)
+
   KMM_MYMONEY_UNIT_TESTABLE
 
-public:
-  /**
-    * This is the constructor for the MyMoneyObject object
-    */
-  MyMoneyObject();
-
+  public:
   /**
     * This is the destructor for the MyMoneyObject object
     */
@@ -58,9 +57,7 @@ public:
     *
     * @return ID of object
     */
-  const QString& id() const {
-    return m_id;
-  };
+  QString id() const;
 
   /**
     * This method clears the id of the object
@@ -78,53 +75,13 @@ public:
     */
   virtual bool hasReferenceTo(const QString& id) const = 0;
 
-  /**
-    * This method creates a QDomElement for the @p document
-    * under the parent node @p parent.
-    *
-    * @param document reference to QDomDocument
-    * @param parent reference to QDomElement parent node
-    */
-  virtual void writeXML(QDomDocument& document, QDomElement& parent) const = 0;
-
   bool operator == (const MyMoneyObject& right) const;
 
-  static const QString& emptyId();
-
 protected:
-  /**
-    * This contructor assigns the id to the MyMoneyObject
-    *
-    * @param id ID of object
-    */
-  MyMoneyObject(const QString& id);
-
-  /**
-   * This contructor reads the id from the @p id attribute of the
-   * QDomElement.
-   *
-   * @param node const reference to the QDomElement from which to
-   *           obtain the id of the object
-   * @param forceId flag to be able to suppress enforcement of an id
-   *           defaults to true which requires the node to have an
-   *           attribute with name @p id. If it does not contain such
-   *           an attribute, an exception will be thrown. If @p forceId
-   *           is false, no check for an id is performed. This will be
-   *           used by objects, which are stored w/o id (eg. splits,
-   *           transactions within schedules)
-   */
-  MyMoneyObject(const QDomElement& node, const bool forceId = true);
-
-  void setId(const QString& id);
-
-  /**
-   * This method writes out the members contained in this object.
-   */
-  void writeBaseXML(QDomDocument& document, QDomElement& el) const;
-
-protected:
-  QString               m_id;
-  static const QString  m_emptyId;
+  MyMoneyObjectPrivate * d_ptr;
+  explicit MyMoneyObject(MyMoneyObjectPrivate &dd);
+  MyMoneyObject(MyMoneyObjectPrivate &dd,
+                const QString& id);
 };
 
 #endif

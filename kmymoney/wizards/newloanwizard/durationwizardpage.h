@@ -29,32 +29,28 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_durationwizardpagedecl.h"
+namespace Ui { class DurationWizardPage; }
 
 /**
  * This class implements the Duration page of the
  * @ref KNewLoanWizard.
  */
-class DurationWizardPageDecl : public QWizardPage, public Ui::DurationWizardPageDecl
-{
-public:
-  DurationWizardPageDecl(QWidget *parent) : QWizardPage(parent) {
-    setupUi(this);
-  }
-};
 
-class DurationWizardPage : public DurationWizardPageDecl
+class DurationWizardPage : public QWizardPage
 {
   Q_OBJECT
 public:
-  explicit DurationWizardPage(QWidget *parent = 0);
+  explicit DurationWizardPage(QWidget *parent = nullptr);
+  ~DurationWizardPage();
 
   QString updateTermWidgets(const double val);
   int term() const;
 
-public slots:
+public Q_SLOTS:
   void resetCalculator();
 
+private:
+  Ui::DurationWizardPage *ui;
 };
 
 #endif

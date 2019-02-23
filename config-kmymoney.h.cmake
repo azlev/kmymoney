@@ -3,22 +3,22 @@
 /* Name of package */
 #define PACKAGE "kmymoney"
 
-/* Define to 1 if you have the <sys/types.h> header file. */
-#cmakedefine HAVE_SYS_TYPES_H 1
-
-/* Define to 1 if you have the <unistd.h> header file. */
-#cmakedefine HAVE_UNISTD_H 1
-
-#cmakedefine KMM_DEBUG 1
-
 #cmakedefine KMM_DESIGNER 1
 
 #cmakedefine KMM_DBUS 1
 
-#cmakedefine KF5Holidays_FOUND 1
+#cmakedefine ENABLE_HOLIDAYS 1
 
-#cmakedefine Gpgmepp_FOUND 1
+#cmakedefine ENABLE_ADDRESSBOOK 1
 
-#cmakedefine KMM_ADDRESSBOOK_FOUND 1
+#cmakedefine ENABLE_ACTIVITIES 1
 
-#cmakedefine KF5Activities_FOUND 1
+#cmakedefine ENABLE_WEBENGINE 1
+
+#cmakedefine ENABLE_UNFINISHEDFEATURES 1
+
+#cmakedefine ENABLE_SQLCIPHER 1
+
+#cmakedefine ENABLE_GPG 1
+
+#cmakedefine IS_APPIMAGE 1

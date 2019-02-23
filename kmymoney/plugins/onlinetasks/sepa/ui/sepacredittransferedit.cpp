@@ -1,5 +1,5 @@
 /*
-  This file is part of KMyMoney, A Personal Finance Manager for KDE
+  This file is part of KMyMoney, A Personal Finance Manager by KDE
   Copyright (C) 2013 Christian Dávid <christian-david@web.de>
 
   This program is free software; you can redistribute it and/or
@@ -22,21 +22,23 @@
 #include <QCompleter>
 #include <QSortFilterProxyModel>
 #include <QTreeView>
-#include <QDebug>
 
 #include <KDescendantsProxyModel>
 
 #include "kguiutils.h"
 
 #include "mymoney/payeeidentifiermodel.h"
-#include "onlinetasks/sepa/tasks/sepaonlinetransfer.h"
-#include "payeeidentifier/ibanandbic/widgets/ibanvalidator.h"
-#include "payeeidentifier/ibanandbic/widgets/bicvalidator.h"
+#include "onlinetasks/sepa/sepaonlinetransfer.h"
+#include "widgets/payeeidentifier/ibanbic/ibanvalidator.h"
+#include "widgets/payeeidentifier/ibanbic/bicvalidator.h"
 #include "payeeidentifier/payeeidentifiertyped.h"
 #include "misc/charvalidator.h"
-#include "payeeidentifier/ibanandbic/ibanbic.h"
+#include "payeeidentifier/ibanbic/ibanbic.h"
 #include "styleditemdelegateforwarder.h"
-#include "payeeidentifier/ibanandbic/widgets/ibanbicitemdelegate.h"
+#include "widgets/payeeidentifier/ibanbic/ibanbicitemdelegate.h"
+#include "onlinejobtyped.h"
+#include "mymoneyaccount.h"
+#include "widgetenums.h"
 
 class ibanBicCompleterDelegate : public StyledItemDelegateForwarder
 {
@@ -47,7 +49,7 @@ public:
       : StyledItemDelegateForwarder(parent) {}
 
 protected:
-  virtual QAbstractItemDelegate* getItemDelegate(const QModelIndex &index) const {
+  QAbstractItemDelegate* getItemDelegate(const QModelIndex &index) const final override {
     static QPointer<QAbstractItemDelegate> defaultDelegate;
     static QPointer<QAbstractItemDelegate> ibanBicDelegate;
 
@@ -102,7 +104,7 @@ public:
   ibanBicFilterProxyModel(QObject* parent = 0)
       : QSortFilterProxyModel(parent) {}
 
-  virtual QVariant data(const QModelIndex &index, int role) const {
+  QVariant data(const QModelIndex &index, int role) const final override {
     if (role == payeeIban) {
       if (!index.isValid())
         return QVariant();
@@ -112,7 +114,9 @@ public:
               index.model()->data(index, payeeIdentifierModel::payeeIdentifier).value<payeeIdentifier>()
             );
         return iban->electronicIban();
-      } catch (payeeIdentifier::exception&) {
+      } catch (const payeeIdentifier::empty &) {
+        return QVariant();
+      } catch (const payeeIdentifier::badCast &) {
         return QVariant();
       }
     }
@@ -120,7 +124,7 @@ public:
     return QSortFilterProxyModel::data(index, role);
   }
 
-  virtual bool filterAcceptsRow(int source_row, const QModelIndex& source_parent) const {
+  bool filterAcceptsRow(int source_row, const QModelIndex& source_parent) const final override {
     if (!source_parent.isValid())
       return true;
 
@@ -170,7 +174,8 @@ void ibanBicCompleter::slotActivated(const QModelIndex &index) const
         );
     emit activatedIban(iban->electronicIban());
     emit activatedBic(iban->storedBic());
-  } catch (payeeIdentifier::exception&) {
+  } catch (const payeeIdentifier::empty &) {
+  } catch (const payeeIdentifier::badCast &) {
   }
 }
 
@@ -186,7 +191,8 @@ void ibanBicCompleter::slotHighlighted(const QModelIndex &index) const
         );
     emit highlightedIban(iban->electronicIban());
     emit highlightedBic(iban->storedBic());
-  } catch (payeeIdentifier::exception&) {
+  } catch (const payeeIdentifier::empty &) {
+  } catch (const payeeIdentifier::badCast &) {
   }
 }
 
@@ -194,7 +200,7 @@ sepaCreditTransferEdit::sepaCreditTransferEdit(QWidget *parent, QVariantList arg
     IonlineJobEdit(parent, args),
     ui(new Ui::sepaCreditTransferEdit),
     m_onlineJob(onlineJobTyped<sepaOnlineTransfer>()),
-    m_requiredFields(new kMandatoryFieldGroup(this)),
+    m_requiredFields(new KMandatoryFieldGroup(this)),
     m_readOnly(false),
     m_showAllErrors(false)
 {
@@ -397,7 +403,7 @@ void sepaCreditTransferEdit::updateSettings()
 void sepaCreditTransferEdit::beneficiaryIbanChanged(const QString& iban)
 {
   // Check IBAN
-  QPair<KMyMoneyValidationFeedback::MessageType, QString> answer = ibanValidator::validateWithMessage(iban);
+  QPair<eWidgets::ValidationFeedback::MessageType, QString> answer = ibanValidator::validateWithMessage(iban);
   if (m_showAllErrors || iban.length() > 5 || (!ui->beneficiaryIban->hasFocus() && !iban.isEmpty()))
     ui->feedbackIban->setFeedback(answer.first, answer.second);
   else
@@ -410,7 +416,8 @@ void sepaCreditTransferEdit::beneficiaryIbanChanged(const QString& iban)
   try {
     payeeIdentifier ident = getOnlineJobTyped().task()->originAccountIdentifier();
     payeeIban = ident.data<payeeIdentifiers::ibanBic>()->electronicIban();
-  } catch (payeeIdentifier::exception&) {
+  } catch (const payeeIdentifier::empty &) {
+  } catch (const payeeIdentifier::badCast &) {
   }
 
   if (settings->isBicMandatory(payeeIban, iban)) {
@@ -431,16 +438,16 @@ void sepaCreditTransferEdit::beneficiaryBicChanged(const QString& bic)
     QString iban;
     try {
       iban = payee.data<payeeIdentifiers::ibanBic>()->electronicIban();
-    } catch (payeeIdentifier::badCast&) {
+    } catch (const payeeIdentifier::badCast &) {
     }
 
     if (settings->isBicMandatory(iban , ui->beneficiaryIban->text())) {
-      ui->feedbackBic->setFeedback(KMyMoneyValidationFeedback::Error, i18n("For this beneficiary's country the BIC is mandatory."));
+      ui->feedbackBic->setFeedback(eWidgets::ValidationFeedback::MessageType::Error, i18n("For this beneficiary's country the BIC is mandatory."));
       return;
     }
   }
 
-  QPair<KMyMoneyValidationFeedback::MessageType, QString> answer = bicValidator::validateWithMessage(bic);
+  QPair<eWidgets::ValidationFeedback::MessageType, QString> answer = bicValidator::validateWithMessage(bic);
   if (m_showAllErrors || bic.length() >= 8 || (!ui->beneficiaryBankCode->hasFocus() && !bic.isEmpty()))
     ui->feedbackBic->setFeedback(answer.first, answer.second);
   else
@@ -451,7 +458,7 @@ void sepaCreditTransferEdit::beneficiaryNameChanged(const QString& name)
 {
   QSharedPointer<const sepaOnlineTransfer::settings> settings = taskSettings();
   if (name.length() < settings->recipientNameMinLength() && (m_showAllErrors || (!ui->beneficiaryName->hasFocus() && !name.isEmpty()))) {
-    ui->feedbackName->setFeedback(KMyMoneyValidationFeedback::Error, i18np("A beneficiary name is needed.", "The beneficiary name must be at least %1 characters long",
+    ui->feedbackName->setFeedback(eWidgets::ValidationFeedback::MessageType::Error, i18np("A beneficiary name is needed.", "The beneficiary name must be at least %1 characters long",
                                   settings->recipientNameMinLength()
                                                                           ));
   } else {
@@ -462,7 +469,7 @@ void sepaCreditTransferEdit::beneficiaryNameChanged(const QString& name)
 void sepaCreditTransferEdit::valueChanged()
 {
   if ((!ui->value->isValid() && (m_showAllErrors || (!ui->value->hasFocus() && ui->value->value().toDouble() != 0))) || (!ui->value->value().isPositive() && ui->value->value().toDouble() != 0)) {
-    ui->feedbackAmount->setFeedback(KMyMoneyValidationFeedback::Error, i18n("A positive amount to transfer is needed."));
+    ui->feedbackAmount->setFeedback(eWidgets::ValidationFeedback::MessageType::Error, i18n("A positive amount to transfer is needed."));
     return;
   }
 
@@ -473,9 +480,9 @@ void sepaCreditTransferEdit::valueChanged()
   const MyMoneyMoney expectedBalance = account.balance() - ui->value->value();
 
   if (expectedBalance < MyMoneyMoney(account.value("maxCreditAbsolute"))) {
-    ui->feedbackAmount->setFeedback(KMyMoneyValidationFeedback::Warning, i18n("After this credit transfer the account's balance will be below your credit limit."));
+    ui->feedbackAmount->setFeedback(eWidgets::ValidationFeedback::MessageType::Warning, i18n("After this credit transfer the account's balance will be below your credit limit."));
   } else if (expectedBalance < MyMoneyMoney(account.value("minBalanceAbsolute"))) {
-    ui->feedbackAmount->setFeedback(KMyMoneyValidationFeedback::Information, i18n("After this credit transfer the account's balance will be below the minimal balance."));
+    ui->feedbackAmount->setFeedback(eWidgets::ValidationFeedback::MessageType::Information, i18n("After this credit transfer the account's balance will be below the minimal balance."));
   } else {
     ui->feedbackAmount->removeFeedback();
   }
@@ -485,7 +492,7 @@ void sepaCreditTransferEdit::endToEndReferenceChanged(const QString& reference)
 {
   QSharedPointer<const sepaOnlineTransfer::settings> settings = taskSettings();
   if (settings->checkEndToEndReferenceLength(reference) == validators::tooLong) {
-    ui->feedbackReference->setFeedback(KMyMoneyValidationFeedback::Error, i18np("The end-to-end reference cannot contain more than one character.",
+    ui->feedbackReference->setFeedback(eWidgets::ValidationFeedback::MessageType::Error, i18np("The end-to-end reference cannot contain more than one character.",
                                        "The end-to-end reference cannot contain more than %1 characters.",
                                        settings->endToEndReferenceLength()
                                                                                ));
@@ -519,7 +526,7 @@ void sepaCreditTransferEdit::purposeChanged()
   message.chop(1);
 
   if (!message.isEmpty()) {
-    ui->feedbackPurpose->setFeedback(KMyMoneyValidationFeedback::Error, message);
+    ui->feedbackPurpose->setFeedback(eWidgets::ValidationFeedback::MessageType::Error, message);
   } else {
     ui->feedbackPurpose->removeFeedback();
   }

@@ -1,24 +1,20 @@
-/***************************************************************************
-                         kmymoneyaccountcombo  -  description
-                            -------------------
-   begin                : Mon May 31 2004
-   copyright            : (C) 2000-2004 by Michael Edwardes
-   email                : mte@users.sourceforge.net
-                          Javier Campos Morales <javi_c@users.sourceforge.net>
-                          Felix Rodriguez <frodriguez@users.sourceforge.net>
-                          John C <thetacoturtle@users.sourceforge.net>
-                          Thomas Baumgart <ipwizard@users.sourceforge.net>
-                          Kevin Tambascio <ktambascio@users.sourceforge.net>
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYACCOUNTCOMBO_H
 #define KMYMONEYACCOUNTCOMBO_H
@@ -26,24 +22,16 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QMouseEvent>
-#include <QKeyEvent>
-#include <QList>
-#include <QItemSelection>
-#include <QPushButton>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kcombobox.h>
+#include <KComboBox>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "kmymoneyutils.h"
-#include "accountsmodel.h"
-#include "models/onlinebankingaccountsfilterproxymodel.h"
-
+#include "accountsproxymodel.h"
+#include "onlinebankingaccountsfilterproxymodel.h"
 
 /**
   * A proxy model used to filter all the data from the core accounts model leaving
@@ -58,16 +46,17 @@
   * @author Cristian Onet 2010
   * @author Christian David
   */
+
 template <class baseProxyModel>
 class AccountNamesFilterProxyModelTpl : public baseProxyModel
 {
 public:
-  AccountNamesFilterProxyModelTpl(QObject *parent = 0);
+  explicit AccountNamesFilterProxyModelTpl(QObject *parent = 0);
 
-  virtual Qt::ItemFlags flags(const QModelIndex &index) const;
+  virtual Qt::ItemFlags flags(const QModelIndex &index) const override;
 
 protected:
-  bool filterAcceptsColumn(int source_column, const QModelIndex &source_parent) const;
+  bool filterAcceptsColumn(int source_column, const QModelIndex &source_parent) const override;
 };
 
 /**
@@ -75,15 +64,18 @@ protected:
  *
  * To create valid Qt moc data this class inherits the template and uses Q_OBJECT.
  *
- * @code typedef AccountNamesFilterProxyModelTpl<AccountsFilterProxyModel> AccountNamesFilterProxyModel;
- * should work as well
+ * @code
+ * typedef AccountNamesFilterProxyModelTpl<AccountsFilterProxyModel> AccountNamesFilterProxyModel;
+ * @endcode
+ *
+ * should work as well.
  */
-class AccountNamesFilterProxyModel : public AccountNamesFilterProxyModelTpl<AccountsFilterProxyModel>
+class AccountNamesFilterProxyModel : public AccountNamesFilterProxyModelTpl<AccountsProxyModel>
 {
   Q_OBJECT
 public:
-  AccountNamesFilterProxyModel(QObject* parent = 0)
-      : AccountNamesFilterProxyModelTpl< AccountsFilterProxyModel >(parent) {}
+  explicit AccountNamesFilterProxyModel(QObject* parent = 0)
+      : AccountNamesFilterProxyModelTpl< AccountsProxyModel >(parent) {}
 };
 
 /**
@@ -95,16 +87,26 @@ typedef AccountNamesFilterProxyModelTpl<OnlineBankingAccountsFilterProxyModel> O
 
 
 /**
+  * @brief A general account selection widget based on a KComboBox
   *
+  * This widget allows to select an account from the provided set of accounts. This
+  * set is passed as model in the constructor or via setModel(). In case the widget
+  * is configured to be editable via setEditable() the combo box contains a lineedit
+  * widget. This lineedit provides auto completion.
+  *
+  * In addition to the KComboBox which supports a list view popup, this widget
+  * provides a tree view popup to show the account hierarchy.
   *
   * @author Cristian Onet
   */
 class KMyMoneyAccountCombo : public KComboBox
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyAccountCombo)
+
 public:
-  explicit KMyMoneyAccountCombo(QSortFilterProxyModel *model, QWidget *parent = 0);
-  explicit KMyMoneyAccountCombo(QWidget *parent = 0);
+  explicit KMyMoneyAccountCombo(QSortFilterProxyModel *model, QWidget* parent = nullptr);
+  explicit KMyMoneyAccountCombo(QWidget* parent = nullptr);
   ~KMyMoneyAccountCombo();
 
   void setSelected(const QString& id);
@@ -117,30 +119,29 @@ public:
    */
   void setEditable(bool isEditable);
 
-  virtual bool eventFilter(QObject* o, QEvent* e);
+  bool eventFilter(QObject* o, QEvent* e) override;
 
-public slots:
+public Q_SLOTS:
   void expandAll();
   void collapseAll();
-  virtual void showPopup();
-  virtual void hidePopup();
+  void showPopup() override;
+  void hidePopup() override;
 
 protected:
-  virtual void wheelEvent(QWheelEvent *ev);
+  void wheelEvent(QWheelEvent *ev) override;
 
-protected slots:
+protected Q_SLOTS:
   void activated();
-  void makeCompletion(const QString& txt);
+  void makeCompletion(const QString& txt) override;
   void selectItem(const QModelIndex& index);
 
-signals:
+Q_SIGNALS:
   void accountSelected(const QString&);
 
 private:
   class Private;
   QScopedPointer<Private> const d;
 };
-
 
 template <class baseProxyModel>
 AccountNamesFilterProxyModelTpl<baseProxyModel>::AccountNamesFilterProxyModelTpl(QObject *parent)
@@ -171,3 +172,4 @@ bool AccountNamesFilterProxyModelTpl<baseProxyModel>::filterAcceptsColumn(int so
   return false;
 }
 #endif
+// kate: space-indent on; indent-width 2; remove-trailing-space on; remove-trailing-space-save on;

@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2015  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,7 +18,11 @@
 #ifndef PAYEEIDENTIFIERCONTAINERMODEL_H
 #define PAYEEIDENTIFIERCONTAINERMODEL_H
 
-#include <QtCore/QModelIndex>
+#include "kmm_models_export.h"
+
+#include <QAbstractListModel>
+#include <QSharedPointer>
+
 #include "mymoney/payeeidentifiermodel.h"
 #include "mymoney/mymoneypayeeidentifiercontainer.h"
 #include "payeeidentifier/payeeidentifier.h"
@@ -27,11 +30,13 @@
 /**
  * @brief Model for MyMoneyPayeeIdentifierContainer
  *
- * Changes the user does have initernal effect only.
+ * Changes the user does have internal effect only.
  *
  * @see payeeIdentifierModel
  */
-class payeeIdentifierContainerModel : public QAbstractListModel
+class MyMoneyPayeeIdentifierContainer;
+class payeeIdentifier;
+class KMM_MODELS_EXPORT payeeIdentifierContainerModel : public QAbstractListModel
 {
   Q_OBJECT
 
@@ -46,22 +51,22 @@ public:
     payeeIdentifier = payeeIdentifierModel::payeeIdentifier /**< actual payeeIdentifier */
   };
 
-  payeeIdentifierContainerModel(QObject* parent = 0);
+  explicit payeeIdentifierContainerModel(QObject* parent = 0);
 
-  virtual QVariant data(const QModelIndex& index, int role) const;
+  QVariant data(const QModelIndex& index, int role) const final override;
 
   /**
    * This model only supports to edit payeeIdentifier role with a QVariant of type
    * payeeIdentifier.
    */
-  virtual bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole);
+  bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) final override;
 
-  virtual Qt::ItemFlags flags(const QModelIndex& index) const;
+  Qt::ItemFlags flags(const QModelIndex& index) const final override;
 
-  virtual int rowCount(const QModelIndex& parent) const;
+  int rowCount(const QModelIndex& parent) const final override;
 
-  virtual bool insertRows(int row, int count, const QModelIndex& parent);
-  virtual bool removeRows(int row, int count, const QModelIndex& parent);
+  bool insertRows(int row, int count, const QModelIndex& parent) final override;
+  bool removeRows(int row, int count, const QModelIndex& parent) final override;
 
   /**
    * @brief Set source of data
@@ -73,7 +78,7 @@ public:
   /** @brief Get stored data */
   QList< ::payeeIdentifier > identifiers() const;
 
-public slots:
+public Q_SLOTS:
   /**
    * @brief Removes all data from the model
    *

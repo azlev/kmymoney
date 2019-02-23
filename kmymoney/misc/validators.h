@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -19,7 +19,7 @@
 #ifndef VALIDATORS_H
 #define VALIDATORS_H
 
-#include <QtCore/QString>
+#include <QString>
 
 namespace validators
 {

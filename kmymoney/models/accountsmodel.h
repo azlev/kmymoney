@@ -1,42 +1,36 @@
-/***************************************************************************
- *   Copyright 2010  Cristian Onet onet.cristian@gmail.com                 *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or         *
- *   modify it under the terms of the GNU General Public License as        *
- *   published by the Free Software Foundation; either version 2 of        *
- *   the License or (at your option) version 3 or any later version        *
- *   accepted by the membership of KDE e.V. (or its successor approved     *
- *   by the membership of KDE e.V.), which shall act as a proxy            *
- *   defined in Section 14 of version 3 of the license.                    *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program.  If not, see <http://www.gnu.org/licenses/>  *
- ***************************************************************************/
+/*
+ * Copyright 2010-2014  Cristian Oneț <onet.cristian@gmail.com>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef ACCOUNTSMODEL_H
 #define ACCOUNTSMODEL_H
+
+#include "kmm_models_export.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
 #include <QStandardItemModel>
-#include <QSortFilterProxyModel>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <KF5/KItemModels/KRecursiveFilterProxyModel>
-
 // ----------------------------------------------------------------------------
 // Project Includes
-
-#include "mymoneyaccount.h"
-#include "mymoneyfile.h"
 
 /**
   * A model for the accounts.
@@ -50,53 +44,31 @@
   * @see MyMoneyFile
   *
   * @author Cristian Onet 2010
+  * @author Łukasz Wojniłowicz 2017, 2018
   *
   */
-class AccountsModel : public QStandardItemModel
+class MyMoneyObject;
+class MyMoneyMoney;
+class MyMoneyAccount;
+
+namespace eMyMoney { namespace File { enum class Object; } }
+namespace eAccountsModel { enum class Column; }
+namespace eView { enum class Intent; }
+
+class AccountsModelPrivate;
+class KMM_MODELS_EXPORT AccountsModel : public QStandardItemModel
 {
   Q_OBJECT
+  Q_DISABLE_COPY(AccountsModel)
 
 public:
-
-  /**
-    * User roles used by this model.
-    */
-  enum AccountsItemDataRole {
-    AccountIdRole = Qt::UserRole,                     /**< The account id is stored in this role in column 0 as a string.*/
-    AccountFavoriteRole = Qt::UserRole + 1,           /**< The 'account is favorite' property is stored in this role in column 0 as a bool.*/
-    AccountRole = Qt::UserRole + 2,                   /**< The MyMoneyAccount is stored in this role in column 0.*/
-    AccountBalanceRole = Qt::UserRole + 3,            /**< The account balance is stored in this role in column 0 as a MyMoneyMoney object.*/
-    AccountValueRole = Qt::UserRole + 4,              /**< The account value (the balance converted to base currency) is stored in this role in column 0 as a MyMoneyMoney object.*/
-    AccountTotalValueRole = Qt::UserRole + 5,         /**< The account total value (the value of the account and of child accounts) is stored in this role in column 0 as a MyMoneyMoney object.*/
-    AccountBalanceDisplayRole = Qt::UserRole + 6,     /**< The account balance is stored in this role in column TotalBalance as a formatted string for the user.*/
-    AccountValueDisplayRole = Qt::UserRole + 7,       /**< The account value (the balance converted to base currency) is stored in this role in column TotalValue as a formated string for the user.*/
-    AccountTotalValueDisplayRole = Qt::UserRole + 8,  /**< The account total value is stored in this role in column TotalValue as a formatted string for the user.*/
-    DisplayOrderRole = Qt::UserRole + 9,              /**< This role is used by the filtering proxies to order the accounts for displaying.*/
-    FullNameRole = Qt::UserRole + 10,                 /**< This role is used to provide the full pathname of the account */
-  };
-
-  /**
-    * The columns of this model.
-    */
-  enum Columns {
-    FirstColumnMarker = 0,
-    Account = 0,
-    Type,
-    Tax,
-    VAT,
-    CostCenter,
-    TotalBalance,
-    PostedValue,
-    TotalValue,
-    LastColumnMarker
-  };
-
   /**
     * The account id used by this model for the 'Favorites' top level item. This can be used to identify that item on the @ref AccountIdRole.
     */
   static const QString favoritesAccountId;
 
-  ~AccountsModel();
+  explicit AccountsModel(QObject *parent = nullptr);
+  virtual ~AccountsModel() override;
 
   /**
     * This method must be used to perform the initial load of the model.
@@ -120,51 +92,43 @@ public:
    */
   QModelIndex accountById(const QString& id) const;
 
-public slots:
+  QList<eAccountsModel::Column> *getColumns();
 
+  void setColumnVisibility(const eAccountsModel::Column column, const bool show);
+  static QString getHeaderName(const eAccountsModel::Column column);
+
+public Q_SLOTS:
   void slotReconcileAccount(const MyMoneyAccount &account, const QDate &reconciliationDate, const MyMoneyMoney &endingBalance);
-  void slotObjectAdded(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
-  void slotObjectModified(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
-  void slotObjectRemoved(MyMoneyFile::notificationObjectT objType, const QString& id);
+  void slotObjectAdded(eMyMoney::File::Object objType, const QString &id);
+  void slotObjectModified(eMyMoney::File::Object objType, const QString &id);
+  void slotObjectRemoved(eMyMoney::File::Object objType, const QString& id);
   void slotBalanceOrValueChanged(const MyMoneyAccount &account);
 
-signals:
+Q_SIGNALS:
   /**
     * Emit this signal when the net worth based on the value of the loaded accounts is changed.
     */
-  void netWorthChanged(const MyMoneyMoney &);
+  void netWorthChanged(const QVariantList&, eView::Intent);
 
   /**
     * Emit this signal when the profit based on the value of the loaded accounts is changed.
     */
-  void profitChanged(const MyMoneyMoney &);
+  void profitChanged(const QVariantList&, eView::Intent);
+
+protected:
+  AccountsModelPrivate * const d_ptr;
+  AccountsModel(AccountsModelPrivate &dd, QObject *parent);
 
 private:
-  AccountsModel(QObject *parent = 0);
+  Q_DECLARE_PRIVATE(AccountsModel)
 
-  void init();
   void checkNetWorth();
   void checkProfit();
-
-  /**
-    * The copy-constructor is private so that only the @ref Models object can create such an object.
-    */
-  AccountsModel(const AccountsModel&);
-  AccountsModel& operator=(AccountsModel&);
 
   /**
     * Allow only the @ref Models object to create such an object.
     */
   friend class Models;
-
-protected:
-  class Private;
-  Private* const d;
-
-  /**
-    * This constructor can be used from derived classes in order to use a derived Private class.
-    */
-  AccountsModel(Private* const priv, QObject *parent = 0);
 };
 
 /**
@@ -172,104 +136,36 @@ protected:
   * in @ref AccountsModel to enable the grouping of the accounts by institutions.
   *
   * @author Cristian Onet 2011
+  * @author Łukasz Wojniłowicz 2017, 2018
   *
   */
-class InstitutionsModel : public AccountsModel
+class InstitutionsModelPrivate;
+class KMM_MODELS_EXPORT InstitutionsModel : public AccountsModel
 {
   Q_OBJECT
+  Q_DISABLE_COPY(InstitutionsModel)
 
 public:
+  explicit InstitutionsModel(QObject *parent = nullptr);
+  ~InstitutionsModel() override;
+
   /**
     * This method must be used to perform the initial load of the model.
     */
   void load();
 
-public slots:
-  void slotObjectAdded(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
-  void slotObjectModified(MyMoneyFile::notificationObjectT objType, const MyMoneyObject * const obj);
-  void slotObjectRemoved(MyMoneyFile::notificationObjectT objType, const QString& id);
+public Q_SLOTS:
+  void slotObjectAdded(eMyMoney::File::Object objType, const QString &id);
+  void slotObjectModified(eMyMoney::File::Object objType, const QString &id);
+  void slotObjectRemoved(eMyMoney::File::Object objType, const QString& id);
 
 private:
-  InstitutionsModel(QObject *parent = 0);
-
-  /**
-    * The copy-constructor is private so that only the @ref Models object can create such an object.
-    */
-  InstitutionsModel(const InstitutionsModel&);
-  InstitutionsModel& operator=(InstitutionsModel&);
+  Q_DECLARE_PRIVATE(InstitutionsModel)
 
   /**
     * Allow only the @ref Models object to create such an object.
     */
   friend class Models;
-
-  /**
-    * The implementation object is derived from the @ref AccountsModel objects implementation object.
-    */
-  class InstitutionsPrivate;
 };
 
-/**
-  * A proxy model to provide various sorting and filtering operations for @ref AccountsModel.
-  *
-  * Here is an example of how to use this class in combination with the @ref AccountsModel.
-  * (in the example @a widget is a pointer to a model/view widget):
-  *
-  * @code
-  *   AccountsFilterProxyModel *filterModel = new AccountsFilterProxyModel(widget);
-  *   filterModel->addAccountGroup(MyMoneyAccount::Asset);
-  *   filterModel->addAccountGroup(MyMoneyAccount::Liability);
-  *   filterModel->setSourceModel(Models::instance()->accountsModel());
-  *   filterModel->sort(0);
-  *
-  *   widget->setModel(filterModel);
-  * @endcode
-  *
-  * @see AccountsModel
-  *
-  * @author Cristian Onet 2010
-  *
-  */
-class AccountsFilterProxyModel : public KRecursiveFilterProxyModel
-{
-  Q_OBJECT
-
-public:
-  AccountsFilterProxyModel(QObject *parent = 0);
-  ~AccountsFilterProxyModel();
-
-  void addAccountType(MyMoneyAccount::accountTypeE type);
-  void addAccountGroup(MyMoneyAccount::accountTypeE type);
-  void removeAccountType(MyMoneyAccount::accountTypeE type);
-
-  void clear();
-
-  void setHideClosedAccounts(bool hideClosedAccounts);
-  bool hideClosedAccounts() const;
-
-  void setHideEquityAccounts(bool hideEquityAccounts);
-  bool hideEquityAccounts() const;
-
-  void setHideUnusedIncomeExpenseAccounts(bool hideUnusedIncomeExpenseAccounts);
-  bool hideUnusedIncomeExpenseAccounts() const;
-
-  int visibleItems(bool includeBaseAccounts = false) const;
-
-protected:
-  virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
-  virtual bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const;
-  virtual bool acceptSourceItem(const QModelIndex &source) const;
-
-  bool filterAcceptsRowOrChildRows(int source_row, const QModelIndex &source_parent) const;
-
-  int visibleItems(const QModelIndex& index) const;
-
-signals:
-  void unusedIncomeExpenseAccountHidden() const;
-
-private:
-  class Private;
-  Private* const d;
-};
-
-#endif // ACCOUNTSMODEL_H
+#endif

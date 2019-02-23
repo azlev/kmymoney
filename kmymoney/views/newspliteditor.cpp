@@ -20,11 +20,11 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QTreeView>
 #include <QCompleter>
 #include <QSortFilterProxyModel>
 #include <QStringList>
 #include <QDebug>
+#include <QStandardItemModel>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -34,14 +34,24 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "creditdebithelper.h"
+#include "kmymoneyutils.h"
 #include "kmymoneyaccountcombo.h"
 #include "models.h"
+#include "accountsmodel.h"
 #include "costcentermodel.h"
 #include "ledgermodel.h"
-#include "mymoneysplit.h"
+#include "splitmodel.h"
+#include "mymoneyaccount.h"
+#include "mymoneyexception.h"
 #include "ui_newspliteditor.h"
 #include "widgethintframe.h"
 #include "ledgerview.h"
+#include "icons/icons.h"
+#include "mymoneyenums.h"
+#include "modelenums.h"
+
+using namespace Icons;
 
 struct NewSplitEditor::Private
 {
@@ -54,6 +64,7 @@ struct NewSplitEditor::Private
   , costCenterRequired(false)
   , costCenterOk(false)
   , showValuesInverted(false)
+  , amountHelper(nullptr)
   {
     accountsModel->setObjectName("AccountNamesFilterProxyModel");
     costCenterModel->setObjectName("SortedCostCenterModel");
@@ -62,13 +73,18 @@ struct NewSplitEditor::Private
     costCenterModel->setSortLocaleAware(true);
     costCenterModel->setSortCaseSensitivity(Qt::CaseInsensitive);
 
-    createStatusEntry(MyMoneySplit::NotReconciled);
-    createStatusEntry(MyMoneySplit::Cleared);
-    createStatusEntry(MyMoneySplit::Reconciled);
-    // createStatusEntry(MyMoneySplit::Frozen);
+    createStatusEntry(eMyMoney::Split::State::NotReconciled);
+    createStatusEntry(eMyMoney::Split::State::Cleared);
+    createStatusEntry(eMyMoney::Split::State::Reconciled);
+    // createStatusEntry(eMyMoney::Split::State::Frozen);
   }
 
-  void createStatusEntry(MyMoneySplit::reconcileFlagE status);
+  ~Private()
+  {
+    delete ui;
+  }
+
+  void createStatusEntry(eMyMoney::Split::State status);
   bool checkForValidSplit(bool doUserInteraction = true);
 
   bool costCenterChanged(int costCenterIndex);
@@ -91,10 +107,10 @@ struct NewSplitEditor::Private
   CreditDebitHelper*            amountHelper;
 };
 
-void NewSplitEditor::Private::createStatusEntry(MyMoneySplit::reconcileFlagE status)
+void NewSplitEditor::Private::createStatusEntry(eMyMoney::Split::State status)
 {
   QStandardItem* p = new QStandardItem(KMyMoneyUtils::reconcileStateToString(status, true));
-  p->setData(status);
+  p->setData((int)status);
   statusModel.appendRow(p);
 }
 
@@ -132,7 +148,7 @@ bool NewSplitEditor::Private::categoryChanged(const QString& accountId)
   if(!accountId.isEmpty()) {
     try {
       QModelIndex index = Models::instance()->accountsModel()->accountById(accountId);
-      category = Models::instance()->accountsModel()->data(index, AccountsModel::AccountRole).value<MyMoneyAccount>();
+      category = Models::instance()->accountsModel()->data(index, (int)eAccountsModel::Role::Account).value<MyMoneyAccount>();
       const bool isIncomeExpense = category.isIncomeExpense();
       ui->costCenterCombo->setEnabled(isIncomeExpense);
       ui->costCenterLabel->setEnabled(isIncomeExpense);
@@ -154,15 +170,15 @@ bool NewSplitEditor::Private::numberChanged(const QString& newNumber)
   WidgetHintFrame::hide(ui->numberEdit, i18n("The check number used for this transaction."));
   if(!newNumber.isEmpty()) {
     const LedgerModel* model = Models::instance()->ledgerModel();
-    QModelIndexList list = model->match(model->index(0, 0), LedgerRole::NumberRole,
+    QModelIndexList list = model->match(model->index(0, 0), (int)eLedgerModel::Role::Number,
                                         QVariant(newNumber),
                                         -1,                         // all splits
                                         Qt::MatchFlags(Qt::MatchExactly | Qt::MatchCaseSensitive | Qt::MatchRecursive));
 
     foreach(QModelIndex index, list) {
-      if(model->data(index, LedgerRole::AccountIdRole) == ui->accountCombo->getSelected()
-        && model->data(index, LedgerRole::TransactionSplitIdRole) != transactionSplitId) {
-        WidgetHintFrame::show(ui->numberEdit, i18n("The check number <b>%1</b> has already been used in this account.").arg(newNumber));
+      if(model->data(index, (int)eLedgerModel::Role::AccountId) == ui->accountCombo->getSelected()
+        && model->data(index, (int)eLedgerModel::Role::TransactionSplitId) != transactionSplitId) {
+        WidgetHintFrame::show(ui->numberEdit, i18n("The check number <b>%1</b> has already been used in this account.", newNumber));
         rc = false;
         break;
       }
@@ -189,26 +205,23 @@ NewSplitEditor::NewSplitEditor(QWidget* parent, const QString& counterAccountId)
   d->splitModel = qobject_cast<SplitModel*>(view->model());
 
   QModelIndex index = Models::instance()->accountsModel()->accountById(counterAccountId);
-  d->counterAccount = Models::instance()->accountsModel()->data(index, AccountsModel::AccountRole).value<MyMoneyAccount>();
+  d->counterAccount = Models::instance()->accountsModel()->data(index, (int)eAccountsModel::Role::Account).value<MyMoneyAccount>();
 
   d->ui->setupUi(this);
-  d->ui->enterButton->setIcon(QIcon::fromTheme(QStringLiteral("dialog-ok"),
-                                               QIcon::fromTheme(QStringLiteral("finish"))));
-  d->ui->cancelButton->setIcon(QIcon::fromTheme(QStringLiteral("dialog-cancel"),
-                                                QIcon::fromTheme(QStringLiteral("stop"))));
-  d->accountsModel->addAccountGroup(MyMoneyAccount::Asset);
-  d->accountsModel->addAccountGroup(MyMoneyAccount::Liability);
-  d->accountsModel->addAccountGroup(MyMoneyAccount::Income);
-  d->accountsModel->addAccountGroup(MyMoneyAccount::Expense);
-  d->accountsModel->addAccountGroup(MyMoneyAccount::Equity);
+  d->ui->enterButton->setIcon(Icons::get(Icon::DialogOK));
+  d->ui->cancelButton->setIcon(Icons::get(Icon::DialogCancel));
+
+  d->accountsModel->addAccountGroup(QVector<eMyMoney::Account::Type> {eMyMoney::Account::Type::Asset, eMyMoney::Account::Type::Liability, eMyMoney::Account::Type::Income, eMyMoney::Account::Type::Expense, eMyMoney::Account::Type::Equity});
   d->accountsModel->setHideEquityAccounts(false);
-  d->accountsModel->setSourceModel(Models::instance()->accountsModel());
-  d->accountsModel->sort(0);
+  auto const model = Models::instance()->accountsModel();
+  d->accountsModel->setSourceModel(model);
+  d->accountsModel->setSourceColumns(model->getColumns());
+  d->accountsModel->sort((int)eAccountsModel::Column::Account);
   d->ui->accountCombo->setModel(d->accountsModel);
 
   d->costCenterModel->setSortRole(Qt::DisplayRole);
   d->costCenterModel->setSourceModel(Models::instance()->costCenterModel());
-  d->costCenterModel->sort(0);
+  d->costCenterModel->sort((int)eAccountsModel::Column::Account);
 
   d->ui->costCenterCombo->setEditable(true);
   d->ui->costCenterCombo->setModel(d->costCenterModel);
@@ -374,5 +387,5 @@ void NewSplitEditor::costCenterChanged(int costCenterIndex)
 
 void NewSplitEditor::amountChanged()
 {
-  d->amountChanged(d->amountHelper);
+//  d->amountChanged(d->amountHelper); // useless call as reported by coverity scan
 }

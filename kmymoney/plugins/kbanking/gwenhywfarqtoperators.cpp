@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013-2015 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -18,8 +18,8 @@
 
 #include "gwenhywfarqtoperators.h"
 
-#include <QtCore/QString>
-#include <QtCore/QStringList>
+#include <QString>
+#include <QStringList>
 
 GWEN_STRINGLIST* GWEN_StringList_fromQStringList(const QStringList& input)
 {

@@ -32,7 +32,7 @@ private:
   AB_ACCOUNT *_account;
 
   void _populate();
-  bool operator< (const QTreeWidgetItem & other) const;   //!< correctly sort text columns, which contain numbers
+  bool operator< (const QTreeWidgetItem & other) const final override;   //!< correctly sort text columns, which contain numbers
 
 public:
   KBAccountListViewItem(KBAccountListView *parent, AB_ACCOUNT *acc);
@@ -52,7 +52,7 @@ class KBAccountListView: public QTreeWidget
 {
 private:
 public:
-  KBAccountListView(QWidget *parent = 0);
+  explicit KBAccountListView(QWidget *parent = 0);
   virtual ~KBAccountListView();
 
   void addAccount(AB_ACCOUNT *acc);

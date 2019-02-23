@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2016  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,12 +20,9 @@
 
 #include "kmm_mymoney_export.h"
 
-#include <QString>
-#include <QStringList>
-#include <QMap>
+#include <QList>
 
 #include "payeeidentifier/payeeidentifier.h"
-#include "payeeidentifier/payeeidentifiertyped.h"
 
 /**
  *
@@ -36,6 +32,7 @@
  * I won't do that - sorry. So all payeeIdentifiers have to be created when a MyMoneyPayeeIdentifierContainer
  * is loaded. Optimal would be if they are only created if needed (which won't be often).
  */
+template <class T> class payeeIdentifierTyped;
 class KMM_MYMONEY_EXPORT MyMoneyPayeeIdentifierContainer
 {
 public:
@@ -59,11 +56,10 @@ public:
 
   void resetPayeeIdentifiers(const QList< ::payeeIdentifier >& list = QList< ::payeeIdentifier >());
 
-protected:
   void loadXML(QDomElement node);
   void writeXML(QDomDocument document, QDomElement parent) const;
 
-private:
+protected:
   QList< ::payeeIdentifier > m_payeeIdentifiers;
 };
 

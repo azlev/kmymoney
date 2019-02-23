@@ -1,264 +1,328 @@
-/***************************************************************************
-                          mymoneytransaction.cpp
-                             -------------------
-    copyright            : (C) 2000 by Michael Edwardes <mte@users.sourceforge.net>
-                               2002 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2002  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2001       Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2003       Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2004-2005  Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2006       Darren Gould <darren_gould@gmx.de>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneytransaction.h"
+#include "mymoneytransaction_p.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <QStringList>
+#include <QMap>
+
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "mymoneyutils.h"
+#include "mymoneymoney.h"
+#include "mymoneyexception.h"
+#include "mymoneyenums.h"
 
 MyMoneyTransaction::MyMoneyTransaction() :
-    MyMoneyObject()
+    MyMoneyObject(*new MyMoneyTransactionPrivate)
 {
-  m_nextSplitID = 1;
-  m_entryDate = QDate();
-  m_postDate = QDate();
+  Q_D(MyMoneyTransaction);
+  d->m_nextSplitID = 1;
+  d->m_entryDate = QDate();
+  d->m_postDate = QDate();
 }
 
-MyMoneyTransaction::MyMoneyTransaction(const QString& id, const MyMoneyTransaction& transaction) :
-    MyMoneyObject(id)
+MyMoneyTransaction::MyMoneyTransaction(const QString &id) :
+    MyMoneyObject(*new MyMoneyTransactionPrivate, id)
 {
-  *this = transaction;
-  m_id = id;
-  if (m_entryDate == QDate())
-    m_entryDate = QDate::currentDate();
-
-  QList<MyMoneySplit>::Iterator it;
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    (*it).setTransactionId(id);
-  }
+  Q_D(MyMoneyTransaction);
+  d->m_nextSplitID = 1;
+  d->m_entryDate = QDate();
+  d->m_postDate = QDate();
 }
 
-MyMoneyTransaction::MyMoneyTransaction(const QDomElement& node, const bool forceId) :
-    MyMoneyObject(node, forceId)
+MyMoneyTransaction::MyMoneyTransaction(const MyMoneyTransaction& other) :
+  MyMoneyObject(*new MyMoneyTransactionPrivate(*other.d_func()), other.id()),
+  MyMoneyKeyValueContainer(other)
 {
-  if ("TRANSACTION" != node.tagName())
-    throw MYMONEYEXCEPTION("Node was not TRANSACTION");
+}
 
-  m_nextSplitID = 1;
+MyMoneyTransaction::MyMoneyTransaction(const QString& id, const MyMoneyTransaction& other) :
+  MyMoneyObject(*new MyMoneyTransactionPrivate(*other.d_func()), id),
+  MyMoneyKeyValueContainer(other)
+{
+  Q_D(MyMoneyTransaction);
+  if (d->m_entryDate == QDate())
+    d->m_entryDate = QDate::currentDate();
 
-  m_postDate = stringToDate(node.attribute("postdate"));
-  m_entryDate = stringToDate(node.attribute("entrydate"));
-  m_bankID = QStringEmpty(node.attribute("bankid"));
-  m_memo = QStringEmpty(node.attribute("memo"));
-  m_commodity = QStringEmpty(node.attribute("commodity"));
-
-  QDomNode child = node.firstChild();
-  while (!child.isNull() && child.isElement()) {
-    QDomElement c = child.toElement();
-    if (c.tagName() == QLatin1String("SPLITS")) {
-
-      // Process any split information found inside the transaction entry.
-      QDomNodeList nodeList = c.elementsByTagName("SPLIT");
-      for (int i = 0; i < nodeList.count(); ++i) {
-        MyMoneySplit s(nodeList.item(i).toElement());
-        if (!m_bankID.isEmpty())
-          s.setBankID(m_bankID);
-        if (!s.accountId().isEmpty())
-          addSplit(s);
-        else
-          qDebug("Dropped split because it did not have an account id");
-      }
-
-    } else if (c.tagName() == QLatin1String("KEYVALUEPAIRS")) {
-      MyMoneyKeyValueContainer kvp(c);
-      setPairs(kvp.pairs());
-    }
-
-    child = child.nextSibling();
-  }
-  m_bankID.clear();
+  foreach (auto split, d->m_splits)
+    split.setTransactionId(id);
 }
 
 MyMoneyTransaction::~MyMoneyTransaction()
 {
 }
 
+QDate MyMoneyTransaction::entryDate() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_entryDate;
+}
+
+void MyMoneyTransaction::setEntryDate(const QDate& date)
+{
+  Q_D(MyMoneyTransaction);
+  d->m_entryDate = date;
+}
+
+QDate MyMoneyTransaction::postDate() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_postDate;
+}
+
+void MyMoneyTransaction::setPostDate(const QDate& date)
+{
+  Q_D(MyMoneyTransaction);
+  d->m_postDate = date;
+}
+
+QString MyMoneyTransaction::memo() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_memo;
+}
+
+void MyMoneyTransaction::setMemo(const QString& memo)
+{
+  Q_D(MyMoneyTransaction);
+  d->m_memo = memo;
+}
+
+QList<MyMoneySplit> MyMoneyTransaction::splits() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_splits;
+}
+
+QList<MyMoneySplit>& MyMoneyTransaction::splits()
+{
+  Q_D(MyMoneyTransaction);
+  return d->m_splits;
+}
+
+MyMoneySplit MyMoneyTransaction::firstSplit() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_splits.first();
+}
+
+uint MyMoneyTransaction::splitCount() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_splits.count();
+}
+
+QString MyMoneyTransaction::commodity() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_commodity;
+}
+
+void MyMoneyTransaction::setCommodity(const QString& commodityId)
+{
+  Q_D(MyMoneyTransaction);
+  d->m_commodity = commodityId;
+}
+
+QString MyMoneyTransaction::bankID() const
+{
+  Q_D(const MyMoneyTransaction);
+  return d->m_bankID;
+}
+
+void MyMoneyTransaction::setBankID(const QString& bankID)
+{
+  Q_D(MyMoneyTransaction);
+  d->m_bankID = bankID;
+}
+
 bool MyMoneyTransaction::operator == (const MyMoneyTransaction& right) const
 {
+  Q_D(const MyMoneyTransaction);
+  auto d2 = static_cast<const MyMoneyTransactionPrivate *>(right.d_func());
   return (MyMoneyObject::operator==(right) &&
           MyMoneyKeyValueContainer::operator==(right) &&
-          (m_commodity == right.m_commodity) &&
-          ((m_memo.length() == 0 && right.m_memo.length() == 0) || (m_memo == right.m_memo)) &&
-          (m_splits == right.m_splits) &&
-          (m_entryDate == right.m_entryDate) &&
-          (m_postDate == right.m_postDate));
+          (d->m_commodity == d2->m_commodity) &&
+          ((d->m_memo.length() == 0 && d2->m_memo.length() == 0) || (d->m_memo == d2->m_memo)) &&
+          (d->m_splits == d2->m_splits) &&
+          (d->m_entryDate == d2->m_entryDate) &&
+          (d->m_postDate == d2->m_postDate));
+}
+
+bool MyMoneyTransaction::operator != (const MyMoneyTransaction& r) const
+{
+  return !(*this == r);
+}
+
+bool MyMoneyTransaction::operator< (const MyMoneyTransaction& r) const
+{
+  return postDate() < r.postDate();
+}
+
+bool MyMoneyTransaction::operator<= (const MyMoneyTransaction& r) const
+{
+  return postDate() <= r.postDate();
+}
+
+bool MyMoneyTransaction::operator> (const MyMoneyTransaction& r) const
+{
+  return postDate() > r.postDate();
 }
 
 bool MyMoneyTransaction::accountReferenced(const QString& id) const
 {
-  QList<MyMoneySplit>::ConstIterator it;
+  Q_D(const MyMoneyTransaction);
 
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).accountId() == id)
+  foreach (const auto split, d->m_splits) {
+    if (split.accountId() == id)
       return true;
   }
   return false;
 }
 
-void MyMoneyTransaction::addSplit(MyMoneySplit& split)
+void MyMoneyTransaction::addSplit(MyMoneySplit &split)
 {
   if (!split.id().isEmpty())
-    throw MYMONEYEXCEPTION("Cannot add split with assigned id (" + split.id() + ')');
+    throw MYMONEYEXCEPTION(QString::fromLatin1("Cannot add split with assigned id '%1'").arg(split.id()));
 
   if (split.accountId().isEmpty())
-    throw MYMONEYEXCEPTION("Cannot add split that does not contain an account reference");
+    throw MYMONEYEXCEPTION(QString::fromLatin1("Cannot add split that does not contain an account reference"));
 
-  MyMoneySplit newSplit(nextSplitID(), split);
+  Q_D(MyMoneyTransaction);
+  MyMoneySplit newSplit(d->nextSplitID(), split);
   split = newSplit;
   split.setTransactionId(id());
-  m_splits.append(split);
+  d->m_splits.append(split);
 }
 
-void MyMoneyTransaction::modifySplit(MyMoneySplit& split)
+void MyMoneyTransaction::modifySplit(const MyMoneySplit& split)
 {
 // This is the other version which allows having more splits referencing
 // the same account.
   if (split.accountId().isEmpty())
-    throw MYMONEYEXCEPTION("Cannot modify split that does not contain an account reference");
+    throw MYMONEYEXCEPTION_CSTRING("Cannot modify split that does not contain an account reference");
 
-  QList<MyMoneySplit>::Iterator it;
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if (split.id() == (*it).id()) {
-      *it = split;
+  Q_D(MyMoneyTransaction);
+  for (auto& it_split : d->m_splits) {
+    if (split.id() == it_split.id()) {
+      it_split = split;
       return;
     }
   }
-  throw MYMONEYEXCEPTION(QString("Invalid split id '%1'").arg(split.id()));
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Invalid split id '%1'").arg(split.id()));
 }
 
 void MyMoneyTransaction::removeSplit(const MyMoneySplit& split)
 {
-  QList<MyMoneySplit>::Iterator it;
-  bool removed = false;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if (split.id() == (*it).id()) {
-      m_splits.erase(it);
-      removed = true;
-      break;
+  Q_D(MyMoneyTransaction);
+  for (auto end = d->m_splits.size(), i = 0; i < end; ++i) {
+    if (split.id() == d->m_splits.at(i).id()) {
+      d->m_splits.removeAt(i);
+      return;
     }
   }
-  if (!removed)
-    throw MYMONEYEXCEPTION(QString("Invalid split id '%1'").arg(split.id()));
+
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Invalid split id '%1'").arg(split.id()));
 }
 
 void MyMoneyTransaction::removeSplits()
 {
-  m_splits.clear();
-  m_nextSplitID = 1;
+  Q_D(MyMoneyTransaction);
+  d->m_splits.clear();
+  d->m_nextSplitID = 1;
 }
 
-const MyMoneySplit& MyMoneyTransaction::splitByPayee(const QString& payeeId) const
+MyMoneySplit MyMoneyTransaction::splitByPayee(const QString& payeeId) const
 {
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).payeeId() == payeeId)
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if (split.payeeId() == payeeId)
+      return split;
   }
-  throw MYMONEYEXCEPTION(QString("Split not found for payee '%1'").arg(QString(payeeId)));
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Split not found for payee '%1'").arg(QString(payeeId)));
 }
 
-const MyMoneySplit& MyMoneyTransaction::splitByAccount(const QString& accountId, const bool match) const
+MyMoneySplit MyMoneyTransaction::splitByAccount(const QString& accountId, const bool match) const
 {
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if (match == true && (*it).accountId() == accountId)
-      return *it;
-    if (match == false && (*it).accountId() != accountId)
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if ((match == true && split.accountId() == accountId) ||
+        (match == false && split.accountId() != accountId))
+      return split;
   }
-  throw MYMONEYEXCEPTION(QString("Split not found for account %1%2").arg(match ? "" : "!").arg(QString(accountId)));
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Split not found for account %1%2").arg(match ? "" : "!").arg(QString(accountId)));
 }
 
-const MyMoneySplit& MyMoneyTransaction::splitByAccount(const QStringList& accountIds, const bool match) const
+MyMoneySplit MyMoneyTransaction::splitByAccount(const QStringList& accountIds, const bool match) const
 {
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if (match == true && accountIds.contains((*it).accountId()))
-      return *it;
-    if (match == false && !accountIds.contains((*it).accountId()))
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if ((match == true && accountIds.contains(split.accountId())) ||
+        (match == false && !accountIds.contains(split.accountId())))
+      return split;
   }
-  throw MYMONEYEXCEPTION(QString("Split not found for account  %1%1...%2").arg(match ? "" : "!").arg(accountIds.front(), accountIds.back()));
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Split not found for account  %1%1...%2").arg(match ? "" : "!").arg(accountIds.front(), accountIds.back()));
 }
 
-const MyMoneySplit& MyMoneyTransaction::splitById(const QString& splitId) const
+MyMoneySplit MyMoneyTransaction::splitById(const QString& splitId) const
 {
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).id() == splitId)
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if (split.id() == splitId)
+      return split;
   }
-  throw MYMONEYEXCEPTION(QString("Split not found for id '%1'").arg(QString(splitId)));
+  throw MYMONEYEXCEPTION(QString::fromLatin1("Split not found for id '%1'").arg(QString(splitId)));
 }
 
-const QString MyMoneyTransaction::nextSplitID()
+QString MyMoneyTransaction::firstSplitID()
 {
   QString id;
-  id = 'S' + id.setNum(m_nextSplitID++).rightJustified(SPLIT_ID_SIZE, '0');
+  id = 'S' + id.setNum(1).rightJustified(MyMoneyTransactionPrivate::SPLIT_ID_SIZE, '0');
   return id;
 }
 
-const QString MyMoneyTransaction::firstSplitID()
-{
-  QString id;
-  id = 'S' + id.setNum(1).rightJustified(SPLIT_ID_SIZE, '0');
-  return id;
-}
-
-const MyMoneyMoney MyMoneyTransaction::splitSum() const
+MyMoneyMoney MyMoneyTransaction::splitSum() const
 {
   MyMoneyMoney result;
-  QList<MyMoneySplit>::ConstIterator it;
 
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    result += (*it).value();
-  }
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits)
+    result += split.value();
   return result;
-}
-
-void MyMoneyTransaction::setPostDate(const QDate& date)
-{
-  m_postDate = date;
-}
-void MyMoneyTransaction::setEntryDate(const QDate& date)
-{
-  m_entryDate = date;
-}
-void MyMoneyTransaction::setMemo(const QString& memo)
-{
-  m_memo = memo;
 }
 
 bool MyMoneyTransaction::isLoanPayment() const
 {
   try {
-    QList<MyMoneySplit>::ConstIterator it;
 
-    for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-      if ((*it).isAmortizationSplit())
+    Q_D(const MyMoneyTransaction);
+    foreach (const auto split, d->m_splits) {
+      if (split.isAmortizationSplit())
         return true;
     }
   } catch (const MyMoneyException &) {
@@ -266,28 +330,26 @@ bool MyMoneyTransaction::isLoanPayment() const
   return false;
 }
 
-const MyMoneySplit& MyMoneyTransaction::amortizationSplit() const
+MyMoneySplit MyMoneyTransaction::amortizationSplit() const
 {
   static MyMoneySplit nullSplit;
 
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).isAmortizationSplit() && (*it).isAutoCalc())
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if (split.isAmortizationSplit() && split.isAutoCalc())
+      return split;
   }
   return nullSplit;
 }
 
-const MyMoneySplit& MyMoneyTransaction::interestSplit() const
+MyMoneySplit MyMoneyTransaction::interestSplit() const
 {
   static MyMoneySplit nullSplit;
 
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).isInterestSplit() && (*it).isAutoCalc())
-      return *it;
+  Q_D(const MyMoneyTransaction);
+  foreach (const auto split, d->m_splits) {
+    if (split.isInterestSplit() && split.isAutoCalc())
+      return split;
   }
   return nullSplit;
 }
@@ -316,7 +378,8 @@ unsigned long MyMoneyTransaction::hash(const QString& txt, unsigned long h)
 
 bool MyMoneyTransaction::isStockSplit() const
 {
-  return (m_splits.count() == 1 && m_splits[0].action() == MyMoneySplit::ActionSplitShares);
+  Q_D(const MyMoneyTransaction);
+  return (d->m_splits.count() == 1 && d->m_splits.first().action() == MyMoneySplit::actionName(eMyMoney::Split::Action::SplitShares));
 }
 
 bool MyMoneyTransaction::isImported() const
@@ -332,96 +395,35 @@ void MyMoneyTransaction::setImported(bool state)
     deletePair("Imported");
 }
 
-bool MyMoneyTransaction::isDuplicate(const MyMoneyTransaction& r) const
-{
-  bool rc = true;
-  if (splitCount() != r.splitCount()) {
-    rc = false;
-  } else {
-    if (abs(m_postDate.daysTo(r.postDate())) > 3) {
-      rc = false;
-    } else {
-      unsigned long accHash[2];
-      unsigned long valHash[2];
-      unsigned long numHash[2];
-      for (int i = 0; i < 2; ++i)
-        accHash[i] = valHash[i] = numHash[i] = 0;
-
-      QList<MyMoneySplit>::ConstIterator it;
-      for (it = splits().begin(); it != splits().end(); ++it) {
-        accHash[0] += hash((*it).accountId());
-        valHash[0] += hash((*it).value().formatMoney("", 4));
-        numHash[0] += hash((*it).number());
-      }
-      for (it = r.splits().begin(); it != r.splits().end(); ++it) {
-        accHash[1] += hash((*it).accountId());
-        valHash[1] += hash((*it).value().formatMoney("", 4));
-        numHash[1] += hash((*it).number());
-      }
-
-      if (accHash[0] != accHash[1]
-          || valHash[0] != valHash[1]
-          || numHash[0] != numHash[1]
-         ) {
-        rc = false;
-      }
-    }
-  }
-
-  return rc;
-}
-
-void MyMoneyTransaction::writeXML(QDomDocument& document, QDomElement& parent) const
-{
-  QDomElement el = document.createElement("TRANSACTION");
-
-  writeBaseXML(document, el);
-
-  el.setAttribute("postdate", dateToString(m_postDate));
-  el.setAttribute("memo", m_memo);
-  el.setAttribute("entrydate", dateToString(m_entryDate));
-  el.setAttribute("commodity", m_commodity);
-
-  QDomElement splits = document.createElement("SPLITS");
-  QList<MyMoneySplit>::ConstIterator it;
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    (*it).writeXML(document, splits);
-  }
-  el.appendChild(splits);
-
-  MyMoneyKeyValueContainer::writeXML(document, el);
-
-  parent.appendChild(el);
-}
-
 bool MyMoneyTransaction::hasReferenceTo(const QString& id) const
 {
-  QList<MyMoneySplit>::const_iterator it;
-  bool rc = (id == m_commodity);
-  for (it = m_splits.begin(); rc == false && it != m_splits.end(); ++it) {
-    rc = (*it).hasReferenceTo(id);
-  }
-  return rc;
-}
+  Q_D(const MyMoneyTransaction);
+  if (id == d->m_commodity)
+    return true;
 
-bool MyMoneyTransaction::hasAutoCalcSplit() const
-{
-  QList<MyMoneySplit>::ConstIterator it;
-
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    if ((*it).isAutoCalc())
+  foreach (const auto split, d->m_splits) {
+    if (split.hasReferenceTo(id))
       return true;
   }
   return false;
 }
 
+bool MyMoneyTransaction::hasAutoCalcSplit() const
+{
+  Q_D(const MyMoneyTransaction);
+
+  foreach (const auto split, d->m_splits)
+    if (split.isAutoCalc())
+      return true;
+  return false;
+}
+
 QString MyMoneyTransaction::accountSignature(bool includeSplitCount) const
 {
+  Q_D(const MyMoneyTransaction);
   QMap<QString, int> accountList;
-  QList<MyMoneySplit>::const_iterator it_s;
-  for (it_s = m_splits.constBegin(); it_s != m_splits.constEnd(); ++it_s) {
-    accountList[(*it_s).accountId()] += 1;
-  }
+  foreach (const auto split, d->m_splits)
+    accountList[split.accountId()] += 1;
 
   QMap<QString, int>::const_iterator it_a;
   QString rc;
@@ -437,22 +439,22 @@ QString MyMoneyTransaction::accountSignature(bool includeSplitCount) const
 
 QString MyMoneyTransaction::uniqueSortKey() const
 {
+  Q_D(const MyMoneyTransaction);
   QString year, month, day, key;
-  const QDate& postdate = postDate();
-  year = year.setNum(postdate.year()).rightJustified(YEAR_SIZE, '0');
-  month = month.setNum(postdate.month()).rightJustified(MONTH_SIZE, '0');
-  day = day.setNum(postdate.day()).rightJustified(DAY_SIZE, '0');
-  key = year + '-' + month + '-' + day + '-' + m_id;
+  const auto postdate = postDate();
+  year = year.setNum(postdate.year()).rightJustified(MyMoneyTransactionPrivate::YEAR_SIZE, '0');
+  month = month.setNum(postdate.month()).rightJustified(MyMoneyTransactionPrivate::MONTH_SIZE, '0');
+  day = day.setNum(postdate.day()).rightJustified(MyMoneyTransactionPrivate::DAY_SIZE, '0');
+  key = QString::fromLatin1("%1-%2-%3-%4").arg(year, month, day, d->m_id);
   return key;
 }
 
 bool MyMoneyTransaction::replaceId(const QString& newId, const QString& oldId)
 {
-  bool changed = false;
-  QList<MyMoneySplit>::Iterator it;
+  auto changed = false;
+  Q_D(MyMoneyTransaction);
+  for (MyMoneySplit& split : d->m_splits)
+    changed |= split.replaceId(newId, oldId);
 
-  for (it = m_splits.begin(); it != m_splits.end(); ++it) {
-    changed |= (*it).replaceId(newId, oldId);
-  }
   return changed;
 }

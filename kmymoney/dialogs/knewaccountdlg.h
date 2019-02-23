@@ -1,18 +1,21 @@
-/***************************************************************************
-                          knewaccountdlg.h
-                             -------------------
-    copyright            : (C) 2000 by Michael Edwardes <mte@users.sourceforge.net>
-
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2005-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KNEWACCOUNTDLG_H
 #define KNEWACCOUNTDLG_H
@@ -20,7 +23,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QResizeEvent>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Headers
@@ -28,67 +31,16 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <mymoneymoney.h>
-#include <kmymoneyedit.h>
+class QString;
+class QItemSelection;
 
-#include "ui_knewaccountdlgdecl.h"
+class MyMoneyMoney;
+class MyMoneyAccount;
 
-namespace reports
-{
-}
-
-class HierarchyFilterProxyModel : public AccountsFilterProxyModel
-{
+class KNewAccountDlgPrivate;
+class KNewAccountDlg : public QDialog
+{  
   Q_OBJECT
-
-public:
-  HierarchyFilterProxyModel(QObject *parent = 0);
-
-  virtual Qt::ItemFlags flags(const QModelIndex &index) const;
-
-  void setCurrentAccountId(const QString &selectedAccountId);
-  QModelIndex getSelectedParentAccountIndex() const;
-
-protected:
-  bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const;
-  bool filterAcceptsColumn(int source_column, const QModelIndex &source_parent) const;
-
-private:
-  QString m_currentAccountId;
-};
-
-/**
-  * This dialog lets you create/edit an account.
-  */
-
-class KNewAccountDlgDecl : public QDialog, public Ui::kNewAccountDlgDecl
-{
-public:
-  KNewAccountDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
-class KNewAccountDlg : public KNewAccountDlgDecl
-{
-  Q_OBJECT
-
-private:
-  MyMoneyAccount m_account;
-  MyMoneyAccount m_parentAccount;
-  HierarchyFilterProxyModel *m_filterProxyModel;
-
-  bool m_categoryEditor;
-  bool m_isEditing;
-
-  void loadVatAccounts();
-  void storeKVP(const QString& key, kMyMoneyEdit* widget);
-  void storeKVP(const QString& key, KLineEdit* widget);
-  void storeKVP(const QString& key, const QString& text, const QString& value);
-  void storeKVP(const QString& key, QCheckBox* widget);
-  void loadKVP(const QString& key, kMyMoneyEdit* widget);
-  void loadKVP(const QString& key, KLineEdit* widget);
 
 public:
   /**
@@ -106,23 +58,20 @@ public:
     * @param parent Pointer to parent object (passed to QDialog). Default is 0.
     * @param title Caption of the object (passed to QDialog). Default is empty string.
     */
-  KNewAccountDlg(const MyMoneyAccount& account, bool isEditing, bool categoryEditor, QWidget *parent = 0, const QString& title = QString());
+  KNewAccountDlg(const MyMoneyAccount& account, bool isEditing, bool categoryEditor, QWidget *parent, const QString& title);
 
   /**
     * This method returns the edited account object.
     */
-  const MyMoneyAccount& account();
+  MyMoneyAccount account();
 
   /**
     * This method returns the parent account of the edited account object.
     */
-  const MyMoneyAccount& parentAccount();
+  MyMoneyAccount parentAccount() const;
 
+  MyMoneyMoney openingBalance() const;
   void setOpeningBalance(const MyMoneyMoney& balance);
-
-  const MyMoneyMoney openingBalance() const {
-    return m_openingBalanceEdit->value();
-  };
 
   void setOpeningBalanceShown(bool shown);
   void setOpeningDateShown(bool shown);
@@ -134,14 +83,29 @@ public:
    */
   void addTab(QWidget* w, const QString& name);
 
-protected:
-  void displayOnlineBankingStatus();
-  void adjustEditWidgets(kMyMoneyEdit* dst, kMyMoneyEdit* src, char mode, int corr);
+  /**
+    * Brings up the new category editor and saves the information.
+    * The dialog will be preset with the name and parent account.
+    *
+    * @param account reference of category to be created. The @p name member
+    *                should be filled by the caller. The object will be filled
+    *                with additional information during the creation process
+    *                esp. the @p id member.
+    * @param parent reference to parent account (defaults to none)
+    */
+  static void newCategory(MyMoneyAccount& account, const MyMoneyAccount& parent);
 
-protected slots:
+  /**
+   * This method opens the category editor with the data found in @a account. The
+   * parent account is preset to @a parent but can be modified. If the user
+   * acknowledges, the category is created.
+   */
+  static void createCategory(MyMoneyAccount& account, const MyMoneyAccount& parent);
+
+protected Q_SLOTS:
   void okClicked();
   void slotSelectionChanged(const QItemSelection &current, const QItemSelection &previous);
-  void slotAccountTypeChanged(const QString& type);
+  void slotAccountTypeChanged(int index);
   void slotVatChanged(bool);
   void slotVatAssignmentChanged(bool);
   void slotNewClicked();
@@ -151,6 +115,12 @@ protected slots:
   void slotAdjustMinBalanceEarlyEdit(const QString&);
   void slotAdjustMaxCreditAbsoluteEdit(const QString&);
   void slotAdjustMaxCreditEarlyEdit(const QString&);
+  void slotCheckCurrency(int index);
+
+private:
+  Q_DISABLE_COPY(KNewAccountDlg)
+  Q_DECLARE_PRIVATE(KNewAccountDlg)
+  KNewAccountDlgPrivate* d_ptr;
 };
 
 #endif

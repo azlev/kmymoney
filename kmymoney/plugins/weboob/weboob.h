@@ -1,7 +1,8 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014-2015 Romain Bignon <romain@symlink.me>
  * Copyright (C) 2014-2015 Florent Fourcot <weboob@flo.fourcot.fr>
+ * (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,84 +18,52 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WEBOOB_HPP
-#define WEBOOB_HPP
+#ifndef WEBOOB_H
+#define WEBOOB_H
 
-#include <QObject>
-#include <QDateTime>
-#include <QMutex>
-#include <kross/core/action.h>
+// ----------------------------------------------------------------------------
+// QT Includes
 
-#include "mymoneymoney.h"
+// ----------------------------------------------------------------------------
+// KDE Includes
 
-class Weboob : public QObject
+// ----------------------------------------------------------------------------
+// Project Includes
+
+#include "kmymoneyplugin.h"
+
+class MyMoneyAccount;
+class MyMoneyKeyValueContainer;
+
+class WeboobPrivate;
+class Weboob : public KMyMoneyPlugin::Plugin, public KMyMoneyPlugin::OnlinePlugin
 {
   Q_OBJECT
-
-  Kross::Action* action;
-  QMutex *mutex;
-  QString path;
+  Q_INTERFACES(KMyMoneyPlugin::OnlinePlugin)
 
 public:
+  explicit Weboob(QObject *parent, const QVariantList &args);
+  ~Weboob() override;
 
-  struct Backend {
-    QString name;
-    QString module;
-  };
+  void plug() override;
+  void unplug() override;
 
-  struct Transaction {
-    QString id;
-    QDate date;
-    QDate rdate;
-    enum type_t {
-      TYPE_UNKNOWN = 0,
-      TYPE_TRANSFER,
-      TYPE_ORDER,
-      TYPE_CHECK,
-      TYPE_DEPOSIT,
-      TYPE_PAYBACK,
-      TYPE_WITHDRAWAL,
-      TYPE_CARD,
-      TYPE_LOAN_PAYMENT,
-      TYPE_BANK
-    } type;
-    QString raw;
-    QString category;
-    QString label;
-    MyMoneyMoney amount;
-  };
+  void protocols(QStringList& protocolList) const override;
 
-  struct Account {
-    QString id;
-    QString name;
-    enum type_t {
-      TYPE_UNKNOWN = 0,
-      TYPE_CHECKING,
-      TYPE_SAVINGS,
-      TYPE_DEPOSIT,
-      TYPE_LOAN,
-      TYPE_MARKET,
-      TYPE_JOINT
-    } type;
-    MyMoneyMoney balance;
+  QWidget* accountConfigTab(const MyMoneyAccount& account, QString& tabName) override;
 
-    QList<Transaction> transactions;
-  };
+  MyMoneyKeyValueContainer onlineBankingSettings(const MyMoneyKeyValueContainer& current) override;
 
-  Weboob(QObject* parent = 0);
+  bool mapAccount(const MyMoneyAccount& acc, MyMoneyKeyValueContainer& onlineBankingSettings) override;
 
-  ~Weboob();
+  bool updateAccount(const MyMoneyAccount& acc, bool moreAccounts = false) override;
 
-  QStringList getProtocols();
+private:
+  Q_DECLARE_PRIVATE(Weboob)
+  WeboobPrivate * const d_ptr;
 
-  QList<Backend> getBackends();
-
-  QList<Account> getAccounts(QString backend);
-
-  Account getAccount(QString backend, QString account, QString max);
-
-  QVariant execute(QString method, QVariantList args);
-
+private Q_SLOTS:
+  void gotAccount();
 };
 
-#endif /* WEBOOB_HPP */
+#endif

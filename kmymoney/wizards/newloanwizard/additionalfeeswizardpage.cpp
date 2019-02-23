@@ -25,30 +25,43 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <klocalizedstring.h>
+#include <KLocalizedString>
+#include <KGuiItem>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
+#include "ui_additionalfeeswizardpage.h"
+
 #include "knewloanwizard.h"
+#include "knewloanwizard_p.h"
 #include "ksplittransactiondlg.h"
 #include "mymoneyfile.h"
+#include "mymoneysecurity.h"
+#include "mymoneyaccount.h"
 #include "mymoneymoney.h"
 
 AdditionalFeesWizardPage::AdditionalFeesWizardPage(QWidget *parent)
-    : AdditionalFeesWizardPageDecl(parent)
+  : QWizardPage(parent),
+    ui(new Ui::AdditionalFeesWizardPage)
 {
+  ui->setupUi(this);
 
-  registerField("additionalCost", m_additionalCost, "text");
-  registerField("periodicPayment", m_periodicPayment, "text");
-  registerField("basePayment", m_basePayment, "text");
+  registerField("additionalCost", ui->m_additionalCost, "text");
+  registerField("periodicPayment", ui->m_periodicPayment, "text");
+  registerField("basePayment", ui->m_basePayment, "text");
   // load button icons
   KGuiItem additionalFeeButtonItem(i18n("&Additional fees..."),
                                    0, //QIcon::fromTheme("document-new"),
                                    i18n("Enter additional fees"),
                                    i18n("Use this to add any additional fees other than principal and interest contained in your periodical payments."));
-  KGuiItem::assign(m_additionalFeeButton, additionalFeeButtonItem);
-  connect(m_additionalFeeButton, SIGNAL(clicked()), this, SLOT(slotAdditionalFees()));
+  KGuiItem::assign(ui->m_additionalFeeButton, additionalFeeButtonItem);
+  connect(ui->m_additionalFeeButton, &QAbstractButton::clicked, this, &AdditionalFeesWizardPage::slotAdditionalFees);
+}
+
+AdditionalFeesWizardPage::~AdditionalFeesWizardPage()
+{
+  delete ui;
 }
 
 void AdditionalFeesWizardPage::slotAdditionalFees()
@@ -57,30 +70,30 @@ void AdditionalFeesWizardPage::slotAdditionalFees()
   MyMoneyAccount account("Phony-ID", MyMoneyAccount());
 
   QMap<QString, MyMoneyMoney> priceInfo;
-  QPointer<KSplitTransactionDlg> dlg = new KSplitTransactionDlg(qobject_cast<KNewLoanWizard*>(wizard())->m_transaction, qobject_cast<KNewLoanWizard*>(wizard())->m_split, account, false, !field("borrowButton").toBool(), MyMoneyMoney(), priceInfo);
+  QPointer<KSplitTransactionDlg> dlg = new KSplitTransactionDlg(qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_transaction, qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_split, account, false, !field("borrowButton").toBool(), MyMoneyMoney(), priceInfo);
   connect(dlg, SIGNAL(newCategory(MyMoneyAccount&)), this, SIGNAL(newCategory(MyMoneyAccount&)));
 
   if (dlg->exec() == QDialog::Accepted) {
-    qobject_cast<KNewLoanWizard*>(wizard())->m_transaction = dlg->transaction();
+    qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_transaction = dlg->transaction();
     // sum up the additional fees
     MyMoneyMoney fees;
-    foreach (const MyMoneySplit& it, qobject_cast<KNewLoanWizard*>(wizard())->m_transaction.splits()) {
+    foreach (const MyMoneySplit& it, qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_transaction.splits()) {
       if (it.accountId() != account.id()) {
         fees += it.value();
       }
     }
-    setField("additionalCost", fees.formatMoney(qobject_cast<KNewLoanWizard*>(wizard())->m_account.fraction(MyMoneyFile::instance()->security(qobject_cast<KNewLoanWizard*>(wizard())->m_account.currencyId()))));
+    setField("additionalCost", fees.formatMoney(qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_account.fraction(MyMoneyFile::instance()->security(qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_account.currencyId()))));
   }
 
   delete dlg;
 
-  updatePeriodicPayment(qobject_cast<KNewLoanWizard*>(wizard())->m_account);
+  updatePeriodicPayment(qobject_cast<KNewLoanWizard*>(wizard())->d_func()->m_account);
 }
 
 void AdditionalFeesWizardPage::updatePeriodicPayment(const MyMoneyAccount& account)
 {
-  MyMoneyMoney base(m_basePayment->text());
-  MyMoneyMoney add(m_additionalCost->text());
+  MyMoneyMoney base(ui->m_basePayment->text());
+  MyMoneyMoney add(ui->m_additionalCost->text());
 
-  m_periodicPayment->setText((base + add).formatMoney(account.fraction(MyMoneyFile::instance()->security(account.currencyId()))));
+  ui->m_periodicPayment->setText((base + add).formatMoney(account.fraction(MyMoneyFile::instance()->security(account.currencyId()))));
 }

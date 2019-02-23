@@ -22,25 +22,25 @@
 #define RECONCILIATIONREPORT_H
 
 #include "kmymoneyplugin.h"
-#include "mymoneyaccount.h"
-#include "mymoneykeyvaluecontainer.h"
+#include "mymoneymoney.h"
 
-class QStringList;
-class KPluginInfo;
+class MyMoneyAccount;
+class MyMoneySplit;
+class MyMoneyTransaction;
 
-class KMMReconciliationReportPlugin: public KMyMoneyPlugin::Plugin
+class ReconciliationReport: public KMyMoneyPlugin::Plugin
 {
   Q_OBJECT
-  Q_PLUGIN_METADATA(IID "org.kmymoney.plugins.reconcilationreport" FILE "kmm_reconciliationreport.json")
 
 public:
-  KMMReconciliationReportPlugin();
+  explicit ReconciliationReport(QObject *parent, const QVariantList &args);
+  ~ReconciliationReport() override;
 
-public slots:
+public Q_SLOTS:
   void plug() override;
   void unplug() override;
 
-protected slots:
+protected Q_SLOTS:
   // reconciliation of an account has finished
   void slotGenerateReconciliationReport(const MyMoneyAccount& account, const QDate& date, const MyMoneyMoney& startingBalance, const MyMoneyMoney& endingBalance, const QList<QPair<MyMoneyTransaction, MyMoneySplit> >& transactionList);
 };

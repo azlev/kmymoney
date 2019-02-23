@@ -1,24 +1,20 @@
-/***************************************************************************
-                          mymoneystoragedump.cpp  -  description
-                             -------------------
-    begin                : Sun May 5 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2004       Ace Jones <acejones@users.sourceforge.net>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneystoragedump.h"
 
@@ -26,22 +22,36 @@
 // QT Includes
 
 #include <QString>
-#include <QDateTime>
+#include <QDate>
 #include <QList>
 #include <QStringList>
 #include <QTextStream>
+#include <QDataStream>
+#include <QColor>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
-#include <klocalizedstring.h>
+#include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "imymoneystorage.h"
+#include "mymoneystoragemgr.h"
+#include "mymoneystoragemgr_p.h"
+#include "mymoneyexception.h"
+#include "mymoneyinstitution.h"
 #include "mymoneyaccount.h"
 #include "mymoneysecurity.h"
 #include "mymoneyprice.h"
+#include "mymoneytag.h"
+#include "mymoneyreport.h"
+#include "mymoneybudget.h"
+#include "mymoneyschedule.h"
+#include "mymoneypayee.h"
+#include "mymoneymoney.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "mymoneyenums.h"
 
 MyMoneyStorageDump::MyMoneyStorageDump()
 {
@@ -51,15 +61,15 @@ MyMoneyStorageDump::~MyMoneyStorageDump()
 {
 }
 
-void MyMoneyStorageDump::readStream(QDataStream& /* s */, IMyMoneySerialize* /* storage */)
+void MyMoneyStorageDump::readStream(QDataStream& /* s */, MyMoneyStorageMgr* /* storage */)
 {
   qDebug("Reading not supported by MyMoneyStorageDump!!");
 }
 
-void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storage)
+void MyMoneyStorageDump::writeStream(QDataStream& _s, MyMoneyStorageMgr* _storage)
 {
   QTextStream s(_s.device());
-  IMyMoneyStorage* storage = dynamic_cast<IMyMoneyStorage *>(_storage);
+  MyMoneyStorageMgr* storage = _storage;
   MyMoneyPayee user = storage->user();
 
   s << "File-Info\n";
@@ -80,21 +90,20 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
   s << "-------------\n";
   QList<MyMoneyAccount> list_a;
   storage->accountList(list_a);
-  s << "accounts = " << list_a.count() << ", next id = " << _storage->accountId() << "\n";
+  s << "accounts = " << list_a.count() << ", next id = " << _storage->d_func()->m_nextAccountID << "\n";
   MyMoneyTransactionFilter filter;
   filter.setReportAllSplits(false);
   QList<MyMoneyTransaction> list_t;
   storage->transactionList(list_t, filter);
   QList<MyMoneyTransaction>::ConstIterator it_t;
-  s << "transactions = " << list_t.count() << ", next id = " << _storage->transactionId() << "\n";
+  s << "transactions = " << list_t.count() << ", next id = " << _storage->d_func()->m_nextTransactionID << "\n";
   QMap<int, int> xferCount;
-  for (it_t = list_t.constBegin(); it_t != list_t.constEnd(); ++it_t) {
-    QList<MyMoneySplit>::ConstIterator it_s;
-    int accountCount = 0;
-    for (it_s = (*it_t).splits().constBegin(); it_s != (*it_t).splits().constEnd(); ++it_s) {
-      MyMoneyAccount acc = storage->account((*it_s).accountId());
-      if (acc.accountGroup() != MyMoneyAccount::Expense
-          && acc.accountGroup() != MyMoneyAccount::Income)
+  foreach (const auto transaction, list_t) {
+    auto accountCount = 0;
+    foreach (const auto split, transaction.splits()) {
+      auto acc = storage->account(split.accountId());
+      if (acc.accountGroup() != eMyMoney::Account::Type::Expense
+          && acc.accountGroup() != eMyMoney::Account::Type::Income)
         accountCount++;
     }
     if (accountCount > 1)
@@ -105,10 +114,11 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
     s << "               " << *it_cnt << " of them references " << it_cnt.key() << " accounts\n";
   }
 
-  s << "payees = " << _storage->payeeList().count() << ", next id = " << _storage->payeeId() << "\n";
-  s << "tags = " << _storage->tagList().count() << ", next id = " << _storage->tagId() << "\n";
-  s << "institutions = " << _storage->institutionList().count() << ", next id = " << _storage->institutionId() << "\n";
-  s << "schedules = " << _storage->scheduleList().count() << ", next id = " << _storage->scheduleId() << "\n";
+  s << "payees = " << _storage->payeeList().count() << ", next id = " << _storage->d_func()->m_nextPayeeID << "\n";
+  s << "tags = " << _storage->tagList().count() << ", next id = " << _storage->d_func()->m_nextTagID << "\n";
+  s << "institutions = " << _storage->institutionList().count() << ", next id = " << _storage->d_func()->m_nextInstitutionID << "\n";
+  s << "schedules = " << _storage->scheduleList(QString(), eMyMoney::Schedule::Type::Any, eMyMoney::Schedule::Occurrence::Any, eMyMoney::Schedule::PaymentType::Any,
+                                                QDate(), QDate(), false).count() << ", next id = " << _storage->d_func()->m_nextScheduleID << "\n";
   s << "\n";
 
   s << "Institutions\n";
@@ -171,7 +181,7 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
     s << "  Name = " << (*it_a).name() << "\n";
     s << "  Number = " << (*it_a).number() << "\n";
     s << "  Description = " << (*it_a).description() << "\n";
-    s << "  Type = " << (*it_a).accountType() << "\n";
+    s << "  Type = " << (int)(*it_a).accountType() << "\n";
     if ((*it_a).currencyId().isEmpty()) {
       s << "  Currency = unknown\n";
     } else {
@@ -263,6 +273,7 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
 
     s << "    Type = " << MyMoneySecurity::securityTypeToString((*it_e).securityType()) << "\n";
     s << "    smallest account fraction = " << (*it_e).smallestAccountFraction() << "\n";
+    s << "    price precision = " << (*it_e).pricePrecision() << "\n";
 
     s << "    KVP: " << "\n";
     QMap<QString, QString>kvp = (*it_e).pairs();
@@ -306,7 +317,8 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
   s << "Schedules" << "\n";
   s << "---------" << "\n";
 
-  QList<MyMoneySchedule> list_s = storage->scheduleList();
+  auto list_s = storage->scheduleList(QString(), eMyMoney::Schedule::Type::Any, eMyMoney::Schedule::Occurrence::Any, eMyMoney::Schedule::PaymentType::Any,
+                                      QDate(), QDate(), false);
   QList<MyMoneySchedule>::ConstIterator it_s;
   for (it_s = list_s.constBegin(); it_s != list_s.constEnd(); ++it_s) {
     s << "  ID = " << (*it_s).id() << "\n";
@@ -317,10 +329,11 @@ void MyMoneyStorageDump::writeStream(QDataStream& _s, IMyMoneySerialize* _storag
     else
       s << "  Enddate   = not specified\n";
     s << "  Occurence = " << (*it_s).occurrenceToString() << "\n"; // krazy:exclude=spelling
-    s << "  OccurenceMultiplier = " << (*it_s).occurrenceMultiplier() << "\n";
+    s << "  OccurenceMultiplier = " << (*it_s).occurrenceMultiplier() << "\n"; // krazy:exclude=spelling
     s << "  Type = " << MyMoneySchedule::scheduleTypeToString((*it_s).type()) << "\n";
     s << "  Paymenttype = " << MyMoneySchedule::paymentMethodToString((*it_s).paymentType()) << "\n";
     s << "  Fixed = " << (*it_s).isFixed() << "\n";
+    s << "  LastDayInDate = " << (*it_s).lastDayInMonth() << "\n";
     s << "  AutoEnter = " << (*it_s).autoEnter() << "\n";
 
     if ((*it_s).lastPayment().isValid())
@@ -382,7 +395,7 @@ void MyMoneyStorageDump::dumpKVP(const QString& headline, QTextStream& s, const 
   }
 }
 
-void MyMoneyStorageDump::dumpTransaction(QTextStream& s, IMyMoneyStorage* storage, const MyMoneyTransaction& it_t)
+void MyMoneyStorageDump::dumpTransaction(QTextStream& s, MyMoneyStorageMgr* storage, const MyMoneyTransaction& it_t)
 {
   s << "  ID = " << it_t.id() << "\n";
   s << "  Postdate  = " << it_t.postDate().toString(Qt::ISODate) << "\n";
@@ -394,48 +407,47 @@ void MyMoneyStorageDump::dumpTransaction(QTextStream& s, IMyMoneyStorage* storag
 
   s << "  Splits\n";
   s << "  ------\n";
-  QList<MyMoneySplit>::ConstIterator it_s;
-  for (it_s = it_t.splits().constBegin(); it_s != it_t.splits().constEnd(); ++it_s) {
-    s << "   ID = " << (*it_s).id() << "\n";
-    s << "    Transaction = " << (*it_s).transactionId() << "\n";
-    s << "    Payee = " << (*it_s).payeeId();
-    if (!(*it_s).payeeId().isEmpty()) {
-      MyMoneyPayee p = storage->payee((*it_s).payeeId());
+  foreach (const auto split, it_t.splits()) {
+    s << "   ID = " << split.id() << "\n";
+    s << "    Transaction = " << split.transactionId() << "\n";
+    s << "    Payee = " << split.payeeId();
+    if (!split.payeeId().isEmpty()) {
+      MyMoneyPayee p = storage->payee(split.payeeId());
       s << " (" << p.name() << ")" << "\n";
     } else
       s << " ()\n";
-    for (int i = 0; i < (*it_s).tagIdList().size(); i++) {
-      s << "    Tag = " << (*it_s).tagIdList()[i];
-      if (!(*it_s).tagIdList()[i].isEmpty()) {
-        MyMoneyTag ta = storage->tag((*it_s).tagIdList()[i]);
+    for (int i = 0; i < split.tagIdList().size(); i++) {
+      s << "    Tag = " << split.tagIdList()[i];
+      if (!split.tagIdList()[i].isEmpty()) {
+        MyMoneyTag ta = storage->tag(split.tagIdList()[i]);
         s << " (" << ta.name() << ")" << "\n";
       } else
         s << " ()\n";
     }
-    s << "    Account = " << (*it_s).accountId();
+    s << "    Account = " << split.accountId();
     MyMoneyAccount acc;
     try {
-      acc = storage->account((*it_s).accountId());
+      acc = storage->account(split.accountId());
       s << " (" << acc.name() << ") [" << acc.currencyId() << "]\n";
     } catch (const MyMoneyException &) {
       s << " (---) [---]\n";
     }
-    s << "    Memo = " << (*it_s).memo() << "\n";
-    if ((*it_s).value() == MyMoneyMoney::autoCalc)
+    s << "    Memo = " << split.memo() << "\n";
+    if (split.value() == MyMoneyMoney::autoCalc)
       s << "    Value = will be calculated" << "\n";
     else
-      s << "    Value = " << (*it_s).value().formatMoney("", 2)
-      << " (" << (*it_s).value().toString() << ")\n";
-    s << "    Shares = " << (*it_s).shares().formatMoney("", 2)
-    << " (" << (*it_s).shares().toString() << ")\n";
-    s << "    Action = '" << (*it_s).action() << "'\n";
-    s << "    Nr = '" << (*it_s).number() << "'\n";
-    s << "    ReconcileFlag = '" << reconcileToString((*it_s).reconcileFlag()) << "'\n";
-    if ((*it_s).reconcileFlag() != MyMoneySplit::NotReconciled) {
-      s << "    ReconcileDate = " << (*it_s).reconcileDate().toString(Qt::ISODate) << "\n";
+      s << "    Value = " << split.value().formatMoney("", 2)
+      << " (" << split.value().toString() << ")\n";
+    s << "    Shares = " << split.shares().formatMoney("", 2)
+    << " (" << split.shares().toString() << ")\n";
+    s << "    Action = '" << split.action() << "'\n";
+    s << "    Nr = '" << split.number() << "'\n";
+    s << "    ReconcileFlag = '" << reconcileToString(split.reconcileFlag()) << "'\n";
+    if (split.reconcileFlag() != eMyMoney::Split::State::NotReconciled) {
+      s << "    ReconcileDate = " << split.reconcileDate().toString(Qt::ISODate) << "\n";
     }
-    s << "    BankID = " << (*it_s).bankID() << "\n";
-    dumpKVP("KVP:", s, (*it_s), 4);
+    s << "    BankID = " << split.bankID() << "\n";
+    dumpKVP("KVP:", s, split, 4);
     s << "\n";
   }
   s << "\n";
@@ -443,21 +455,21 @@ void MyMoneyStorageDump::dumpTransaction(QTextStream& s, IMyMoneyStorage* storag
 
 #define i18n QString
 
-const QString MyMoneyStorageDump::reconcileToString(MyMoneySplit::reconcileFlagE flag) const
+const QString MyMoneyStorageDump::reconcileToString(eMyMoney::Split::State flag) const
 {
   QString rc;
 
   switch (flag) {
-    case MyMoneySplit::NotReconciled:
+    case eMyMoney::Split::State::NotReconciled:
       rc = i18nc("Reconciliation status 'Not Reconciled'", "not reconciled");
       break;
-    case MyMoneySplit::Cleared:
+    case eMyMoney::Split::State::Cleared:
       rc = i18nc("Reconciliation status 'Cleared'", "cleared");
       break;
-    case MyMoneySplit::Reconciled:
+    case eMyMoney::Split::State::Reconciled:
       rc = i18nc("Reconciliation status 'Reconciled'", "reconciled");
       break;
-    case MyMoneySplit::Frozen:
+    case eMyMoney::Split::State::Frozen:
       rc = i18nc("Reconciliation status 'Frozen'", "frozen");
       break;
     default:

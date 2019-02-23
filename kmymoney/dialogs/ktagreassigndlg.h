@@ -1,18 +1,20 @@
-/***************************************************************************
-                          ktagreassigndlg.cpp
-                             -------------------
-    copyright            : (C) 2012 by Alessandro Russo <axela74@yahoo.it>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2011-2012  Alessandro Russo <axela74@yahoo.it>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KTAGREASSIGNDLG_H
 #define KTAGREASSIGNDLG_H
@@ -20,7 +22,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QCheckBox>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -28,31 +30,22 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneytag.h>
-#include "ui_ktagreassigndlgdecl.h"
+namespace Ui { class KTagReassignDlg; }
 
 /**
  *  Implementation of the dialog that lets the user select a tag in order
  *  to re-assign transactions (for instance, if tags are deleted).
  */
 
+class MyMoneyTag;
 
-class KTagReassignDlgDecl : public QDialog, public Ui::KTagReassignDlgDecl
-{
-public:
-  KTagReassignDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
-class KTagReassignDlg : public KTagReassignDlgDecl
+class KTagReassignDlg : public QDialog
 {
   Q_OBJECT
-public:
-  /** Default constructor */
-  KTagReassignDlg(QWidget* parent = 0);
+  Q_DISABLE_COPY(KTagReassignDlg)
 
-  /** Destructor */
+public:
+  explicit KTagReassignDlg(QWidget* parent = nullptr);
   ~KTagReassignDlg();
 
   /**
@@ -67,8 +60,10 @@ public:
   QString show(const QList<MyMoneyTag>& tagslist);
 
 protected:
-  void accept();
+  void accept() override;
 
+private:
+  Ui::KTagReassignDlg *ui;
 };
 
 #endif // KTAGREASSIGNDLG_H

@@ -29,33 +29,28 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_interestwizardpagedecl.h"
+namespace Ui { class InterestWizardPage; }
 
 /**
  * This class implements the Interest page of the
  * @ref KNewLoanWizard.
  */
-class InterestWizardPageDecl : public QWizardPage, public Ui::InterestWizardPageDecl
-{
-public:
-  InterestWizardPageDecl(QWidget *parent) : QWizardPage(parent) {
-    setupUi(this);
-  }
-};
 
-class InterestWizardPage : public InterestWizardPageDecl
+class InterestWizardPage : public QWizardPage
 {
   Q_OBJECT
 public:
-  explicit InterestWizardPage(QWidget *parent = 0);
-
+  explicit InterestWizardPage(QWidget *parent = nullptr);
+  ~InterestWizardPage() override;
   /**
    * Overload the initializePage function to set widgets based on
    * the inputs from previous pages.
    */
-  void initializePage();
+  void initializePage() final override;
 
-public slots:
+  Ui::InterestWizardPage *ui;
+
+public Q_SLOTS:
   void resetCalculator();
 };
 

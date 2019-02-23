@@ -4,6 +4,7 @@
     begin                : Wed Jan 5 2005
     copyright            : (C) 2005 Thomas Baumgart
     email                : ipwizard@users.sourceforge.net
+                           (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  ***************************************************************************/
 
 /***************************************************************************
@@ -28,33 +29,45 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "kmymoney.h"
 #include "kmymoneyview.h"
-#include "selectedtransaction.h"
+#include "selectedtransactions.h"
 
-KMyMoneyPlugin::KMMViewInterface::KMMViewInterface(KMyMoneyApp* app, KMyMoneyView* view, QObject* parent, const char* name) :
+KMyMoneyPlugin::KMMViewInterface::KMMViewInterface(KMyMoneyView* view, QObject* parent, const char* name) :
     ViewInterface(parent, name),
     m_view(view)
 {
-  connect(app, SIGNAL(accountSelected(MyMoneyAccount)), this, SIGNAL(accountSelected(MyMoneyAccount)));
-  connect(app, SIGNAL(transactionsSelected(KMyMoneyRegister::SelectedTransactions)), this, SIGNAL(transactionsSelected(KMyMoneyRegister::SelectedTransactions)));
-  connect(app, SIGNAL(accountReconciled(MyMoneyAccount,QDate,MyMoneyMoney,MyMoneyMoney,QList<QPair<MyMoneyTransaction,MyMoneySplit> >)),
-          this, SIGNAL(accountReconciled(MyMoneyAccount,QDate,MyMoneyMoney,MyMoneyMoney,QList<QPair<MyMoneyTransaction,MyMoneySplit> >)));
+  connect(m_view, &KMyMoneyView::accountSelected, this, &ViewInterface::accountSelected);
+  connect(m_view, &KMyMoneyView::transactionsSelected, this, &ViewInterface::transactionsSelected);
+  connect(m_view, &KMyMoneyView::accountReconciled,
+          this, &ViewInterface::accountReconciled);
 
+//  connect(app, &KMyMoneyApp::institutionSelected, this, &ViewInterface::institutionSelected);
 
-  connect(app, SIGNAL(institutionSelected(MyMoneyInstitution)), this, SIGNAL(institutionSelected(MyMoneyInstitution)));
-
-  connect(m_view, SIGNAL(viewStateChanged(bool)), this, SIGNAL(viewStateChanged(bool)));
-  connect(m_view, SIGNAL(kmmFilePlugin(uint)), this, SIGNAL(kmmFilePlugin(uint)));
+  connect(m_view, &KMyMoneyView::viewStateChanged, this, &ViewInterface::viewStateChanged);
 }
 
-KMyMoneyViewBase* KMyMoneyPlugin::KMMViewInterface::addPage(const QString& item, const QString& icon)
+void KMyMoneyPlugin::KMMViewInterface::slotRefreshViews()
 {
-  return m_view->addBasePage(item, icon);
+  m_view->slotRefreshViews();
 }
 
-void KMyMoneyPlugin::KMMViewInterface::addWidget(KMyMoneyViewBase* view, QWidget* w)
+void KMyMoneyPlugin::KMMViewInterface::addView(KMyMoneyViewBase* view, const QString& name, View idView)
 {
-  if (view && w)
-    view->addWidget(w);
+  m_view->addView(view, name, idView);
 }
+
+void KMyMoneyPlugin::KMMViewInterface::removeView(View idView)
+{
+  m_view->removeView(idView);
+}
+
+//KMyMoneyViewBase* KMyMoneyPlugin::KMMViewInterface::addPage(const QString& item, const QString& icon)
+//{
+//  return m_view->addBasePage(item, icon);
+//}
+
+//void KMyMoneyPlugin::KMMViewInterface::addWidget(KMyMoneyViewBase* view, QWidget* w)
+//{
+//  if (view && w)
+//    view->addWidget(w);
+//}

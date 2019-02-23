@@ -35,11 +35,11 @@
 class KScheduleTreeItem : public QTreeWidgetItem
 {
 public:
-  KScheduleTreeItem(QTreeWidget* parent);
+  explicit KScheduleTreeItem(QTreeWidget* parent);
 
-  KScheduleTreeItem(QTreeWidgetItem* &parent);
+  explicit KScheduleTreeItem(QTreeWidgetItem* &parent);
 
-  bool operator<(const QTreeWidgetItem &otherItem) const;
+  bool operator<(const QTreeWidgetItem &otherItem) const final override;
 
   enum ScheduleItemDataRole {
     ScheduleIdRole = Qt::UserRole,

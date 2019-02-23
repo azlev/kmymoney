@@ -1,26 +1,26 @@
-/***************************************************************************
-                          mymoneykeyvaluecontainer.cpp
-                             -------------------
-    begin                : Sun Nov 10 2002
-    copyright            : (C) 2002-2005 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneykeyvaluecontainer.h"
+#include "mymoneykeyvaluecontainer_p.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
-
-#include <QtGlobal>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -32,73 +32,77 @@
 
 Q_GLOBAL_STATIC(QString, nullString)
 
-MyMoneyKeyValueContainer::MyMoneyKeyValueContainer()
+MyMoneyKeyValueContainer::MyMoneyKeyValueContainer() :
+  d_ptr(new MyMoneyKeyValueContainerPrivate)
 {
 }
 
-MyMoneyKeyValueContainer::MyMoneyKeyValueContainer(const QDomElement& node)
+MyMoneyKeyValueContainer::MyMoneyKeyValueContainer(const MyMoneyKeyValueContainer& other) :
+  d_ptr(new MyMoneyKeyValueContainerPrivate(*other.d_func()))
 {
-  if (!node.isNull()) {
-    if ("KEYVALUEPAIRS" != node.tagName())
-      throw MYMONEYEXCEPTION("Node was not KEYVALUEPAIRS");
-
-    m_kvp.clear();
-
-    QDomNodeList nodeList = node.elementsByTagName("PAIR");
-    for (int i = 0; i < nodeList.count(); ++i) {
-      const QDomElement& el(nodeList.item(i).toElement());
-      m_kvp[el.attribute("key")] = el.attribute("value");
-    }
-  }
 }
 
 MyMoneyKeyValueContainer::~MyMoneyKeyValueContainer()
 {
+  Q_D(MyMoneyKeyValueContainer);
+  delete d;
 }
 
-const QString& MyMoneyKeyValueContainer::value(const QString& key) const
+QString MyMoneyKeyValueContainer::value(const QString& key) const
 {
+  Q_D(const MyMoneyKeyValueContainer);
   QMap<QString, QString>::ConstIterator it;
 
-  it = m_kvp.find(key);
-  if (it != m_kvp.end())
+  it = d->m_kvp.find(key);
+  if (it != d->m_kvp.end())
     return (*it);
   return *nullString;
 }
 
 void MyMoneyKeyValueContainer::setValue(const QString& key, const QString& value)
 {
-  m_kvp[key] = value;
+  Q_D(MyMoneyKeyValueContainer);
+  d->m_kvp[key] = value;
 }
 
+QMap<QString, QString> MyMoneyKeyValueContainer::pairs() const
+{
+  Q_D(const MyMoneyKeyValueContainer);
+  return d->m_kvp;
+}
 
 void MyMoneyKeyValueContainer::setPairs(const QMap<QString, QString>& list)
 {
-  m_kvp = list;
+  Q_D(MyMoneyKeyValueContainer);
+  d->m_kvp = list;
 }
 
 void MyMoneyKeyValueContainer::deletePair(const QString& key)
 {
+  Q_D(MyMoneyKeyValueContainer);
   QMap<QString, QString>::Iterator it;
 
-  it = m_kvp.find(key);
-  if (it != m_kvp.end())
-    m_kvp.erase(it);
+  it = d->m_kvp.find(key);
+  if (it != d->m_kvp.end())
+    d->m_kvp.erase(it);
 }
 
 void MyMoneyKeyValueContainer::clear()
 {
-  m_kvp.clear();
+  Q_D(MyMoneyKeyValueContainer);
+  d->m_kvp.clear();
 }
 
 bool MyMoneyKeyValueContainer::operator == (const MyMoneyKeyValueContainer& right) const
 {
+  Q_D(const MyMoneyKeyValueContainer);
   QMap<QString, QString>::ConstIterator it_a, it_b;
 
-  it_a = m_kvp.begin();
-  it_b = right.m_kvp.begin();
+  auto d2 = static_cast<const MyMoneyKeyValueContainerPrivate *>(right.d_func());
+  it_a = d->m_kvp.begin();
+  it_b = d2->m_kvp.begin();
 
-  while (it_a != m_kvp.end() && it_b != right.m_kvp.end()) {
+  while (it_a != d->m_kvp.end() && it_b != d2->m_kvp.end()) {
     if (it_a.key() != it_b.key()
         || (((*it_a).length() != 0 || (*it_b).length() != 0) && *it_a != *it_b))
       return false;
@@ -106,22 +110,17 @@ bool MyMoneyKeyValueContainer::operator == (const MyMoneyKeyValueContainer& righ
     ++it_b;
   }
 
-  return (it_a == m_kvp.end() && it_b == right.m_kvp.end());
+  return (it_a == d->m_kvp.end() && it_b == d2->m_kvp.end());
 }
 
-void MyMoneyKeyValueContainer::writeXML(QDomDocument& document, QDomElement& parent) const
+
+QString MyMoneyKeyValueContainer::operator[](const QString& k) const
 {
-  if (m_kvp.count() != 0) {
-    QDomElement el = document.createElement("KEYVALUEPAIRS");
+  return value(k);
+}
 
-    QMap<QString, QString>::ConstIterator it;
-    for (it = m_kvp.begin(); it != m_kvp.end(); ++it) {
-      QDomElement pair = document.createElement("PAIR");
-      pair.setAttribute("key", it.key());
-      pair.setAttribute("value", it.value());
-      el.appendChild(pair);
-    }
-
-    parent.appendChild(el);
-  }
+QString& MyMoneyKeyValueContainer::operator[](const QString& k)
+{
+  Q_D(MyMoneyKeyValueContainer);
+  return d->m_kvp[k];
 }

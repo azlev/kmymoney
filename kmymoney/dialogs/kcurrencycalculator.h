@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kcurrencycalculator.h  -  description
-                             -------------------
-    begin                : Thu Apr 8 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KCURRENCYCALCULATOR_H
 #define KCURRENCYCALCULATOR_H
@@ -26,7 +22,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QWidget>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -34,25 +30,26 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kcurrencycalculatordecl.h"
-#include <mymoneyfile.h>
+class QDate;
 
-class QDialogButtonBox;
+class MyMoneyMoney;
+class MyMoneySplit;
+class MyMoneyTransaction;
+class MyMoneySecurity;
+
+namespace Ui { class KCurrencyCalculator; }
+
+typedef qint64 signed64;
 
 /**
   * @author Thomas Baumgart
   */
-class KCurrencyCalculatorDecl : public QDialog, public Ui::KCurrencyCalculatorDecl
-{
-public:
-  KCurrencyCalculatorDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
 
-class KCurrencyCalculator : public KCurrencyCalculatorDecl
+class KCurrencyCalculatorPrivate;
+class KCurrencyCalculator : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KCurrencyCalculator)
 
 public:
   /**
@@ -66,7 +63,13 @@ public:
     *
     * @note @p value must not be 0!
     */
-  KCurrencyCalculator(const MyMoneySecurity& from, const MyMoneySecurity& to, const MyMoneyMoney& value, const MyMoneyMoney& shares, const QDate& date, const signed64 resultFraction = 100, QWidget *parent = 0);
+  explicit KCurrencyCalculator(const MyMoneySecurity& from,
+                               const MyMoneySecurity& to,
+                               const MyMoneyMoney& value,
+                               const MyMoneyMoney& shares,
+                               const QDate& date,
+                               const signed64 resultFraction = 100,
+                               QWidget *parent = nullptr);
   ~KCurrencyCalculator();
 
   /**
@@ -76,7 +79,7 @@ public:
    * a) based on the resulting amount or
    * b) based on direct price entry.
    *
-   * In case a) the price is returned without precision loss as the devision
+   * In case a) the price is returned without precision loss as the division
    * of the amount entered by the user and the @a value passed as argument.
    * In case b) it is returned with the selected global price precision.
    */
@@ -84,25 +87,23 @@ public:
 
   void setupPriceEditor();
 
-  static bool setupSplitPrice(MyMoneyMoney& shares, const MyMoneyTransaction& t, const MyMoneySplit& s, const QMap<QString, MyMoneyMoney>& priceInfo, QWidget* parentWidget);
+  static bool setupSplitPrice(MyMoneyMoney& shares,
+                              const MyMoneyTransaction& t,
+                              const MyMoneySplit& s,
+                              const QMap<QString,
+                              MyMoneyMoney>& priceInfo,
+                              QWidget* parentWidget);
 
-protected:
-  void updateExample(const MyMoneyMoney& price);
-
-protected slots:
+protected Q_SLOTS:
   void slotSetToAmount();
   void slotSetExchangeRate();
   void slotUpdateResult(const QString& txt);
   void slotUpdateRate(const QString& txt);
-  virtual void accept();
+  void accept() override;
 
 private:
-  MyMoneySecurity     m_fromCurrency;
-  MyMoneySecurity     m_toCurrency;
-  MyMoneyMoney        m_result;
-  MyMoneyMoney        m_value;
-  signed64            m_resultFraction;
-  QDialogButtonBox   *m_buttonBox;
+  KCurrencyCalculatorPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KCurrencyCalculator)
 };
 
 #endif

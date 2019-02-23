@@ -18,18 +18,17 @@
 #include <config-kmymoney.h>
 #include <config-kmymoney-version.h>
 
-#include <memory>
-
 // ----------------------------------------------------------------------------
 // QT Includes
 
 #include <QWidget>
-#include <QDateTime>
 #include <QStringList>
-#include <QEventLoop>
 #include <QApplication>
 #include <QCommandLineParser>
-#include <QResource>
+#include <QSplashScreen>
+#include <QStandardPaths>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 #ifdef KMM_DBUS
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -38,9 +37,8 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <KAboutData>
+#include <KTipDialog>
 #include <KLocalizedString>
-#include <ktip.h>
 #include <KMessageBox>
 #include <Kdelibs4ConfigMigrator>
 
@@ -48,187 +46,153 @@
 // Project Includes
 
 #include "mymoney/mymoneyfile.h"
+#include "mymoneyexception.h"
 #include "kmymoney.h"
 #include "kstartuplogo.h"
+#include "kcreditswindow.h"
 #include "kmymoneyutils.h"
-#include "kmymoneyglobalsettings.h"
+#include "kmymoneysettings.h"
+#include "misc/webconnect.h"
+#include "platformtools.h"
 
+#ifdef KMM_DEBUG
+#include "mymoneyutils.h"
+#include "mymoneytracer.h"
+#endif
 
-QTime timer;
 bool timersOn = false;
 
 KMyMoneyApp* kmymoney;
 
-static int runKMyMoney(QApplication *a, std::unique_ptr<KStartupLogo> splash, const QUrl & file, bool noFile);
+static int runKMyMoney(QApplication& a, std::unique_ptr<QSplashScreen> splash, const QUrl & file, bool noFile);
+static void migrateConfigFiles();
 
 int main(int argc, char *argv[])
 {
-  KLocalizedString::setApplicationDomain("kmymoney");
-  timer.start();
-
-  {
-    // Copy KDE 4 config files to the KF5 location
-    Kdelibs4ConfigMigrator migrator(QStringLiteral("kmymoney"));
-    migrator.setConfigFiles(QStringList{"kmymoneyrc"});
-    migrator.setUiFiles(QStringList{"kmymoneyui.rc"});
-    migrator.migrate();
-  }
-
   /**
    * Create application first
    */
   QApplication app(argc, argv);
+  KLocalizedString::setApplicationDomain("kmymoney");
+
+  migrateConfigFiles();
 
   /**
-   * construct about data
+   * construct and register about data
    */
-  QStringList features;
-#ifdef Gpgmepp_FOUND
-  features << i18n("GPG encryption");
-#endif
-#ifdef KMM_ADDRESSBOOK_FOUND
-  features << i18n("Addressbook integration");
-#endif
-#ifdef KF5Holidays_FOUND
-  features << i18n("Holiday regions integration");
-#endif
-  QString featuresDescription;
-  if (!features.empty())
-      featuresDescription = i18n("Compiled with the following optional features:\n%1", features.join(QLatin1Char('\n')));
-  KAboutData aboutData(QStringLiteral("kmymoney"), i18n("KMyMoney"), QStringLiteral(VERSION),
-                       i18n("\nKMyMoney, the Personal Finance Manager for KDE.\n\nPlease consider contributing to this project with code and/or suggestions."), KAboutLicense::GPL,
-                       i18n("(c) 2000-2016 The KMyMoney development team"),
-                       featuresDescription,
-                       QStringLiteral("http://kmymoney.org/"));
-
-  //Temporarily, the product name to report bugs in BKO is different than the application name
-  aboutData.setProductName("kmymoney");
-
-  aboutData.addAuthor(i18n("Michael Edwardes."), i18n("Initial idea, much initial source code, Project admin"), "mte@users.sourceforge.net");
-  aboutData.addAuthor(i18n("Thomas Baumgart"), i18n("Core engine, Release Manager, Project admin"), "ipwizard@users.sourceforge.net");
-  aboutData.addAuthor(i18n("Alvaro Soliverez"), i18n("Forecast, Reports"), "asoliverez@gmail.com");
-  aboutData.addAuthor(i18n("Cristian Oneț"), i18n("Developer"), "onet.cristian@gmail.com");
-  aboutData.addAuthor(i18n("Christian Dávid"), i18n("Developer"), "christian-david@web.de");
-  aboutData.addAuthor(i18n("Ace Jones"), i18n("Reporting logic, OFX Import"), "acejones@users.sourceforge.net");
-  aboutData.addAuthor(i18n("Tony Bloomfield"), i18n("Database backend, maintainer stable branch"), "tonybloom@users.sourceforge.net");
-  aboutData.addAuthor(i18n("Felix Rodriguez"), i18n("Project Admin"), "frodriguez@users.sourceforge.net");
-  aboutData.addAuthor(i18n("John C"), i18n("Developer"), "tacoturtle@users.sourceforge.net");
-  aboutData.addAuthor(i18n("Fernando Vilas"), i18n("Database backend"), "fvilas@iname.com");
-
-  aboutData.addCredit(i18n("Kevin Tambascio"), i18n("Initial investment support"), "ktambascio@users.sourceforge.net");
-  aboutData.addCredit(i18n("Javier Campos Morales"), i18n("Developer & Artist"), "javi_c@users.sourceforge.net");
-  aboutData.addCredit(i18n("Robert Wadley"), i18n("Icons & splash screen"), "rob@robntina.fastmail.us");
-  aboutData.addCredit(i18n("Laurent Montel"), i18n("Patches and port to kde4"), "montel@kde.org");
-  aboutData.addCredit(i18n("Wolfgang Rohdewald"), i18n("Patches"), "woro@users.sourceforge.net");
-  aboutData.addCredit(i18n("Marko Käning"), i18n("Patches, packaging and KF5-CI for OS X"), "mk-lists@email.de");
-  aboutData.addCredit(i18n("Allan Anderson ✝"), i18n("CSV import/export"), "");
-  aboutData.addCredit(i18n("Jack Ostroff"), i18n("Documentation and user support"), "ostroffjh@users.sourceforge.net");
+  KAboutData aboutData(QStringLiteral("kmymoney"), i18n("KMyMoney"), QStringLiteral(VERSION));
   aboutData.setOrganizationDomain("kde.org");
-
-  /**
-   * register about data
-   */
   KAboutData::setApplicationData(aboutData);
 
-  /**
-   * take component name and org. name from KAboutData
-   */
-  app.setApplicationName(aboutData.componentName());
-  app.setApplicationDisplayName(aboutData.displayName());
-  app.setOrganizationDomain(aboutData.organizationDomain());
-  app.setApplicationVersion(aboutData.version());
-
-  /**
-   * enable high dpi icons
-   */
-  app.setAttribute(Qt::AA_UseHighDpiPixmaps);
-
-  /**
-   * Create command line parser and feed it with known options
-   */
-  QCommandLineParser parser;
-  aboutData.setupCommandLine(&parser);
-  parser.setApplicationDescription(aboutData.shortDescription());
-  parser.addHelpOption();
-  parser.addVersionOption();
-
-  // language
-  const QCommandLineOption langOption(QStringLiteral("lang"), i18n("language to be used"));
-  parser.addOption(langOption);
-
-  // no file
-  const QCommandLineOption noFileOption(QStringLiteral("n"), i18n("do not open last used file"));
-  parser.addOption(noFileOption);
-
-  // timers
-  const QCommandLineOption timersOption(QStringLiteral("timers"), i18n("enable performance timers"));
-  parser.addOption(timersOption);
-
-  // no catch
-  const QCommandLineOption noCatchOption(QStringLiteral("nocatch"), i18n("do not globally catch uncaught exceptions"));
-  parser.addOption(noCatchOption);
+  QStringList fileUrls;
+  bool isNoCatchOption = false;
+  bool isNoFileOption = false;
 
 #ifdef KMM_DEBUG
-  // The following options are only available when compiled in debug mode
-  // trace
-  const QCommandLineOption traceOption(QStringLiteral("trace"), i18n("turn on program traces"));
-  parser.addOption(traceOption);
-
-  // dump actions
-  const QCommandLineOption dumpActionsOption(QStringLiteral("dump-actions"), i18n("dump the names of all defined QAction objects to stdout and quit"));
-  parser.addOption(dumpActionsOption);
+  bool isDumpActionsOption = false;
 #endif
 
-  // INSERT YOUR COMMANDLINE OPTIONS HERE
-  // url to open
-  parser.addPositionalArgument(QStringLiteral("url"), i18n("file to open"));
+  if (argc != 0) {
+    /**
+   * Create command line parser and feed it with known options
+   */
+    QCommandLineParser parser;
+    aboutData.setupCommandLine(&parser);
 
-  /**
+    // language
+    //    const QCommandLineOption langOption(QStringLiteral("lang"), i18n("language to be used"));
+    //    parser.addOption(langOption);
+
+    // no file
+    const QCommandLineOption noFileOption(QStringLiteral("n"), i18n("do not open last used file"));
+    parser.addOption(noFileOption);
+
+    // timers
+    const QCommandLineOption timersOption(QStringLiteral("timers"), i18n("enable performance timers"));
+    parser.addOption(timersOption);
+
+    // no catch
+    const QCommandLineOption noCatchOption(QStringLiteral("nocatch"), i18n("do not globally catch uncaught exceptions"));
+    parser.addOption(noCatchOption);
+
+#ifdef KMM_DEBUG
+    // The following options are only available when compiled in debug mode
+    // trace
+    const QCommandLineOption traceOption(QStringLiteral("trace"), i18n("turn on program traces"));
+    parser.addOption(traceOption);
+
+    // dump actions
+    const QCommandLineOption dumpActionsOption(QStringLiteral("dump-actions"), i18n("dump the names of all defined QAction objects to stdout and quit"));
+    parser.addOption(dumpActionsOption);
+#endif
+
+    // INSERT YOUR COMMANDLINE OPTIONS HERE
+    // url to open
+    parser.addPositionalArgument(QStringLiteral("url"), i18n("file to open"));
+
+    /**
    * do the command line parsing
    */
-  parser.process(app);
+    parser.parse(QApplication::arguments());
 
-  /**
+    bool ishelpSet = parser.isSet(QStringLiteral("help"));
+    if (ishelpSet || parser.isSet(QStringLiteral("author")) || parser.isSet(QStringLiteral("license"))) {
+      aboutData = initializeCreditsData();
+      if (ishelpSet)
+        parser.showHelp();
+    }
+
+    if (parser.isSet(QStringLiteral("version")))
+      parser.showVersion();
+
+    /**
    * handle standard options
    */
-  aboutData.processCommandLine(&parser);
+    aboutData.processCommandLine(&parser);
+
+#ifdef KMM_DEBUG
+    if (parser.isSet(traceOption))
+      MyMoneyTracer::on();
+    timersOn = parser.isSet(timersOption);
+    isDumpActionsOption = parser.isSet(dumpActionsOption);
+#endif
+
+    isNoCatchOption = parser.isSet(noCatchOption);
+    isNoFileOption = parser.isSet(noFileOption);
+    fileUrls = parser.positionalArguments();
+  }
 
   // create the singletons before we start memory checking
   // to avoid false error reports
-  MyMoneyFile::instance();
+  auto file = MyMoneyFile::instance();
+  Q_UNUSED(file)
 
   KMyMoneyUtils::checkConstants();
 
   // show startup logo
-  std::unique_ptr<KStartupLogo> splash = std::unique_ptr<KStartupLogo>(new KStartupLogo());
+  std::unique_ptr<QSplashScreen> splash(KMyMoneySettings::showSplash() ? createStartupLogo() : nullptr);
   app.processEvents();
 
   // setup the MyMoneyMoney locale settings according to the KDE settings
   MyMoneyMoney::setThousandSeparator(QLocale().groupSeparator());
   MyMoneyMoney::setDecimalSeparator(QLocale().decimalPoint());
-  // TODO: port to kf5
+  // TODO: port to kf5 (negative numbers in parens)
   //MyMoneyMoney::setNegativeMonetarySignPosition(static_cast<MyMoneyMoney::signPosition>(KLocale::global()->negativeMonetarySignPosition()));
   //MyMoneyMoney::setPositiveMonetarySignPosition(static_cast<MyMoneyMoney::signPosition>(KLocale::global()->positiveMonetarySignPosition()));
-  //MyMoneyMoney::setNegativePrefixCurrencySymbol(KLocale::global()->negativePrefixCurrencySymbol());
-  //MyMoneyMoney::setPositivePrefixCurrencySymbol(KLocale::global()->positivePrefixCurrencySymbol());
+  MyMoneyMoney::setNegativePrefixCurrencySymbol(platformTools::currencySymbolPosition(true) < platformTools::AfterQuantityMoney);
+  MyMoneyMoney::setPositivePrefixCurrencySymbol(platformTools::currencySymbolPosition(false) < platformTools::AfterQuantityMoney);
 
-  QString language = parser.value(langOption);
-  if (!language.isEmpty()) {
+//  QString language = parser.value(langOption);
+//  if (!language.isEmpty()) {
     //if (!KLocale::global()->setLanguage(QStringList() << language)) {
     //  qWarning("Unable to select language '%s'. This has one of two reasons:\n\ta) the standard KDE message catalog is not installed\n\tb) the KMyMoney message catalog is not installed", qPrintable(language));
     //}
-  }
-
-#ifdef KMM_DEBUG
-  if (parser.isSet(traceOption))
-    MyMoneyTracer::on();
-  timersOn = parser.isSet(timersOption);
-#endif
+//  }
 
   kmymoney = new KMyMoneyApp();
 
 #ifdef KMM_DEBUG
-  if (parser.isSet(dumpActionsOption)) {
+  if (isDumpActionsOption) {
     kmymoney->dumpActions();
 
     // Before we delete the application, we make sure that we destroy all
@@ -242,123 +206,181 @@ int main(int argc, char *argv[])
   }
 #endif
 
-  const QStringList urls = parser.positionalArguments();
-  const QUrl url = urls.isEmpty() ? QUrl() : QUrl::fromUserInput(urls.front());
+  QString fname;
+  // in case a filename is provided we need to check if it is a local
+  // file. In case the name does not start with "file://" or "./" or "/"
+  // we need to prepend "./" to fake a relative filename. Otherwise, QUrl prepends
+  // "http://" and uses the full path which will not work.
+  // On MS-Windows we also need to check if the filename starts with a
+  // drive letter or the backslash variants.
+  //
+  // The handling might be different on other OSes
+  if (!fileUrls.isEmpty()) {
+    fname = fileUrls.front();
+    QFileInfo fi(fname);
+    auto needLeadIn = fi.isFile();
+#ifdef Q_OS_WIN
+    QRegularExpression exp("^[a-z]:", QRegularExpression::CaseInsensitiveOption);
+    needLeadIn &= !exp.match(fname).hasMatch()
+                  && !fname.startsWith(QLatin1String(".\\"))
+                  && !fname.startsWith(QLatin1String("\\"));
+#endif
+    needLeadIn &= !fname.startsWith(QLatin1String("file://"))
+                  && !fname.startsWith(QLatin1String("./"))
+                  && !fname.startsWith(QLatin1String("/"));
+    if (needLeadIn) {
+        fname.prepend(QLatin1String("./"));
+    }
+  }
+
+  const QUrl url = QUrl::fromUserInput(fname, QLatin1String("."), QUrl::AssumeLocalFile);
   int rc = 0;
-  if (parser.isSet(noCatchOption)) {
+  if (isNoCatchOption) {
     qDebug("Running w/o global try/catch block");
-    rc = runKMyMoney(&app, std::move(splash), url, parser.isSet(noFileOption));
+    rc = runKMyMoney(app, std::move(splash), url, isNoFileOption);
   } else {
     try {
-      rc = runKMyMoney(&app, std::move(splash), url, parser.isSet(noFileOption));
+      rc = runKMyMoney(app, std::move(splash), url, isNoFileOption);
     } catch (const MyMoneyException &e) {
-      KMessageBox::detailedError(0, i18n("Uncaught error. Please report the details to the developers"),
-                                 i18n("%1 in file %2 line %3", e.what(), e.file(), e.line()));
-      throw e;
+      KMessageBox::detailedError(0, i18n("Uncaught error. Please report the details to the developers"), QString::fromLatin1(e.what()));
+      throw;
     }
   }
 
   return rc;
 }
 
-int runKMyMoney(QApplication *a, std::unique_ptr<KStartupLogo> splash, const QUrl & file, bool noFile)
+int runKMyMoney(QApplication& a, std::unique_ptr<QSplashScreen> splash, const QUrl & file, bool noFile)
 {
-#ifdef KMM_DBUS
-  if (QDBusConnection::sessionBus().interface()->isServiceRegistered("org.kde.kmymoney")) {
-    const QList<QString> instances = kmymoney->instanceList();
-    if (instances.count() > 0) {
+  bool instantQuit = false;
 
-      // If the user launches a second copy of the app and includes a file to
-      // open, they are probably attempting a "WebConnect" session.  In this case,
-      // we'll check to make sure it's an importable file that's passed in, and if so, we'll
-      // notify the primary instance of the file and kill ourselves.
+  /**
+   * enable high dpi icons
+   */
+  a.setAttribute(Qt::AA_UseHighDpiPixmaps);
 
-      if (file.isValid()) {
-        if (kmymoney->isImportableFile(file)) {
-          // if there are multiple instances, we'll send this to the first one
-          QString primary = instances[0];
+  if (kmymoney->webConnect()->isClient()) {
+    // If the user launches a second copy of the app and includes a file to
+    // open, they are probably attempting a "WebConnect" session.  In this case,
+    // we'll check to make sure it's an importable file that's passed in, and if so, we'll
+    // notify the primary instance of the file and kill ourselves.
 
-          // send a message to the primary client to import this file
-          QDBusInterface remoteApp(primary, "/KMymoney", "org.kde.kmymoney");
-          // TODO: port ot kf5
-          //remoteApp.call("webConnect", file.path(), KStartupInfo::startupId());
-
-          // Before we delete the application, we make sure that we destroy all
-          // widgets by running the event loop for some time to catch all those
-          // widgets that are requested to be destroyed using the deleteLater() method.
-          QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 10);
-
-          delete kmymoney;
-          return 0;
-        }
-      }
-
-      if (KMessageBox::questionYesNo(0, i18n("Another instance of KMyMoney is already running. Do you want to quit?")) == KMessageBox::Yes) {
-        delete kmymoney;
-        return 1;
+    if (file.isValid()) {
+      if (kmymoney->isImportableFile(file)) {
+        instantQuit = true;
+        kmymoney->webConnect()->loadFile(file);
       }
     }
-  } else {
-    qDebug("D-Bus registration failed. Some functions are not available.");
   }
-#else
-  qDebug("D-Bus disabled. Some functions are not available.");
-#endif
-  kmymoney->show();
-  kmymoney->centralWidget()->setEnabled(false);
 
-  splash.reset();
+  kmymoney->centralWidget()->setEnabled(false);
 
   // force complete paint of widgets
   qApp->processEvents();
 
-  QString importfile;
-  QUrl url;
-  // make sure, we take the file provided on the command
-  // line before we go and open the last one used
-  if (file.isValid()) {
-    // Check to see if this is an importable file, as opposed to a loadable
-    // file.  If it is importable, what we really want to do is load the
-    // last used file anyway and then immediately import this file.  This
-    // implements a "web connect" session where there is not already an
-    // instance of the program running.
+  if (!instantQuit) {
+    QString importfile;
+    QUrl url;
+    // make sure, we take the file provided on the command
+    // line before we go and open the last one used
+    if (file.isValid()) {
+        // Check to see if this is an importable file, as opposed to a loadable
+        // file.  If it is importable, what we really want to do is load the
+        // last used file anyway and then immediately import this file.  This
+        // implements a "web connect" session where there is not already an
+        // instance of the program running.
 
-    if (kmymoney->isImportableFile(file)) {
-      importfile = file.path();
+        if (kmymoney->isImportableFile(file)) {
+          importfile = file.path();
+          url = QUrl::fromUserInput(kmymoney->readLastUsedFile());
+        } else {
+          url = file;
+        }
+
+    } else {
       url = QUrl::fromUserInput(kmymoney->readLastUsedFile());
     }
 
+    if (url.isValid() && !noFile) {
+      if (importfile.isEmpty()) {
+        KTipDialog::showTip(kmymoney, QString(), false);
+      }
+      kmymoney->slotFileOpenRecent(url);
+
+    } else if (KMyMoneySettings::firstTimeRun()) {
+      // resetting the splash here is needed for ms-windows to have access
+      // to the new file wizard
+      splash.reset();
+      kmymoney->slotFileNew();
+    }
+
+    KMyMoneySettings::setFirstTimeRun(false);
+
+    if (!importfile.isEmpty()) {
+      // resetting the splash here is needed for ms-windows to have access
+      // to the web connect widgets
+      splash.reset();
+      kmymoney->webConnect(importfile, QByteArray());
+    }
+
   } else {
-    url = QUrl::fromUserInput(kmymoney->readLastUsedFile());
+    // the instantQuit flag is set, so we force the app to quit right away
+    kmymoney->slotFileQuit();
   }
 
-  KTipDialog::showTip(kmymoney, "", false);
-  if (url.isValid() && !noFile) {
-    kmymoney->slotFileOpenRecent(url);
-  } else if (KMyMoneyGlobalSettings::firstTimeRun()) {
-    kmymoney->slotFileNew();
-  }
-  KMyMoneyGlobalSettings::setFirstTimeRun(false);
-
-  // TODO: port to kf5
-  //if (!importfile.isEmpty())
-  //  kmymoney->webConnect(importfile, KStartupInfo::startupId());
-
-  kmymoney->updateCaption();
   kmymoney->centralWidget()->setEnabled(true);
+  kmymoney->show();
+  splash.reset();
 
-  const int rc = a->exec();
+  const int rc = a.exec();      //krazy:exclude=crashy
   return rc;
 }
 
-void timestamp_reset()
+static void migrateConfigFiles()
 {
-  timer.restart();
-}
+  const QString sMainConfigName(QStringLiteral("kmymoneyrc"));
+  const QString sMainConfigSubdirectory(QStringLiteral("kmymoney/")); // all KMM config files should be in ~/.config/kmymoney/
+  const QString sMainConfigPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
+                                  QLatin1Char('/') +
+                                  sMainConfigSubdirectory;
 
-void timestamp(char const *txt)
-{
-  if (timersOn) {
-    qDebug("Time(%s): %d", txt, timer.elapsed());
+  if (!QFile::exists(sMainConfigPath + sMainConfigName)) { // if main config file doesn't exist, then it's first run
+
+    // it could be migration from KDE4 to KF5 so prepare list of configuration files to migrate
+    QStringList sConfigNames
+    {
+      sMainConfigName,
+      QStringLiteral("csvimporterrc"),
+      QStringLiteral("printcheckpluginrc"),
+      QStringLiteral("icalendarexportpluginrc"),
+      QStringLiteral("kbankingrc"),
+    };
+
+    // Copy KDE 4 config files to the KF5 location
+    Kdelibs4ConfigMigrator migrator(QStringLiteral("kmymoney"));
+    migrator.setConfigFiles(sConfigNames);
+    migrator.setUiFiles(QStringList{QStringLiteral("kmymoneyui.rc")});
+    migrator.migrate();
+
+    QFileInfo fileInfo(sMainConfigPath + sMainConfigName);
+    QDir().mkpath(fileInfo.absolutePath());
+    const QString sOldMainConfigPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
+                                       QLatin1Char('/');
+
+    // some files have changed their names during switch to KF5, so prepare map for name replacements
+    QMap<QString, QString> configNamesChange {
+      {QStringLiteral("printcheckpluginrc"), QStringLiteral("checkprintingrc")},
+      {QStringLiteral("icalendarexportpluginrc"), QStringLiteral("icalendarexporterrc")}
+    };
+
+    for (const auto& sConfigName : sConfigNames) {
+      const auto sOldConfigFilename = sOldMainConfigPath + sConfigName;
+      const auto sNewConfigFilename = sMainConfigPath + configNamesChange.value(sConfigName, sConfigName);
+      if (QFile::exists(sOldConfigFilename)) {
+        if (QFile::copy(sOldConfigFilename, sNewConfigFilename))
+          QFile::remove(sOldConfigFilename);
+      }
+    }
   }
+  KConfig::setMainConfigName(sMainConfigSubdirectory + sMainConfigName); // otherwise it would be ~/.config/kmymoneyrc and not ~/.config/kmymoney/kmymoneyrc
 }

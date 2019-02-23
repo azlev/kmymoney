@@ -1,24 +1,22 @@
-/***************************************************************************
-                          mymoneyutils.cpp  -  description
-                             -------------------
-    begin                : Tue Jan 29 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2002-2016  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2002       Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneyutils.h"
 
@@ -26,18 +24,19 @@
 
 #include "mymoneyaccount.h"
 #include "mymoneymoney.h"
+#include "mymoneysecurity.h"
 
 #include <cstdio>
 #include <cstdarg>
-#include <cstdlib>
 
 #include <QRegExp>
+#include <QDate>
 
 QString MyMoneyUtils::getFileExtension(QString strFileName)
 {
   QString strTemp;
   if (!strFileName.isEmpty()) {
-    //find last . delminator
+    //find last . deliminator
     int nLoc = strFileName.lastIndexOf('.');
     if (nLoc != -1) {
       strTemp = strFileName.right(strFileName.length() - (nLoc + 1));
@@ -66,81 +65,7 @@ QString MyMoneyUtils::formatMoney(const MyMoneyMoney& val,
                          showThousandSeparator);
 }
 
-
-int MyMoneyTracer::m_indentLevel = 0;
-int MyMoneyTracer::m_onoff = 0;
-
-MyMoneyTracer::MyMoneyTracer(const char* name)
-{
-  if (m_onoff) {
-    QRegExp exp("(.*)::(.*)");
-    if (exp.indexIn(name) != -1) {
-      m_className = exp.cap(1);
-      m_memberName = exp.cap(2);
-    } else {
-      m_className = QString(name);
-      m_memberName.clear();
-    }
-    QString indent;
-    indent.fill(' ', m_indentLevel);
-    std::cerr << qPrintable(indent) << "ENTER: " << qPrintable(m_className) << "::" << qPrintable(m_memberName) << std::endl;
-  }
-  m_indentLevel += 2;
-}
-
-MyMoneyTracer::MyMoneyTracer(const QString& className, const QString& memberName) :
-    m_className(className),
-    m_memberName(memberName)
-{
-  if (m_onoff) {
-    QString indent;
-    indent.fill(' ', m_indentLevel);
-    std::cerr << qPrintable(indent) << "ENTER: " << qPrintable(m_className) << "::" << qPrintable(m_memberName) << std::endl;
-  }
-  m_indentLevel += 2;
-}
-
-MyMoneyTracer::~MyMoneyTracer()
-{
-  m_indentLevel -= 2;
-  if (m_onoff) {
-    QString indent;
-    indent.fill(' ', m_indentLevel);
-    std::cerr << qPrintable(indent) << "LEAVE: " << qPrintable(m_className) << "::" << qPrintable(m_memberName) << std::endl;
-  }
-}
-
-void MyMoneyTracer::printf(const char *format, ...) const
-{
-  if (m_onoff) {
-    va_list args;
-    va_start(args, format);
-    QString indent;
-    indent.fill(' ', m_indentLevel);
-    std::cerr << qPrintable(indent);
-
-    vfprintf(stderr, format, args);
-    putc('\n', stderr);
-    va_end(args);
-  }
-}
-
-void MyMoneyTracer::onOff(int onOff)
-{
-  m_onoff = onOff;
-}
-
-void MyMoneyTracer::on()
-{
-  m_onoff = 1;
-}
-
-void MyMoneyTracer::off()
-{
-  m_onoff = 0;
-}
-
-QString dateToString(const QDate& date)
+QString MyMoneyUtils::dateToString(const QDate& date)
 {
   if (!date.isNull() && date.isValid())
     return date.toString(Qt::ISODate);
@@ -148,7 +73,7 @@ QString dateToString(const QDate& date)
   return QString();
 }
 
-QDate stringToDate(const QString& str)
+QDate MyMoneyUtils::stringToDate(const QString& str)
 {
   if (str.length()) {
     QDate date = QDate::fromString(str, Qt::ISODate);
@@ -158,7 +83,7 @@ QDate stringToDate(const QString& str)
   return QDate();
 }
 
-QString QStringEmpty(const QString& val)
+QString MyMoneyUtils::QStringEmpty(const QString& val)
 {
   if (!val.isEmpty())
     return QString(val);
@@ -166,7 +91,7 @@ QString QStringEmpty(const QString& val)
   return QString();
 }
 
-unsigned long extractId(const QString& txt)
+unsigned long MyMoneyUtils::extractId(const QString& txt)
 {
   int pos;
   unsigned long rc = 0;

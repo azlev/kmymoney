@@ -2,6 +2,7 @@
                           kmymoney.h
                              -------------------
     copyright            : (C) 2000-2001 by Michael Edwardes <mte@users.sourceforge.net>
+                           (C) 2017, 2018 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
 
 ***************************************************************************/
 
@@ -21,35 +22,53 @@
 
 #include <QList>
 #include <QByteArray>
+#include <QFileDialog>
+#include <QUrl>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kxmlguiwindow.h>
+#include <KXmlGuiWindow>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
 #include <imymoneyprocessingcalendar.h>
-#include <mymoneyaccount.h>
-#include "mymoneyschedule.h"
-#include <mymoneyinstitution.h>
-#include <mymoneypayee.h>
-#include <mymoneytag.h>
-#include <mymoneybudget.h>
-#include <kmymoneyplugin.h>
 
-#include <register.h>
-#include <kmymoneyutils.h>
-#include <mymoneyprice.h>
+#include "kmymoneyutils.h"
 
+#include "mymoneyaccount.h"
 #include "mymoney/onlinejob.h"
-#include "mymoney/onlinejobtyped.h"
-#include "onlinetasks/interfaces/tasks/credittransfer.h"
+#include "onlinejobtyped.h"
+#include "mymoneykeyvaluecontainer.h"
+#include "mymoneymoney.h"
+#include "selectedtransactions.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "mymoneyenums.h"
+#include "viewenums.h"
 
 class QResizeEvent;
-class QTreeWidgetItem;
-class KPluginInfo;
+class MyMoneyObject;
+class MyMoneyInstitution;
+class MyMoneyAccount;
+class MyMoneySecurity;
+class MyMoneyPayee;
+class MyMoneyPrice;
+class MyMoneyTag;
+class MyMoneySplit;
+class MyMoneyTransaction;
+class WebConnect;
+class creditTransfer;
+class IMyMoneyOperationsFormat;
+
+template <class T> class onlineJobTyped;
+typedef  void (*KMyMoneyAppCallback)(int, int, const QString &);
+
+namespace eKMyMoney { enum class FileAction; }
+namespace eDialogs { enum class ScheduleResultCode; }
+namespace eMenu { enum class Action;
+                  enum class Menu; }
 
 /*! \mainpage KMyMoney Main Page for API documentation.
  *
@@ -77,12 +96,7 @@ class KMyMoneyApp : public KXmlGuiWindow, public IMyMoneyProcessingCalendar
 {
   Q_OBJECT
 
-private slots:
-  /**
-    * Keep track of objects that are destroyed by external events
-    */
-  void slotObjectDestroyed(QObject* o);
-
+private Q_SLOTS:
   /**
     * Add a context menu to the list used by KMessageBox::informationList to display the consistency check results.
     */
@@ -93,9 +107,7 @@ private slots:
     */
   void slotShowContextMenuForConsistencyCheck(const QPoint &);
 
-protected slots:
-  void slotFileSaveAsFilterChanged(const QString& filter);
-
+protected Q_SLOTS:
   /**
     * This slot is intended to be used as part of auto saving. This is used when the
     * QTimer emits the timeout signal and simply checks that the file is dirty (has
@@ -113,11 +125,6 @@ protected slots:
   void slotEnableMessages();
 
   /**
-    * Called when the user asks for file information.
-    */
-  void slotFileFileInfo();
-
-  /**
     * Called to run performance test.
     */
   void slotPerformanceTest();
@@ -127,10 +134,17 @@ protected slots:
     */
   void slotGenerateSql();
 
+#ifdef KMM_DEBUG
+  /**
+    * Called when the user asks for file information.
+    */
+  void slotFileFileInfo();
+
   /**
     * Debugging only: turn on/off traces
     */
   void slotToggleTraces();
+#endif
 
   /**
     * Debugging only: turn on/off timers
@@ -142,50 +156,8 @@ protected slots:
     */
   void slotFileViewPersonal();
 
-  /**
-    * Called when the user wishes to import tab delimeted transactions
-    * into the current account.  An account must be open for this to
-    * work.  Calls KMyMoneyView::slotAccountImportAscii.
-    *
-    * @see MyMoneyAccount
-    */
-  void slotQifImport();
-
-  /**
-    * Called when a QIF import is finished.
-    */
-  void slotQifImportFinished();
-
-  /**
-    * Opens a file selector dialog for the user to choose an existing OFX
-    * file from the file system to be imported.  This slot is expected to
-    * be called from the UI.
-    */
-  void slotGncImport();
-
-  /**
-   * Open a dialog with a chart of the balance for the currently selected
-   * account (m_selectedAccount). Return once the dialog is closed. Don't do
-   * anything if no account is selected or charts are not available.
-   */
-  void slotAccountChart();
-
-  /**
-    * Opens a file selector dialog for the user to choose an existing KMM
-    * statement file from the file system to be imported.  This is for testing
-    * only.  KMM statement files are not designed to be exposed to the user.
-    */
-  void slotStatementImport();
-
   void slotLoadAccountTemplates();
   void slotSaveAccountTemplates();
-
-  /**
-    * Called when the user wishes to export some transaction to a
-    * QIF formatted file. An account must be open for this to work.
-    * Uses MyMoneyQifWriter() for the actual output.
-    */
-  void slotQifExport();
 
   /**
     * Open up the application wide settings dialog.
@@ -194,53 +166,48 @@ protected slots:
     */
   void slotSettings();
 
-  /** No descriptions */
-  void slotFileBackup();
+  /**
+    * Called to show credits window.
+    */
+  void slotShowCredits();
+
+  /**
+    * Called when the user wishes to backup the current file
+    */
+  void slotBackupFile();
+
+  /**
+    * Perform mount operation before making a backup of the current file
+    */
+  void slotBackupMount();
+
+  /**
+    * Perform the backup write operation
+    */
+  bool slotBackupWriteFile();
+
+  /**
+    * Perform unmount operation after making a backup of the current file
+    */
+  void slotBackupUnmount();
+
+  /**
+    * Finish backup of the current file
+    */
+  void slotBackupFinish();
+
+  /**
+    * Handle events on making a backup of the current file
+    */
+  void slotBackupHandleEvents();
 
   void slotShowTipOfTheDay();
-
-  void slotQifProfileEditor();
 
   void slotShowPreviousView();
 
   void slotShowNextView();
 
-  /**
-    * Brings up a dialog to let the user search for specific transaction(s).  It then
-    * opens a results window to display those transactions.
-    */
-  void slotFindTransaction();
-
-  /**
-    * Destroys a possibly open the search dialog
-    */
-  void slotCloseSearchDialog();
-
-  /**
-    * Preloads the input dialog with the data of the current
-    * selected institution and brings up the input dialog
-    * and saves the information entered.
-    */
-  void slotInstitutionEdit(const MyMoneyObject& obj = MyMoneyInstitution());
-
-  /**
-    * Deletes the current selected institution.
-    */
-  void slotInstitutionDelete();
-
-  /**
-    * Brings up the new category editor and saves the information.
-    * The dialog will be preset with the name. The parent defaults to
-    * MyMoneyFile::expense()
-    *
-    * @param name Name of the account to be created. Could include a full hierarchy
-    * @param id reference to storage which will receive the id after successful creation
-    *
-    * @note Typically, this slot can be connected to the
-    *       StdTransactionEditor::createCategory(const QString&, QString&) or
-    *       KMyMoneyCombo::createItem(const QString&, QString&) signal.
-    */
-  void slotCategoryNew(const QString& name, QString& id);
+  void slotViewSelected(View view);
 
   /**
     * Calls the print logic for the current view
@@ -248,184 +215,14 @@ protected slots:
   void slotPrintView();
 
   /**
-    * Create a new investment
-    */
-  void slotInvestmentNew();
-
-  /**
-    * Create a new investment in a given @p parent investment account
-    */
-  void slotInvestmentNew(MyMoneyAccount& account, const MyMoneyAccount& parent);
-
-  /**
-    * This slot opens the investment editor to edit the currently
-    * selected investment if possible
-    */
-  void slotInvestmentEdit();
-
-  /**
-    * Deletes the current selected investment.
-    */
-  void slotInvestmentDelete();
-
-  /**
-    * Performs online update for currently selected investment
-    */
-  void slotOnlinePriceUpdate();
-
-  /**
-    * Performs manual update for currently selected investment
-    */
-  void slotManualPriceUpdate();
-
-  /**
     * Call this slot, if any configuration parameter has changed
     */
-  void slotUpdateConfiguration();
-
-  /**
-    */
-  bool slotPayeeNew(const QString& newnameBase, QString& id);
-  void slotPayeeNew();
-
-  /**
-    */
-  void slotPayeeDelete();
-
-  /**
-    * Slot that merges two or more selected payess into a new payee
-    */
-  void slotPayeeMerge();
-
-  /**
-    */
-  void slotTagNew(const QString& newnameBase, QString& id);
-  void slotTagNew();
-
-  /**
-    */
-  void slotTagDelete();
-
-  /**
-    */
-  void slotBudgetNew();
-
-  /**
-    */
-  void slotBudgetDelete();
-
-  /**
-   */
-  void slotBudgetCopy();
-
-  /**
-    */
-  void slotBudgetChangeYear();
-
-  /**
-    */
-  void slotBudgetForecast();
-
-  /**
-    */
-  void slotCurrencyNew();
-
-  /**
-    */
-  void slotCurrencyUpdate(const QString &currencyId, const QString& currencyName, const QString& currencyTradingSymbol);
-
-  /**
-    */
-  void slotCurrencyDelete();
-
-  /**
-    */
-  void slotCurrencySetBase();
+  void slotUpdateConfiguration(const QString &dialogName);
 
   /**
     * This slot is used to start new features during the development cycle
     */
   void slotNewFeature();
-
-  /**
-    */
-  void slotTransactionsNew();
-
-  /**
-    */
-  void slotTransactionsEdit();
-
-  /**
-    */
-  void slotTransactionsEditSplits();
-
-  /**
-    */
-  void slotTransactionsDelete();
-
-  /**
-    */
-  void slotTransactionsEnter();
-
-  /**
-    */
-  void slotTransactionsCancel();
-
-  /**
-    */
-  void slotTransactionsCancelOrEnter(bool& okToSelect);
-
-  /**
-    */
-  void slotTransactionDuplicate();
-
-  /**
-    */
-  void slotToggleReconciliationFlag();
-
-  /**
-    */
-  void slotMarkTransactionCleared();
-
-  /**
-    */
-  void slotMarkTransactionReconciled();
-
-  /**
-    */
-  void slotMarkTransactionNotReconciled();
-
-  /**
-    */
-  void slotTransactionGotoAccount();
-
-  /**
-    */
-  void slotTransactionGotoPayee();
-
-  /**
-    */
-  void slotTransactionCreateSchedule();
-
-  /**
-    */
-  void slotTransactionAssignNumber();
-
-  /**
-    */
-  void slotTransactionCombine();
-
-  /**
-   * This method takes the selected splits and checks that only one transaction (src)
-   * has more than one split and all others have only a single one. It then copies the
-   * splits of the @b src transaction to all others.
-   */
-  void slotTransactionCopySplits();
-
-  /**
-    * Accept the selected transactions that are marked as 'imported' and remove the flag
-    */
-  void slotTransactionsAccept();
 
   /**
     * This slot triggers an update of all views and restarts
@@ -440,73 +237,15 @@ protected slots:
     */
   void slotDataChanged();
 
-  void slotMoveToAccount(const QString& id);
-
-  void slotUpdateMoveToAccountMenu();
-
   /**
     * This slot collects information for a new scheduled transaction
     * based on transaction @a t and @a occurrence and saves it in the engine.
     */
-  void slotScheduleNew(const MyMoneyTransaction& t, MyMoneySchedule::occurrenceE occurrence = MyMoneySchedule::OCCUR_MONTHLY);
-
-  /**
-    */
-  void slotScheduleDuplicate();
-
-  void slotKDELanguageSettings();
-
-  void slotAccountMapOnline();
-  void slotAccountUnmapOnline();
-  void slotAccountUpdateOnline();
-  void slotAccountUpdateOnlineAll();
-
-  /**
-   * @brief Start dialog for an online banking transfer
-   */
-  void slotNewOnlineTransfer();
-
-  /**
-   * @brief Start dialog to edit onlineJob if possible
-   * @param onlineJob id to edit
-   */
-  void slotEditOnlineJob(const QString);
-
-  /**
-   * @brief Start dialog to edit onlineJob if possible
-   */
-  void slotEditOnlineJob(const onlineJob);
-
-  /**
-   * @brief Start dialog to edit onlineJob if possible
-   */
-  void slotEditOnlineJob(const onlineJobTyped<creditTransfer>);
-
-  /**
-   * @brief Saves an online banking job
-   */
-  void slotOnlineJobSave(onlineJob job);
-
-  /**
-   * @brief Queue an online banking job
-   */
-  void slotOnlineJobSend(onlineJob job);
-
-  /**
-   * @brief Send a list of onlineJobs
-   */
-  void slotOnlineJobSend(QList<onlineJob> jobs);
-
-  /**
-   * @brief Show the log currently selected online job
-   */
-  void slotOnlineJobLog();
-  void slotOnlineJobLog(const QStringList& onlineJobIds);
-
-  void slotManageGpgKeys();
-  void slotKeySelected(int idx);
+  void slotScheduleNew(const MyMoneyTransaction& t, eMyMoney::Schedule::Occurrence occurrence = eMyMoney::Schedule::Occurrence::Monthly);
 
   void slotStatusProgressDone();
+
+  void slotCheckSchedules();
 
 public:
   /**
@@ -527,7 +266,7 @@ public:
   QUrl lastOpenedURL();
 
   /**
-    * construtor of KMyMoneyApp, calls all init functions to create the application.
+    * constructor of KMyMoneyApp, calls all init functions to create the application.
     */
   explicit KMyMoneyApp(QWidget* parent = 0);
 
@@ -549,16 +288,6 @@ public:
   bool isImportableFile(const QUrl &url);
 
   /**
-    * This method is used to update the caption of the application window.
-    * It sets the caption to "filename [modified] - KMyMoney".
-    *
-    * @param skipActions if true, the actions will not be updated. This
-    *                    is usually onyl required by some early calls when
-    *                    these widgets are not yet created (the default is false).
-    */
-  void updateCaption(bool skipActions = false);
-
-  /**
     * This method returns a list of all 'other' dcop registered kmymoney processes.
     * It's a subset of the return of DCOPclient()->registeredApplications().
     *
@@ -566,10 +295,12 @@ public:
     */
   QList<QString> instanceList() const;
 
+#ifdef KMM_DEBUG
   /**
     * Dump a list of the names of all defined KActions to stdout.
     */
   void dumpActions() const;
+#endif
 
   /**
     * Popup the context menu with the respective @p containerName.
@@ -577,36 +308,14 @@ public:
     */
   void showContextMenu(const QString& containerName);
 
-  /**
-   * This method opens the category editor with the data found in @a account. The
-   * parent account is preset to @a parent but can be modified. If the user
-   * acknowledges, the category is created.
-   */
-  void createCategory(MyMoneyAccount& account, const MyMoneyAccount& parent);
-
-  /**
-   * This method returns the account for a given @a key - @a value pair.
-   * If the account is not found in the list of accounts, MyMoneyAccount()
-   * is returned. The @a key - @a value pair can be in the account's kvp
-   * container or the account's online settings kvp container.
-   */
-  const MyMoneyAccount& account(const QString& key, const QString& value) const;
-
-  /**
-   * This method set the online parameters stored in @a kvps with the
-   * account referenced by @a acc.
-   */
-  void setAccountOnlineParameters(const MyMoneyAccount& acc, const MyMoneyKeyValueContainer& kvps);
-
-  QUrl selectFile(const QString& title, const QString& path, const QString& mask, QFileDialog::FileMode, QWidget *widget);
-
-  const MyMoneyAccount& findAccount(const MyMoneyAccount& acc, const MyMoneyAccount& parent) const;
-
   void createAccount(MyMoneyAccount& newAccount, MyMoneyAccount& parentAccount, MyMoneyAccount& brokerageAccount, MyMoneyMoney openingBal);
 
   QString filename() const;
+  QUrl filenameURL() const;
+  void writeFilenameURL(const QUrl &url);
 
-  void webConnect(const QString& sourceUrl, const QByteArray& asn_id);
+  void addToRecentFiles(const QUrl &url);
+  QTimer* autosaveTimer();
 
   /**
     * Checks if the file with the @a url already exists. If so,
@@ -615,6 +324,33 @@ public:
     * @p true will be returned in all other cases.
     */
   bool okToWriteFile(const QUrl &url);
+
+  /**
+   * Return pointer to the WebConnect object
+   */
+  WebConnect* webConnect() const;
+
+  /**
+   * Call this to find out if the currently open file is a sql database
+   *
+   * @retval true file is database
+   * @retval false file is serial
+   */
+  bool isDatabase();
+
+  /**
+    * Call this to find out if the currently open file is native KMM
+    *
+    * @retval true file is native
+    * @retval false file is foreign
+    */
+  bool isNativeFile();
+
+  bool fileOpen() const;
+
+  KMyMoneyAppCallback progressCallback();
+
+  void consistencyCheck(bool alwaysDisplayResult);
 
 protected:
   /** save general Options like all bar positions and status as well as the geometry and the recent file list to the configuration
@@ -629,41 +365,29 @@ protected:
   void createInterfaces();
 
   /**
-    * load all available plugins. Make sure you have called createInterfaces()
-    * before you call this one.
-    */
-  void loadPlugins();
-
-  /**
-   * @brief Checks if the given plugin is loaded on start up
-   *
-   * This filters plugins which are loaded on demand only and deactivated plugins.
-   * The configGroup must point to the correct group already.
-   */
-  bool isPluginEnabled(const KPluginMetaData& metaData, const KConfigGroup& configGroup);
-
-  /**
    * read general options again and initialize all variables like the recent file list
    */
   void readOptions();
 
-  /** initializes the KActions of the application */
-  void initActions();
+  /**
+   * Gets pointers for menus preset by KXMLGUIFactory
+   * @return pointers for menus
+   */
+  QHash<eMenu::Menu, QMenu *> initMenus();
+
+  /**
+   * Initializes QActions (names, object names, icons, some connections, shortcuts)
+   * @return pointers for actions
+   */
+  QHash<eMenu::Action, QAction *> initActions();
 
   /** initializes the dynamic menus (account selectors) */
   void initDynamicMenus();
 
   /**
-   * sets up the statusbar for the main window by initialzing a statuslabel.
+   * sets up the statusbar for the main window by initializing a statuslabel.
    */
   void initStatusBar();
-
-  /**
-   * @brief Establish connections between actions and views
-   *
-   * Must be called after creation of actions and views.
-   */
-  void connectActionsAndViews();
 
   /** queryClose is called by KMainWindow on each closeEvent of a window. Against the
    * default implementation (only returns true), this calls saveModified() on the document object to ask if the document shall
@@ -672,170 +396,24 @@ protected:
    * @see KMainWindow#queryClose
    * @see QWidget#closeEvent
    */
-  virtual bool queryClose();
+  bool queryClose() final override;
 
-  void slotCheckSchedules();
-
-  virtual void resizeEvent(QResizeEvent*);
+#ifdef KMM_DEBUG
+  void resizeEvent(QResizeEvent*) final override;
+#endif
 
   void createSchedule(MyMoneySchedule newSchedule, MyMoneyAccount& newAccount);
-
-  /**
-    * This method checks, if an account can be closed or not. An account
-    * can be closed if:
-    *
-    * - the balance is zero and
-    * - all children are already closed and
-    * - there is no unfinished schedule referencing the account
-    *
-    * @param acc reference to MyMoneyAccount object in question
-    * @retval true account can be closed
-    * @retval false account cannot be closed
-    */
-  KMyMoneyUtils::CanCloseAccountCodeE canCloseAccount(const MyMoneyAccount& acc) const;
-
-  /**
-   * This method checks if an account can be closed and enables/disables
-   * the close account action
-   * If disabled, it sets a tooltip explaning why it cannot be closed
-   * @brief enableCloseAccountAction
-   * @param acc reference to MyMoneyAccount object in question
-   */
-  void enableCloseAccountAction(const MyMoneyAccount& acc);
-
-  /**
-    * Check if a list contains a payee with a given id
-    *
-    * @param list const reference to value list
-    * @param id const reference to id
-    *
-    * @retval true object has been found
-    * @retval false object is not in list
-    */
-  bool payeeInList(const QList<MyMoneyPayee>& list, const QString& id) const;
-
-  /**
-    * Check if a list contains a tag with a given id
-    *
-    * @param list const reference to value list
-    * @param id const reference to id
-    *
-    * @retval true object has been found
-    * @retval false object is not in list
-    */
-  bool tagInList(const QList<MyMoneyTag>& list, const QString& id) const;
-
-  /**
-    * Mark the selected transactions as provided by @a flag. If
-    * flag is @a MyMoneySplit::Unknown, the future state depends
-    * on the current stat of the split's flag accoring to the
-    * following table:
-    *
-    * - NotReconciled --> Cleared
-    * - Cleared --> Reconciled
-    * - Reconciled --> NotReconciled
-    */
-  void markTransaction(MyMoneySplit::reconcileFlagE flag);
-
-  /**
-    * This method allows to skip the next scheduled transaction of
-    * the given schedule @a s.
-    *
-    */
-  void skipSchedule(MyMoneySchedule& s);
-
-  /**
-    * This method allows to enter the next scheduled transaction of
-    * the given schedule @a s. In case @a extendedKeys is @a true,
-    * the given schedule can also be skipped or ignored.
-    * If @a autoEnter is @a true and the schedule does not contain
-    * an estimated value, the schedule is entered as is without further
-    * interaction with the user. In all other cases, the user will
-    * be presented a dialog and allowed to adjust the values for this
-    * instance of the schedule.
-    *
-    * The transaction will be created and entered into the ledger
-    * and the schedule updated.
-    */
-  KMyMoneyUtils::EnterScheduleResultCodeE enterSchedule(MyMoneySchedule& s, bool autoEnter = false, bool extendedKeys = false);
-
-  /**
-    * Creates a new institution entry in the MyMoneyFile engine
-    *
-    * @param institution MyMoneyInstitution object containing the data of
-    *                    the institution to be created.
-    */
-  void createInstitution(MyMoneyInstitution& institution);
-
-  /**
-   * This method unmatches the currently selected transactions
-   */
-  void transactionUnmatch();
-
-  /**
-   * This method matches the currently selected transactions
-   */
-  void transactionMatch();
 
   /**
     * This method preloads the holidays for the duration of the default forecast period
     */
   void preloadHolidays();
 
-public slots:
+public Q_SLOTS:
+
   void slotFileInfoDialog();
 
-  /** */
-  void slotFileNew();
-
-  /** open a file and load it into the document*/
-  void slotFileOpen();
-
-  /** opens a file from the recent files menu */
-
-  void slotFileOpenRecent(const QUrl &url);
-
-  /** open a SQL database */
-  void slotOpenDatabase();
-
-  /**
-    * saves the current document. If it has no name yet, the user
-    * will be queried for it.
-    *
-    * @retval false save operation failed
-    * @retval true save operation was successful
-    */
-  bool slotFileSave();
-
-  /**
-    * ask the user for the filename and save the current document
-    *
-    * @retval false save operation failed
-    * @retval true save operation was successful
-    */
-  bool slotFileSaveAs();
-
-  /**
-   * ask the user to select a database and save the current document
-   *
-   * @retval false save operation failed
-   * @retval true save operation was successful
-   */
-  bool slotSaveAsDatabase();
-
-  /** asks for saving if the file is modified, then closes the actual file and window */
-  void slotFileCloseWindow();
-
-  /** asks for saving if the file is modified, then closes the actual file */
-  void slotFileClose();
-
-  /**
-    * closes all open windows by calling close() on each memberList item
-    * until the list is empty, then quits the application.
-    * If queryClose() returns false because the user canceled the
-    * saveModified() dialog, the closing breaks.
-    */
-  void slotFileQuit();
+  bool isFileOpenedInAnotherInstance(const QUrl &url);
 
   void slotFileConsistencyCheck();
 
@@ -848,6 +426,11 @@ public slots:
     * fires up the currency table editor
     */
   void slotCurrencyDialog();
+
+  /**
+    * dummy method needed just for initialization
+    */
+  void slotShowTransactionDetail();
 
   /**
     * Toggles the hide reconciled transactions setting
@@ -889,67 +472,10 @@ public slots:
     */
   void slotStatusProgressBar(int current, int total = 0);
 
-  /** No descriptions */
-  void slotProcessExited();
-
   /**
     * Called to update stock and currency prices from the user menu
     */
   void slotEquityPriceUpdate();
-
-  /**
-    * Imports a KMM statement into the engine, triggering the appropriate
-    * UI to handle account matching, payee creation, and someday
-    * payee and transaction matching.
-    */
-  bool slotStatementImport(const MyMoneyStatement& s);
-
-  /**
-    * Essentially similar to the above slot, except this will load the file
-    * from disk first, given the URL.
-    */
-  bool slotStatementImport(const QString& url);
-
-  /**
-    * This slot starts the reconciliation of the currently selected account
-    */
-  void slotAccountReconcileStart();
-
-  /**
-    * This slot finishes a previously started reconciliation
-    */
-  void slotAccountReconcileFinish();
-
-  /**
-    * This slot postpones a previously started reconciliations
-    */
-  void slotAccountReconcilePostpone();
-
-  /**
-    * This slot deletes the currently selected account if possible
-    */
-  void slotAccountDelete();
-
-  /**
-    * This slot opens the account editor to edit the currently
-    * selected account if possible
-    */
-  void slotAccountEdit();
-
-  /**
-    * This slot opens the selected account in the ledger view
-    */
-  void slotAccountOpen(const MyMoneyObject& = MyMoneyAccount());
-
-  /**
-    * This slot closes the currently selected account if possible
-    */
-  void slotAccountClose();
-
-  /**
-    * This slot re-openes the currently selected account if possible
-    */
-  void slotAccountReopen();
 
   /**
     * This slot reparents account @p src to be a child of account @p dest
@@ -968,143 +494,9 @@ public slots:
   void slotReparentAccount(const MyMoneyAccount& src, const MyMoneyInstitution& dest);
 
   /**
-    * This slot creates a transaction report for the selected account
-    * and opens it in the reports view.
+    * Create a new investment in a given @p parent investment account
     */
-  void slotAccountTransactionReport();
-
-  /**
-    * This slot opens the account options menu at the current cursor
-    * position.
-    */
-  void slotShowAccountContextMenu(const MyMoneyObject&);
-
-  /**
-    * This slot opens the schedule options menu at the current cursor
-    * position.
-    */
-  void slotShowScheduleContextMenu();
-
-  /**
-    * This slot opens the institution options menu at the current cursor
-    * position.
-    */
-  void slotShowInstitutionContextMenu(const MyMoneyObject&);
-
-  /**
-    * This slot opens the investment options menu at the current cursor
-    * position.
-    */
-  void slotShowInvestmentContextMenu();
-
-  /**
-    * This slot opens the payee options menu at the current cursor
-    * position.
-    */
-  void slotShowPayeeContextMenu();
-
-  /**
-    * This slot opens the tag options menu at the current cursor
-    * position.
-    */
-  void slotShowTagContextMenu();
-
-  /**
-    * This slot opens the budget options menu at the current cursor
-    * position.
-    */
-  void slotShowBudgetContextMenu();
-
-  /**
-    * This slot opens the transaction options menu at the current cursor
-    * position.
-    */
-  void slotShowTransactionContextMenu();
-
-  /**
-    * This slot opens the currency options menu at the current cursor
-    * position.
-    */
-  void slotShowCurrencyContextMenu();
-
-  /**
-    * This slot opens the price options menu at the current cursor
-    * position.
-    */
-  void slotShowPriceContextMenu();
-
-  /**
-   * Open onlineJob options menu at current cursor position.
-   */
-  void slotShowOnlineJobContextMenu();
-
-  /**
-    * This slot collects information for a new scheduled transaction
-    * and saves it in the engine. @sa slotScheduleNew(const MyMoneyTransaction&)
-    */
-  void slotScheduleNew();
-
-  /**
-    * This slot allows to edit information the currently selected schedule
-    */
-  void slotScheduleEdit();
-
-  /**
-    * This slot allows to delete the currently selected schedule
-    */
-  void slotScheduleDelete();
-
-  /**
-    * This slot allows to enter the next scheduled transaction of
-    * the currently selected schedule
-    */
-  void slotScheduleEnter();
-
-  /**
-   * This slot allows to skip the next scheduled transaction of
-   * the currently selected schedule
-   */
-  void slotScheduleSkip();
-
-  /**
-    * This slot fires up the KCalc application
-    */
-  void slotToolsStartKCalc();
-
-  void slotResetSelections();
-
-  void slotSelectAccount(const MyMoneyObject& account = MyMoneyAccount());
-
-  void slotSelectInstitution(const MyMoneyObject& institution = MyMoneyInstitution());
-
-  void slotSelectInvestment(const MyMoneyObject& account = MyMoneyAccount());
-
-  void slotSelectSchedule(const MyMoneySchedule& schedule = MyMoneySchedule());
-
-  void slotSelectPayees(const QList<MyMoneyPayee>& list);
-
-  void slotSelectTags(const QList<MyMoneyTag>& list);
-
-  void slotSelectBudget(const QList<MyMoneyBudget>& list);
-
-  void slotSelectTransactions(const KMyMoneyRegister::SelectedTransactions& list);
-
-  void slotSelectCurrency(const MyMoneySecurity& currency = MyMoneySecurity());
-
-  void slotSelectPrice(const MyMoneyPrice& price = MyMoneyPrice());
-
-  void slotTransactionMatch();
-
-  /**
-    * Brings up the new account wizard and saves the information.
-    */
-  void slotAccountNew();
-  void slotAccountNew(MyMoneyAccount&);
-
-  /**
-    * Brings up the new category editor and saves the information.
-    */
-  void slotCategoryNew();
+  void slotInvestmentNew(MyMoneyAccount& account, const MyMoneyAccount& parent);
 
   /**
     * Brings up the new category editor and saves the information.
@@ -1116,44 +508,27 @@ public slots:
     *                esp. the @p id member.
     * @param parent reference to parent account (defaults to none)
     */
-  void slotCategoryNew(MyMoneyAccount& account, const MyMoneyAccount& parent = MyMoneyAccount());
+  void slotCategoryNew(MyMoneyAccount& account, const MyMoneyAccount& parent);
+  void slotCategoryNew(MyMoneyAccount& account);
 
   /**
-    * This method updates all KAction items to the current state.
     */
-  void slotUpdateActions();
+  void slotPayeeNew(const QString& newnameBase, QString& id);
 
   /**
-    * Brings up the input dialog and saves the information.
+    * This slot fires up the KCalc application
     */
-  void slotInstitutionNew();
+  void slotToolsStartKCalc();
 
   /**
-    * Brings up the input dialog and saves the information. If
-    * the institution has been created, the @a id member is filled,
-    * otherwise it is empty.
-    *
-    * @param institution reference to data to be used to create the
-    *                    institution. id member will be updated.
+    * Brings up the new account wizard and saves the information.
     */
-  void slotInstitutionNew(MyMoneyInstitution& institution);
+  void slotAccountNew(MyMoneyAccount&);
 
-  /**
-   * Loads a plugin
-   */
-  void slotPluginLoad(const KPluginMetaData& metaData);
-
-  /**
-   * Unloads a plugin
-   */
-  void slotPluginUnload(const KPluginMetaData& metaData);
+  void webConnect(const QString& sourceUrl, const QByteArray &asn_id);
+  void webConnectUrl(const QUrl url);
 
 private:
-  /**
-    * Create the transaction move menu and setup necessary connections.
-    */
-  void createTransactionMoveMenu();
-
   /**
     * This method sets the holidayRegion for use by the processing calendar.
     */
@@ -1175,56 +550,16 @@ private:
   bool isReady();
 
   /**
-    * Delete a possibly existing transaction editor but make sure to remove
-    * any reference to it so that we avoid using a half-dead object
-    */
-  void deleteTransactionEditor();
-
-  /**
-    * delete all selected transactions w/o further questions
-    */
-  void doDeleteTransactions();
-
-  /**
     * Re-implemented from IMyMoneyProcessingCalendar
     */
-  bool isProcessingDate(const QDate& date) const;
+  bool isProcessingDate(const QDate& date) const final override;
 
-  /**
-    * Depending on the setting of AutoSaveOnQuit, this method
-    * asks the user to save the file or not.
-    *
-    * @returns see return values of KMessageBox::warningYesNoCancel()
-    */
-  int askSaveOnClose();
-
-  /**
-    * Implement common task when deleting or merging payees
-    */
-  bool payeeReassign(int type);
-
-signals:
+Q_SIGNALS:
   /**
     * This signal is emitted when a new file is loaded. In the case file
     * is closed, this signal is also emitted with an empty url.
     */
   void fileLoaded(const QUrl &url);
-
-  /**
-    * This signal is emitted when a payee/list of payees has been selected by
-    * the GUI. If no payee is selected or the selection is removed,
-    * @p payees is identical to an empty QList. This signal is used
-    * by plugins to get information about changes.
-    */
-  void payeesSelected(const QList<MyMoneyPayee>& payees);
-
-  /**
-    * This signal is emitted when a tag/list of tags has been selected by
-    * the GUI. If no tag is selected or the selection is removed,
-    * @p tags is identical to an empty QList. This signal is used
-    * by plugins to get information about changes.
-    */
-  void tagsSelected(const QList<MyMoneyTag>& tags);
 
   /**
     * This signal is emitted when a transaction/list of transactions has been selected by
@@ -1235,28 +570,16 @@ signals:
   void transactionsSelected(const KMyMoneyRegister::SelectedTransactions& transactions);
 
   /**
+   * This signal is emitted if a specific transaction with @a transactionId in account
+   * @a accountId is selected
+   */
+  void transactionSelected(const QString accountId, const QString& transactionId);
+
+  /**
     * This signal is sent out, when the user presses Ctrl+A or activates
     * the Select all transactions action.
     */
   void selectAllTransactions();
-
-  /**
-    * This signal is emitted when a list of budgets has been selected by
-    * the GUI. If no budget is selected or the selection is removed,
-    * @a budget is identical to an empty QList. This signal is used
-    * by plugins to get information about changes.
-    */
-  void budgetSelected(const QList<MyMoneyBudget>& budget);
-  void budgetRename();
-
-  /**
-    * This signal is emitted when a new account has been selected by
-    * the GUI. If no account is selected or the selection is removed,
-    * @a account is identical to MyMoneyAccount(). This signal is used
-    * by plugins to get information about changes.
-    */
-  void accountSelected(const MyMoneyAccount& account);
-  void investmentSelected(const MyMoneyAccount& account);
 
   /**
     * This signal is emitted when a new institution has been selected by
@@ -1274,62 +597,15 @@ signals:
     */
   void scheduleSelected(const MyMoneySchedule& schedule);
 
-  /**
-    * This signal is emitted when a new currency has been selected by
-    * the GUI. If no currency is selected or the selection is removed,
-    * @a currency is identical to MyMoneySecurity(). This signal is used
-    * by plugins to get information about changes.
-    */
-  void currencySelected(const MyMoneySecurity& currency);
-
-  /**
-    * This signal is emitted when a new price has been selected by
-    * the GUI. If no price is selected or the selection is removed,
-    * @a price is identical to MyMoneyPrice().
-    */
-  void priceSelected(const MyMoneyPrice& price);
-
-  void payeeRename();
-  void payeeCreated(const QString& id);
-
-  void tagRename();
-  void tagCreated(const QString& id);
-
-  void currencyRename();
-  void currencyCreated(const QString& id);
-
-  void priceEdit();
-  void priceNew();
-  void priceDelete();
-  void priceOnlineUpdate();
-
   void startMatchTransaction(const MyMoneyTransaction& t);
   void cancelMatchTransaction();
 
-  /**
-    * This signal is emitted when an account has been successfully reconciled
-    * and all transactions are updated in the engine. It can be used by plugins
-    * to create reconciliation reports.
-    *
-    * @param account the account data
-    * @param date the reconciliation date as provided through the dialog
-    * @param startingBalance the starting balance as provided through the dialog
-    * @param endingBalance the ending balance as provided through the dialog
-    * @param transactionList reference to QList of QPair containing all
-    *        transaction/split pairs processed by the reconciliation.
-    */
-  void accountReconciled(const MyMoneyAccount& account, const QDate& date, const MyMoneyMoney& startingBalance, const MyMoneyMoney& endingBalance, const QList<QPair<MyMoneyTransaction, MyMoneySplit> >& transactionList);
+  void kmmFilePlugin(unsigned int);
 
 public:
-  /**
-    * This method is implemented for convenience. It returns a dynamic_cast-ed
-    * pointer to an action found in actionCollection().
-    * If the action with the name @p actionName is not found or the object
-    * is not of type KToggleAction, a pointer to a static non-configured
-    * KToggleAction object is returned and a warning is printed to stderr.
-    */
-  KToggleAction* toggleAction(const QString& actionName) const;
 
+  bool isActionToggled(const eMenu::Action _a);
+  static const QHash<eMenu::Action, QString> s_Actions;
 
 private:
   /// \internal d-pointer class.
@@ -1341,6 +617,21 @@ private:
    */
   /// \internal d-pointer instance.
   Private* d;
+
+public Q_SLOTS:
+  bool slotFileNew();
+  void slotFileOpen();
+  bool slotFileOpenRecent(const QUrl &url);
+  bool slotFileSave();
+  bool slotFileSaveAs();
+  bool slotFileClose();
+  /**
+    * closes all open windows by calling close() on each memberList item
+    * until the list is empty, then quits the application.
+    * If queryClose() returns false because the user canceled the
+    * saveModified() dialog, the closing breaks.
+    */
+  void slotFileQuit();
 };
 
 extern KMyMoneyApp *kmymoney;
@@ -1348,7 +639,7 @@ extern KMyMoneyApp *kmymoney;
 class KMStatus
 {
 public:
-  KMStatus(const QString &text);
+  explicit KMStatus(const QString &text);
   ~KMStatus();
 private:
   QString m_prevText;

@@ -1,69 +1,61 @@
-/***************************************************************************
-                          mymoneycostcenter.h
-                             -------------------
-    copyright            : (C) 2015 by Thomas Baumgart <tbaumgart@kde.org>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2012-2016  Thomas Baumgart <tbaumgart@kde.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYCOSTCENTER_H
 #define MYMONEYCOSTCENTER_H
 
+#include "kmm_mymoney_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QColor>
 #include <QMetaType>
+#include <QHash>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "kmm_mymoney_export.h"
 #include "mymoneyobject.h"
 
 /**
   * This class represents a tag within the MyMoney engine.
   */
+class MyMoneyCostCenterPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyCostCenter : public MyMoneyObject
 {
-private:
-  // Simple fields
-  QString m_name;
+  Q_DECLARE_PRIVATE(MyMoneyCostCenter)
+
+  KMM_MYMONEY_UNIT_TESTABLE
 
 public:
   MyMoneyCostCenter();
-  MyMoneyCostCenter(const QString& id, const MyMoneyCostCenter& tag);
-  explicit MyMoneyCostCenter(const QString& name);
+  explicit MyMoneyCostCenter(const QString &id);
 
-  /**
-    * This is the constructor for a tag that is described by a
-    * QDomElement (e.g. from a file).
-    *
-    * @param el const reference to the QDomElement from which to
-    *           create the object
-    */
-  MyMoneyCostCenter(const QDomElement& el);
+  MyMoneyCostCenter(const QString& id,
+                    const MyMoneyCostCenter& other);
+  MyMoneyCostCenter(const MyMoneyCostCenter & other);
+  MyMoneyCostCenter(MyMoneyCostCenter && other);
+  MyMoneyCostCenter & operator=(MyMoneyCostCenter other);
+  friend void swap(MyMoneyCostCenter& first, MyMoneyCostCenter& second);
 
   ~MyMoneyCostCenter();
 
-  // Simple get operations
-  const QString& name() const            {
-    return m_name;
-  }
-
-  // Simple set operations
-  void setName(const QString& val)      {
-    m_name = val;
-  }
+  QString name() const;
+  void setName(const QString& val);
 
   /**
    * This member returns a possible number leading the name. If there
@@ -72,14 +64,10 @@ public:
    */
   QString shortName() const;
 
-  // Copy constructors
-  MyMoneyCostCenter(const MyMoneyCostCenter&);
 
   // Equality operator
   bool operator == (const MyMoneyCostCenter &) const;
   bool operator <(const MyMoneyCostCenter& right) const;
-
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
 
   /**
     * This method checks if a reference to the given object exists. It returns,
@@ -90,15 +78,32 @@ public:
     * @retval true This object references object with id @p id.
     * @retval false This object does not reference the object with id @p id.
     */
-  virtual bool hasReferenceTo(const QString& id) const;
+  bool hasReferenceTo(const QString& id) const override;
 
   static MyMoneyCostCenter null;
 };
 
-inline bool operator==(const MyMoneyCostCenter& lhs, const QString& rhs)
+inline void swap(MyMoneyCostCenter& first, MyMoneyCostCenter& second) // krazy:exclude=inline
 {
-  return lhs.id() == rhs;
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
 }
+
+inline MyMoneyCostCenter::MyMoneyCostCenter(MyMoneyCostCenter && other) : MyMoneyCostCenter() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyCostCenter & MyMoneyCostCenter::operator=(MyMoneyCostCenter other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
+
+//inline bool operator==(const MyMoneyCostCenter& lhs, const QString& rhs)
+//{
+//  return lhs.id() == rhs;
+//}
 
 /**
   * Make it possible to hold @ref MyMoneyCostCenter objects inside @ref QVariant objects.

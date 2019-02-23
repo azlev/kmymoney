@@ -1,11 +1,11 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2016 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2016  Christian Dávid <christian-david@web.de>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,77 +18,65 @@
 
 #include "ksettingskmymoney.h"
 
-#include <KPluginSelector>
+#include <QPushButton>
+
+#include <KLocalizedString>
 
 #include "ksettingsgeneral.h"
 #include "ksettingsregister.h"
-#include "ksettingsgpg.h"
 #include "ksettingscolors.h"
 #include "ksettingsfonts.h"
 #include "ksettingsicons.h"
 #include "ksettingsschedules.h"
 #include "ksettingsonlinequotes.h"
 #include "ksettingshome.h"
-#include "ksettingsforecast.h"
-#include "ksettingsreports.h"
+#include "ksettingsplugins.h"
 
-#include "pluginloader.h"
+#include "icons.h"
+
+using namespace Icons;
 
 KSettingsKMyMoney::KSettingsKMyMoney(QWidget *parent, const QString &name, KCoreConfigSkeleton *config)
     : KConfigDialog(parent, name, config)
 {
   // create the pages ...
-  KSettingsGeneral* generalPage = new KSettingsGeneral();
-  KSettingsRegister* registerPage = new KSettingsRegister();
-  KSettingsHome* homePage = new KSettingsHome();
-  KSettingsSchedules* schedulesPage = new KSettingsSchedules();
-  KSettingsGpg* encryptionPage = new KSettingsGpg();
-  KSettingsColors* colorsPage = new KSettingsColors();
-  KSettingsFonts* fontsPage = new KSettingsFonts();
-  KSettingsIcons* iconsPage = new KSettingsIcons();
-  KSettingsOnlineQuotes* onlineQuotesPage = new KSettingsOnlineQuotes();
-  KSettingsForecast* forecastPage = new KSettingsForecast();
-  KPluginSelector* pluginsPage = KMyMoneyPlugin::PluginLoader::instance()->pluginSelectorWidget();
-  KSettingsReports* reportsPage = new KSettingsReports();
+  const auto generalPage = new KSettingsGeneral();
+  const auto registerPage = new KSettingsRegister();
+  const auto homePage = new KSettingsHome();
+  const auto schedulesPage = new KSettingsSchedules();
+  const auto colorsPage = new KSettingsColors();
+  const auto fontsPage = new KSettingsFonts();
+  const auto iconsPage = new KSettingsIcons();
+  const auto onlineQuotesPage = new KSettingsOnlineQuotes();
+  const auto pluginsPage = new KSettingsPlugins();
 
-  addPage(generalPage, i18nc("General settings", "General"), "system-run");
-  addPage(homePage, i18n("Home"), "go-home");
-
-  QString iconName;
-  iconName = "view-financial-list";
-  if (!QIcon::hasThemeIcon(iconName))
-    iconName = "ledger";
-  addPage(registerPage, i18nc("Ledger view settings", "Ledger"), iconName);
-
-  iconName = "view-pim-calendar";
-  if (!QIcon::hasThemeIcon(iconName))
-    iconName = "schedule";
-  addPage(schedulesPage, i18n("Scheduled transactions"), iconName);
-
-  addPage(onlineQuotesPage, i18n("Online Quotes"), "preferences-system-network");
-
-  iconName = "office-chart-bar";
-  if (!QIcon::hasThemeIcon(iconName))
-    iconName = "report";
-  addPage(reportsPage, i18nc("Report settings", "Reports"), iconName);
-
-  iconName = "view-financial-forecast";
-  if (!QIcon::hasThemeIcon(iconName))
-    iconName = "forecast";
-  addPage(forecastPage, i18nc("Forecast settings", "Forecast"), iconName);
-
-  addPage(encryptionPage, i18n("Encryption"), "kgpg");
-  addPage(colorsPage, i18n("Colors"), "preferences-desktop-color");
-  addPage(fontsPage, i18n("Fonts"), "preferences-desktop-font");
-  addPage(iconsPage, i18n("Icons"), "preferences-desktop-icon");
-  addPage(pluginsPage, i18n("Plugins"), "network-disconnect");
+  addPage(generalPage, i18nc("General settings", "General"), Icons::get(Icon::SystemRun).name());
+  addPage(homePage, i18n("Home"), Icons::get(Icon::ViewHome).name());
+  addPage(registerPage, i18nc("Ledger view settings", "Ledger"), Icons::get(Icon::ViewFinancialList).name());
+  addPage(schedulesPage, QString(i18n("Scheduled\ntransactions")).replace(QLatin1Char('\n'), QString::fromUtf8("\xe2\x80\xa8")), Icons::get(Icon::ViewSchedules).name());
+  addPage(onlineQuotesPage, i18n("Online Quotes"), Icons::get(Icon::PreferencesNetwork).name());
+  addPage(colorsPage, i18n("Colors"), Icons::get(Icon::PreferencesColor).name());
+  addPage(fontsPage, i18n("Fonts"), Icons::get(Icon::PreferencesFont).name());
+  addPage(iconsPage, i18n("Icons"), Icons::get(Icon::PreferencesIcon).name());
+  addPage(pluginsPage, i18n("Plugins"), Icons::get(Icon::NetworkDisconect).name(), QString(), false);
 
   setHelp("details.settings", "kmymoney");
 
-  QAbstractButton* defaultButton = button(QDialogButtonBox::RestoreDefaults);
   connect(this, &KConfigDialog::rejected, schedulesPage, &KSettingsSchedules::slotResetRegion);
   connect(this, &KConfigDialog::rejected, iconsPage, &KSettingsIcons::slotResetTheme);
+  connect(this, &KConfigDialog::settingsChanged, generalPage, &KSettingsGeneral::slotUpdateEquitiesVisibility);
 
-  connect(this, &KConfigDialog::accepted, pluginsPage, &KPluginSelector::save);
-  connect(defaultButton, &QAbstractButton::clicked, pluginsPage, &KPluginSelector::defaults);
+  auto defaultButton = button(QDialogButtonBox::RestoreDefaults);
+  auto applyButton = button(QDialogButtonBox::Apply);
+  connect(this, &KConfigDialog::accepted, pluginsPage, &KSettingsPlugins::slotSavePluginConfiguration);
+  connect(applyButton, &QPushButton::clicked, pluginsPage, &KSettingsPlugins::slotSavePluginConfiguration);
+  connect(defaultButton, &QPushButton::clicked, pluginsPage, &KSettingsPlugins::slotResetToDefaults);
+  connect(pluginsPage, &KSettingsPlugins::changed, this, &KSettingsKMyMoney::slotPluginsChanged);
+  connect(pluginsPage, &KSettingsPlugins::settingsChanged, this, &KConfigDialog::settingsChanged);
+}
+
+void KSettingsKMyMoney::slotPluginsChanged(bool changed)
+{
+  auto applyButton = button(QDialogButtonBox::Apply);
+  applyButton->setEnabled(changed);
 }

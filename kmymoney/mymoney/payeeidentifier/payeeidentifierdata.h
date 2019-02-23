@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014       Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,13 +20,11 @@
 
 #include "payeeidentifier/kmm_payeeidentifier_export.h"
 
-#include <QtCore/QtPlugin>
-#include <QtCore/QSharedPointer>
-#include <QtCore/QHash>
-#include <QtCore/QMetaType>
-#include <QtXml/QDomElement>
-
-#include "storage/databasestoreableobject.h"
+#include <QtPlugin>
+#include <QSharedPointer>
+#include <QHash>
+#include <QMetaType>
+#include <QDomElement>
 
 class payeeIdentifier;
 class payeeIdentifierLoader;
@@ -40,7 +37,7 @@ class payeeIdentifierLoader;
  * This also defines the helper ::ptr, ::constPtr and className::ptr cloneSharedPtr()
  *
  * @param PIDID the payeeIdentifier id, e.g. "org.kmymoney.payeeIdentifier.swift". Must be
- * unique among all payeeIdentifiers as it is used internaly to store data, to compare
+ * unique among all payeeIdentifiers as it is used internally to store data, to compare
  * types and for type casting (there must not be more than one class which uses that pidid).
  */
 #define PAYEEIDENTIFIER_IID(className, iid) \
@@ -50,7 +47,7 @@ class payeeIdentifierLoader;
     return _pidid; \
   } \
   /** @brief Returns the payeeIdentifier Id */ \
-  virtual QString payeeIdentifierId() const { \
+  QString payeeIdentifierId() const final override { \
     return className::staticPayeeIdentifierIid(); \
   }
 
@@ -66,13 +63,13 @@ class payeeIdentifierLoader;
  *
  * Any payee (@ref MyMoneyPayee) can have several payeeIdentifiers.
  *
- * The online banking system uses payeeIdentifiers to dertermine if it is able so create a credit-transfer
+ * The online banking system uses payeeIdentifiers to determine if it is able so create a credit-transfer
  * to a given payee. During import the payeeIdentifiers are used to find a payee.
  *
  * You should use the shared pointer payeeIdentifier::ptr to handle payeeIdentifiers. To copy them used
  * cloneSharedPtr().
  *
- * @intenal First this is more complex than creating a superset of all possible identifiers. But there
+ * @internal First this is more complex than creating a superset of all possible identifiers. But there
  * are many of them. And using this method it is a lot easier to create the comparison operators and
  * things like isValid().
  *
@@ -81,7 +78,7 @@ class payeeIdentifierLoader;
  * To identify the type of an payeeIdentifier you must use the macro @ref PAYEEIDENTIFIER_IID()
  * in the public section of your subclass.
  */
-class KMM_PAYEEIDENTIFIER_EXPORT payeeIdentifierData : public databaseStoreableObject
+class KMM_PAYEEIDENTIFIER_EXPORT payeeIdentifierData
 {
 public:
   virtual ~payeeIdentifierData() {}
@@ -114,7 +111,6 @@ public:
    * @param element Note: there could be more data in that elemenet than you created in writeXML()
    */
   virtual payeeIdentifierData* createFromXml(const QDomElement &element) const = 0;
-  virtual payeeIdentifierData* createFromSqlDatabase(QSqlDatabase db, const QString& identId) const = 0;
 
   /**
    * @see MyMoneyObject::writeXML()

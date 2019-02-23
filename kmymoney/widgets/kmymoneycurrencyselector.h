@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kmymoneycurrencyselector.h  -  description
-                             -------------------
-    begin                : Tue Apr 6 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYCURRENCYSELECTOR_H
 #define KMYMONEYCURRENCYSELECTOR_H
@@ -26,65 +22,48 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QWidget>
-#include <QList>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kcombobox.h>
+#include <KComboBox>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyfile.h>
+#include "mymoneysecurity.h"
 
 /**
   * @author Thomas Baumgart
   */
-
+class KMyMoneySecuritySelectorPrivate;
 class KMyMoneySecuritySelector : public KComboBox
 {
-  Q_OBJECT
+  Q_OBJECT  
+  Q_DISABLE_COPY(KMyMoneySecuritySelector)
   Q_PROPERTY(MyMoneySecurity security READ security WRITE setSecurity DESIGNABLE false STORED false)
+
 public:
-  enum displayItemE {
-    Symbol = 0,
-    FullName
-  };
-
-  enum displayTypeE {
-    TypeCurrencies = 0x01,
-    TypeSecurities = 0x02,
-    TypeAll        = 0x03
-  };
-
-  explicit KMyMoneySecuritySelector(QWidget *parent = 0);
+  explicit KMyMoneySecuritySelector(QWidget* parent = nullptr);
   virtual ~KMyMoneySecuritySelector();
 
   const MyMoneySecurity& security() const;
   void setSecurity(const MyMoneySecurity& currency);
-  void selectDisplayItem(KMyMoneySecuritySelector::displayItemE item);
-
-  void setDisplayType(displayTypeE type);
 
   void update(const QString& id);
 
-private:
-  MyMoneySecurity m_currency;
-  displayItemE    m_displayItem;
-  int             m_selectedItemId;
-  bool            m_displayOnly;
-  displayTypeE    m_displayType;
-  QList<MyMoneySecurity> m_list;
+protected:
+  KMyMoneySecuritySelectorPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KMyMoneySecuritySelector)
 };
 
 class KMyMoneyCurrencySelector : public KMyMoneySecuritySelector
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyCurrencySelector)
+
 public:
-  KMyMoneyCurrencySelector(QWidget *parent = 0);
-  virtual ~KMyMoneyCurrencySelector() {}
+  explicit KMyMoneyCurrencySelector(QWidget* parent = nullptr);
+  ~KMyMoneyCurrencySelector() override;
 };
 
 #endif

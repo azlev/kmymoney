@@ -1,24 +1,21 @@
-/***************************************************************************
-                          ksplittransactiondlg.cpp  -  description
-                             -------------------
-    begin                : Thu Jan 10 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002       Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2002-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "ksplittransactiondlg.h"
 
@@ -29,19 +26,16 @@
 #include <QLabel>
 #include <QTimer>
 #include <QRadioButton>
-#include <QCursor>
 #include <QList>
 #include <QIcon>
 #include <QDialogButtonBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QPointer>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kconfig.h>
-#include <kmessagebox.h>
-#include <kstandardguiitem.h>
+#include <KConfig>
+#include <KMessageBox>
 #include <KSharedConfig>
 #include <KConfigGroup>
 #include <KLocalizedString>
@@ -49,10 +43,199 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmymoneyedit.h>
-#include <kmymoneylineedit.h>
-#include <mymoneyfile.h>
+#include "ui_ksplittransactiondlg.h"
+#include "ui_ksplitcorrectiondlg.h"
+
+#include "mymoneyfile.h"
 #include "kmymoneysplittable.h"
+#include "mymoneymoney.h"
+#include "mymoneyexception.h"
+#include "mymoneyaccount.h"
+#include "mymoneysecurity.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "icons/icons.h"
+
+using namespace Icons;
+
+KSplitCorrectionDlg::KSplitCorrectionDlg(QWidget *parent) :
+  QDialog(parent),
+  ui(new Ui::KSplitCorrectionDlg)
+{
+  ui->setupUi(this);
+}
+
+KSplitCorrectionDlg::~KSplitCorrectionDlg()
+{
+  delete ui;
+}
+
+class KSplitTransactionDlgPrivate
+{
+  Q_DISABLE_COPY(KSplitTransactionDlgPrivate)
+  Q_DECLARE_PUBLIC(KSplitTransactionDlg)
+
+public:
+  explicit KSplitTransactionDlgPrivate(KSplitTransactionDlg *qq) :
+    q_ptr(qq),
+    ui(new Ui::KSplitTransactionDlg),
+    m_buttonBox(nullptr),
+    m_precision(2),
+    m_amountValid(false),
+    m_isDeposit(false)
+  {
+  }
+
+  ~KSplitTransactionDlgPrivate()
+  {
+    delete ui;
+  }
+
+  void init(const MyMoneyTransaction& t, const QMap<QString, MyMoneyMoney>& priceInfo)
+  {
+    Q_Q(KSplitTransactionDlg);
+    ui->setupUi(q);
+    q->setModal(true);
+
+    auto okButton = ui->buttonBox->button(QDialogButtonBox::Ok);
+    okButton->setDefault(true);
+    okButton->setShortcut(Qt::CTRL | Qt::Key_Return);
+    auto user1Button = new QPushButton;
+    ui->buttonBox->addButton(user1Button, QDialogButtonBox::ActionRole);
+    auto user2Button = new QPushButton;
+    ui->buttonBox->addButton(user2Button, QDialogButtonBox::ActionRole);
+    auto user3Button = new QPushButton;
+    ui->buttonBox->addButton(user3Button, QDialogButtonBox::ActionRole);
+
+    //set custom buttons
+    //clearAll button
+    user1Button->setText(i18n("Clear &All"));
+    user1Button->setToolTip(i18n("Clear all splits"));
+    user1Button->setWhatsThis(i18n("Use this to clear all splits of this transaction"));
+    user1Button->setIcon(Icons::get(Icon::EditClear));
+
+    //clearZero button
+    user2Button->setText(i18n("Clear &Zero"));
+    user2Button->setToolTip(i18n("Removes all splits that have a value of zero"));
+    user2Button->setIcon(Icons::get(Icon::EditClear));
+
+    //merge button
+    user3Button->setText(i18n("&Merge"));
+    user3Button->setToolTip(i18n("Merges splits with the same category to one split"));
+    user3Button->setWhatsThis(i18n("In case you have multiple split entries to the same category and you like to keep them as a single split"));
+
+    // make finish the default
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setDefault(true);
+
+    // setup the focus
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setFocusPolicy(Qt::NoFocus);
+    okButton->setFocusPolicy(Qt::NoFocus);
+    user1Button->setFocusPolicy(Qt::NoFocus);
+
+    // q->connect signals with slots
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::transactionChanged,
+            q, &KSplitTransactionDlg::slotSetTransaction);
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::createCategory, q, &KSplitTransactionDlg::slotCreateCategory);
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::objectCreation, q, &KSplitTransactionDlg::objectCreation);
+
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::returnPressed, q, &KSplitTransactionDlg::accept);
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::escapePressed, q, &KSplitTransactionDlg::reject);
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::editStarted, q, &KSplitTransactionDlg::slotEditStarted);
+    q->connect(ui->transactionsTable, &KMyMoneySplitTable::editFinished, q, &KSplitTransactionDlg::slotUpdateButtons);
+
+    q->connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QAbstractButton::clicked, q, &KSplitTransactionDlg::reject);
+    q->connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QAbstractButton::clicked, q, &KSplitTransactionDlg::accept);
+    q->connect(user1Button, &QAbstractButton::clicked, q, &KSplitTransactionDlg::slotClearAllSplits);
+    q->connect(user3Button, &QAbstractButton::clicked, q, &KSplitTransactionDlg::slotMergeSplits);
+    q->connect(user2Button, &QAbstractButton::clicked, q, &KSplitTransactionDlg::slotClearUnusedSplits);
+
+    // setup the precision
+    try {
+      auto currency = MyMoneyFile::instance()->currency(t.commodity());
+      m_precision = MyMoneyMoney::denomToPrec(m_account.fraction(currency));
+    } catch (const MyMoneyException &) {
+    }
+
+    q->slotSetTransaction(t);
+
+    // pass on those vars
+    ui->transactionsTable->setup(priceInfo, m_precision);
+
+    QSize size(q->width(), q->height());
+    KConfigGroup grp = KSharedConfig::openConfig()->group("SplitTransactionEditor");
+    size = grp.readEntry("Geometry", size);
+    size.setHeight(size.height() - 1);
+    q->resize(size.expandedTo(q->minimumSizeHint()));
+
+    // Trick: it seems, that the initial sizing of the dialog does
+    // not work correctly. At least, the columns do not get displayed
+    // correct. Reason: the return value of ui->transactionsTable->visibleWidth()
+    // is incorrect. If the widget is visible, resizing works correctly.
+    // So, we let the dialog show up and resize it then. It's not really
+    // clean, but the only way I got the damned thing working.
+    QTimer::singleShot(10, q, SLOT(initSize()));
+
+  }
+
+  /**
+    * This method updates the display of the sums below the register
+    */
+  void updateSums()
+  {
+    Q_Q(KSplitTransactionDlg);
+    MyMoneyMoney splits(q->splitsValue());
+
+    if (m_amountValid == false) {
+      m_split.setValue(-splits);
+      m_transaction.modifySplit(m_split);
+    }
+
+    ui->splitSum->setText("<b>" + splits.formatMoney(QString(), m_precision) + ' ');
+    ui->splitUnassigned->setText("<b>" + q->diffAmount().formatMoney(QString(), m_precision) + ' ');
+    ui->transactionAmount->setText("<b>" + (-m_split.value()).formatMoney(QString(), m_precision) + ' ');
+  }
+
+  KSplitTransactionDlg      *q_ptr;
+  Ui::KSplitTransactionDlg  *ui;
+  QDialogButtonBox          *m_buttonBox;
+  /**
+    * This member keeps a copy of the current selected transaction
+    */
+  MyMoneyTransaction     m_transaction;
+
+  /**
+    * This member keeps a copy of the currently selected account
+    */
+  MyMoneyAccount         m_account;
+
+  /**
+    * This member keeps a copy of the currently selected split
+    */
+  MyMoneySplit           m_split;
+
+  /**
+    * This member keeps the precision for the values
+    */
+  int                    m_precision;
+
+  /**
+    * flag that shows that the amount specified in the constructor
+    * should be used as fix value (true) or if it can be changed (false)
+    */
+  bool                   m_amountValid;
+
+  /**
+    * This member keeps track if the current transaction is of type
+    * deposit (true) or withdrawal (false).
+    */
+  bool                   m_isDeposit;
+
+  /**
+    * This member keeps the amount that will be assigned to all the
+    * splits that are marked 'will be calculated'.
+    */
+  MyMoneyMoney           m_calculatedValue;
+};
 
 KSplitTransactionDlg::KSplitTransactionDlg(const MyMoneyTransaction& t,
     const MyMoneySplit& s,
@@ -62,181 +245,93 @@ KSplitTransactionDlg::KSplitTransactionDlg(const MyMoneyTransaction& t,
     const MyMoneyMoney& calculatedValue,
     const QMap<QString, MyMoneyMoney>& priceInfo,
     QWidget* parent) :
-    KSplitTransactionDlgDecl(parent),
-    m_account(acc),
-    m_split(s),
-    m_precision(2),
-    m_amountValid(amountValid),
-    m_isDeposit(deposit),
-    m_calculatedValue(calculatedValue)
+  QDialog(parent),
+  d_ptr(new KSplitTransactionDlgPrivate(this))
 {
-  setModal(true);
-
-  QHBoxLayout *mainLayout = new QHBoxLayout;
-  setLayout(mainLayout);
-  mainLayout->addWidget(horizontalLayoutWidget);
-
-  m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
-  QPushButton *okButton = m_buttonBox->button(QDialogButtonBox::Ok);
-  okButton->setDefault(true);
-  okButton->setShortcut(Qt::CTRL | Qt::Key_Return);
-  QPushButton *user1Button = new QPushButton;
-  m_buttonBox->addButton(user1Button, QDialogButtonBox::ActionRole);
-  QPushButton *user2Button = new QPushButton;
-  m_buttonBox->addButton(user2Button, QDialogButtonBox::ActionRole);
-  QPushButton *user3Button = new QPushButton;
-  m_buttonBox->addButton(user3Button, QDialogButtonBox::ActionRole);
-  connect(m_buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-  connect(m_buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
-  m_buttonBox->setOrientation(Qt::Vertical);
-  mainLayout->addWidget(m_buttonBox);
-
-  //set custom buttons
-  //clearAll button
-  user1Button->setText(i18n("Clear &All"));
-  user1Button->setToolTip(i18n("Clear all splits"));
-  user1Button->setWhatsThis(i18n("Use this to clear all splits of this transaction"));
-  user1Button->setIcon(QIcon::fromTheme("edit-clear"));
-
-  //clearZero button
-  user2Button->setText(i18n("Clear &Zero"));
-  user2Button->setToolTip(i18n("Removes all splits that have a value of zero"));
-  user2Button->setIcon(QIcon::fromTheme("edit-clear"));
-
-  //merge button
-  user3Button->setText(i18n("&Merge"));
-  user3Button->setToolTip(i18n("Merges splits with the same category to one split"));
-  user3Button->setWhatsThis(i18n("In case you have multiple split entries to the same category and you like to keep them as a single split"));
-
-  // make finish the default
-  m_buttonBox->button(QDialogButtonBox::Cancel)->setDefault(true);
-
-  // setup the focus
-  m_buttonBox->button(QDialogButtonBox::Cancel)->setFocusPolicy(Qt::NoFocus);
-  okButton->setFocusPolicy(Qt::NoFocus);
-  user1Button->setFocusPolicy(Qt::NoFocus);
-
-  // connect signals with slots
-  connect(transactionsTable, SIGNAL(transactionChanged(MyMoneyTransaction)),
-          this, SLOT(slotSetTransaction(MyMoneyTransaction)));
-  connect(transactionsTable, SIGNAL(createCategory(QString,QString&)), this, SLOT(slotCreateCategory(QString,QString&)));
-  connect(transactionsTable, SIGNAL(objectCreation(bool)), this, SIGNAL(objectCreation(bool)));
-
-  connect(transactionsTable, SIGNAL(returnPressed()), this, SLOT(accept()));
-  connect(transactionsTable, SIGNAL(escapePressed()), this, SLOT(reject()));
-  connect(transactionsTable, SIGNAL(editStarted()), this, SLOT(slotEditStarted()));
-  connect(transactionsTable, SIGNAL(editFinished()), this, SLOT(slotUpdateButtons()));
-
-  connect(m_buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
-  connect(m_buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
-  connect(user1Button, SIGNAL(clicked()), this, SLOT(slotClearAllSplits()));
-  connect(user3Button, SIGNAL(clicked()), this, SLOT(slotMergeSplits()));
-  connect(user2Button, SIGNAL(clicked()), this, SLOT(slotClearUnusedSplits()));
-
-  // setup the precision
-  try {
-    MyMoneySecurity currency = MyMoneyFile::instance()->currency(t.commodity());
-    m_precision = MyMoneyMoney::denomToPrec(m_account.fraction(currency));
-  } catch (const MyMoneyException &) {
-  }
-
-  slotSetTransaction(t);
-
-  // pass on those vars
-  transactionsTable->setup(priceInfo, m_precision);
-
-  QSize size(width(), height());
-  KConfigGroup grp = KSharedConfig::openConfig()->group("SplitTransactionEditor");
-  size = grp.readEntry("Geometry", size);
-  size.setHeight(size.height() - 1);
-  QDialog::resize(size.expandedTo(minimumSizeHint()));
-
-  // Trick: it seems, that the initial sizing of the dialog does
-  // not work correctly. At least, the columns do not get displayed
-  // correct. Reason: the return value of transactionsTable->visibleWidth()
-  // is incorrect. If the widget is visible, resizing works correctly.
-  // So, we let the dialog show up and resize it then. It's not really
-  // clean, but the only way I got the damned thing working.
-  QTimer::singleShot(10, this, SLOT(initSize()));
+  Q_D(KSplitTransactionDlg);
+  d->ui->buttonBox = nullptr;
+  d->m_account = acc;
+  d->m_split = s;
+  d->m_precision = 2;
+  d->m_amountValid = amountValid;
+  d->m_isDeposit = deposit;
+  d->m_calculatedValue = calculatedValue;
+  d->init(t, priceInfo);
 }
 
 KSplitTransactionDlg::~KSplitTransactionDlg()
 {
-  KConfigGroup grp =  KSharedConfig::openConfig()->group("SplitTransactionEditor");
+  Q_D(KSplitTransactionDlg);
+  auto grp =  KSharedConfig::openConfig()->group("SplitTransactionEditor");
   grp.writeEntry("Geometry", size());
+  delete d;
 }
 
 int KSplitTransactionDlg::exec()
 {
+  Q_D(KSplitTransactionDlg);
   // for deposits, we invert the sign of all splits.
   // don't forget to revert when we're done ;-)
-  if (m_isDeposit) {
-    for (int i = 0; i < m_transaction.splits().count(); ++i) {
-      MyMoneySplit split = m_transaction.splits()[i];
+  if (d->m_isDeposit) {
+    for (auto i = 0; i < d->m_transaction.splits().count(); ++i) {
+      MyMoneySplit split = d->m_transaction.splits()[i];
       split.setValue(-split.value());
       split.setShares(-split.shares());
-      m_transaction.modifySplit(split);
+      d->m_transaction.modifySplit(split);
     }
   }
 
   int rc;
   do {
-    transactionsTable->setFocus();
+    d->ui->transactionsTable->setFocus();
 
     // initialize the display
-    transactionsTable->setTransaction(m_transaction, m_split, m_account);
-    updateSums();
+    d->ui->transactionsTable->setTransaction(d->m_transaction, d->m_split, d->m_account);
+    d->updateSums();
 
-    rc = KSplitTransactionDlgDecl::exec();
+    rc = QDialog::exec();
 
     if (rc == Accepted) {
       if (!diffAmount().isZero()) {
-        KSplitCorrectionDlgDecl* corrDlg = new KSplitCorrectionDlgDecl(this);
-        QVBoxLayout *mainLayout = new QVBoxLayout;
-        corrDlg->setLayout(mainLayout);
-        mainLayout->addWidget(corrDlg->findChild<QWidget*>("verticalLayout"));
-        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
-        connect(buttonBox, SIGNAL(accepted()), corrDlg, SLOT(accept()));
-        connect(buttonBox, SIGNAL(rejected()), corrDlg, SLOT(reject()));
-        mainLayout->addWidget(buttonBox);
-        corrDlg->buttonGroup->setId(corrDlg->continueBtn, 0);
-        corrDlg->buttonGroup->setId(corrDlg->changeBtn, 1);
-        corrDlg->buttonGroup->setId(corrDlg->distributeBtn, 2);
-        corrDlg->buttonGroup->setId(corrDlg->leaveBtn, 3);
+        QPointer<KSplitCorrectionDlg> corrDlg = new KSplitCorrectionDlg(this);
+        connect(corrDlg->ui->buttonBox, &QDialogButtonBox::accepted, corrDlg.data(), &QDialog::accept);
+        connect(corrDlg->ui->buttonBox, &QDialogButtonBox::rejected, corrDlg.data(), &QDialog::reject);
+        corrDlg->ui->buttonGroup->setId(corrDlg->ui->continueBtn, 0);
+        corrDlg->ui->buttonGroup->setId(corrDlg->ui->changeBtn, 1);
+        corrDlg->ui->buttonGroup->setId(corrDlg->ui->distributeBtn, 2);
+        corrDlg->ui->buttonGroup->setId(corrDlg->ui->leaveBtn, 3);
 
-        corrDlg->setModal(true);
-
-        MyMoneySplit split = m_transaction.splits()[0];
-        QString total = (-split.value()).formatMoney("", m_precision);
-        QString sums = splitsValue().formatMoney("", m_precision);
-        QString diff = diffAmount().formatMoney("", m_precision);
+        MyMoneySplit split = d->m_transaction.splits()[0];
+        QString total = (-split.value()).formatMoney(QString(), d->m_precision);
+        QString sums = splitsValue().formatMoney(QString(), d->m_precision);
+        QString diff = diffAmount().formatMoney(QString(), d->m_precision);
 
         // now modify the text items of the dialog to contain the correct values
         QString q = i18n("The total amount of this transaction is %1 while "
                          "the sum of the splits is %2. The remaining %3 are "
                          "unassigned.", total, sums, diff);
-        corrDlg->explanation->setText(q);
+        corrDlg->ui->explanation->setText(q);
 
         q = i18n("Change &total amount of transaction to %1.", sums);
-        corrDlg->changeBtn->setText(q);
+        corrDlg->ui->changeBtn->setText(q);
 
         q = i18n("&Distribute difference of %1 among all splits.", diff);
-        corrDlg->distributeBtn->setText(q);
+        corrDlg->ui->distributeBtn->setText(q);
         // FIXME remove the following line once distribution among
         //       all splits is implemented
-        corrDlg->distributeBtn->hide();
+        corrDlg->ui->distributeBtn->hide();
 
 
         // if we have only two splits left, we don't allow leaving sth. unassigned.
-        if (m_transaction.splitCount() < 3) {
+        if (d->m_transaction.splitCount() < 3) {
           q = i18n("&Leave total amount of transaction at %1.", total);
         } else {
           q = i18n("&Leave %1 unassigned.", diff);
         }
-        corrDlg->leaveBtn->setText(q);
+        corrDlg->ui->leaveBtn->setText(q);
 
         if ((rc = corrDlg->exec()) == Accepted) {
-          switch (corrDlg->buttonGroup->checkedId()) {
+          switch (corrDlg->ui->buttonGroup->checkedId()) {
             case 0:       // continue to edit
               rc = Rejected;
               break;
@@ -244,7 +339,7 @@ int KSplitTransactionDlg::exec()
             case 1:       // modify total
               split.setValue(-splitsValue());
               split.setShares(-splitsValue());
-              m_transaction.modifySplit(split);
+              d->m_transaction.modifySplit(split);
               break;
 
             case 2:       // distribute difference
@@ -264,12 +359,12 @@ int KSplitTransactionDlg::exec()
 
   // for deposits, we inverted the sign of all splits.
   // now we revert it back, so that things are left correct
-  if (m_isDeposit) {
-    for (int i = 0; i < m_transaction.splits().count(); ++i) {
-      MyMoneySplit split = m_transaction.splits()[i];
+  if (d->m_isDeposit) {
+    for (auto i = 0; i < d->m_transaction.splits().count(); ++i) {
+      auto split = d->m_transaction.splits()[i];
       split.setValue(-split.value());
       split.setShares(-split.shares());
-      m_transaction.modifySplit(split);
+      d->m_transaction.modifySplit(split);
     }
   }
 
@@ -283,114 +378,117 @@ void KSplitTransactionDlg::initSize()
 
 void KSplitTransactionDlg::accept()
 {
-  transactionsTable->slotCancelEdit();
-  KSplitTransactionDlgDecl::accept();
+  Q_D(KSplitTransactionDlg);
+  d->ui->transactionsTable->slotCancelEdit();
+  QDialog::accept();
 }
 
 void KSplitTransactionDlg::reject()
 {
+  Q_D(KSplitTransactionDlg);
   // cancel any edit activity in the split register
-  transactionsTable->slotCancelEdit();
-  KSplitTransactionDlgDecl::reject();
+  d->ui->transactionsTable->slotCancelEdit();
+  QDialog::reject();
 }
 
 void KSplitTransactionDlg::slotClearAllSplits()
 {
+  Q_D(KSplitTransactionDlg);
   int answer;
   answer = KMessageBox::warningContinueCancel(this,
            i18n("You are about to delete all splits of this transaction. "
                 "Do you really want to continue?"),
-           i18n("KMyMoney"),
-           KGuiItem(i18n("Continue"))
-                                             );
+           i18n("KMyMoney"));
 
   if (answer == KMessageBox::Continue) {
-    transactionsTable->slotCancelEdit();
-    QList<MyMoneySplit> list = transactionsTable->getSplits(m_transaction);
+    d->ui->transactionsTable->slotCancelEdit();
+    QList<MyMoneySplit> list = d->ui->transactionsTable->getSplits(d->m_transaction);
     QList<MyMoneySplit>::ConstIterator it;
 
     // clear all but the one referencing the account
     for (it = list.constBegin(); it != list.constEnd(); ++it) {
-      m_transaction.removeSplit(*it);
+      d->m_transaction.removeSplit(*it);
     }
 
-    transactionsTable->setTransaction(m_transaction, m_split, m_account);
-    slotSetTransaction(m_transaction);
+    d->ui->transactionsTable->setTransaction(d->m_transaction, d->m_split, d->m_account);
+    slotSetTransaction(d->m_transaction);
   }
 }
 
 void KSplitTransactionDlg::slotClearUnusedSplits()
 {
-  QList<MyMoneySplit> list = transactionsTable->getSplits(m_transaction);
+  Q_D(KSplitTransactionDlg);
+  QList<MyMoneySplit> list = d->ui->transactionsTable->getSplits(d->m_transaction);
   QList<MyMoneySplit>::ConstIterator it;
 
   try {
     // remove all splits that don't have a value assigned
     for (it = list.constBegin(); it != list.constEnd(); ++it) {
       if ((*it).shares().isZero()) {
-        m_transaction.removeSplit(*it);
+        d->m_transaction.removeSplit(*it);
       }
     }
 
-    transactionsTable->setTransaction(m_transaction, m_split, m_account);
-    slotSetTransaction(m_transaction);
+    d->ui->transactionsTable->setTransaction(d->m_transaction, d->m_split, d->m_account);
+    slotSetTransaction(d->m_transaction);
   } catch (const MyMoneyException &) {
   }
 }
 
 void KSplitTransactionDlg::slotMergeSplits()
 {
-  QList<MyMoneySplit> list = transactionsTable->getSplits(m_transaction);
-  QList<MyMoneySplit>::ConstIterator it;
+  Q_D(KSplitTransactionDlg);
 
   try {
     // collect all splits, merge them if needed and remove from transaction
     QList<MyMoneySplit> splits;
-    for (it = list.constBegin(); it != list.constEnd(); ++it) {
-      QList<MyMoneySplit>::iterator it_s;
-      for (it_s = splits.begin(); it_s != splits.end(); ++it_s) {
-        if ((*it_s).accountId() == (*it).accountId()
-            && (*it_s).memo().isEmpty() && (*it).memo().isEmpty())
+    foreach (const auto lsplit, d->ui->transactionsTable->getSplits(d->m_transaction)) {
+      auto found = false;
+      for (auto& split : splits) {
+        if (split.accountId() == lsplit.accountId()
+            && split.memo().isEmpty() && lsplit.memo().isEmpty()) {
+          split.setShares(lsplit.shares() + split.shares());
+          split.setValue(lsplit.value() + split.value());
+          found = true;
           break;
+        }
       }
-      if (it_s != splits.end()) {
-        (*it_s).setShares((*it).shares() + (*it_s).shares());
-        (*it_s).setValue((*it).value() + (*it_s).value());
-      } else {
-        splits << *it;
-      }
-      m_transaction.removeSplit(*it);
+      if (!found)
+        splits << lsplit;
+
+      d->m_transaction.removeSplit(lsplit);
     }
 
     // now add them back to the transaction
-    QList<MyMoneySplit>::iterator it_s;
-    for (it_s = splits.begin(); it_s != splits.end(); ++it_s) {
-      (*it_s).clearId();
-      m_transaction.addSplit(*it_s);
+    for (auto& split : splits) {
+      split.clearId();
+      d->m_transaction.addSplit(split);
     }
 
-    transactionsTable->setTransaction(m_transaction, m_split, m_account);
-    slotSetTransaction(m_transaction);
+    d->ui->transactionsTable->setTransaction(d->m_transaction, d->m_split, d->m_account);
+    slotSetTransaction(d->m_transaction);
   } catch (const MyMoneyException &) {
   }
 }
 
 void KSplitTransactionDlg::slotSetTransaction(const MyMoneyTransaction& t)
 {
-  m_transaction = t;
+  Q_D(KSplitTransactionDlg);
+  d->m_transaction = t;
   slotUpdateButtons();
-  updateSums();
+  d->updateSums();
 }
 
 void KSplitTransactionDlg::slotUpdateButtons()
 {
-  QList<MyMoneySplit> list = transactionsTable->getSplits(m_transaction);
+  Q_D(KSplitTransactionDlg);
+  QList<MyMoneySplit> list = d->ui->transactionsTable->getSplits(d->m_transaction);
   // check if we can merge splits or not, have zero splits or not
   QMap<QString, int> splits;
   bool haveZeroSplit = false;
   for (QList<MyMoneySplit>::const_iterator it = list.constBegin(); it != list.constEnd(); ++it) {
     splits[(*it).accountId()]++;
-    if (((*it).id() != m_split.id()) && ((*it).shares().isZero()))
+    if (((*it).id() != d->m_split.id()) && ((*it).shares().isZero()))
       haveZeroSplit = true;
   }
   QMap<QString, int>::const_iterator it_s;
@@ -398,34 +496,22 @@ void KSplitTransactionDlg::slotUpdateButtons()
     if ((*it_s) > 1)
       break;
   }
-  m_buttonBox->buttons().at(4)->setEnabled(it_s != splits.constEnd());
-  m_buttonBox->buttons().at(3)->setEnabled(haveZeroSplit);
+  d->ui->buttonBox->buttons().at(4)->setEnabled(it_s != splits.constEnd());
+  d->ui->buttonBox->buttons().at(3)->setEnabled(haveZeroSplit);
 }
 
 void KSplitTransactionDlg::slotEditStarted()
 {
-  m_buttonBox->buttons().at(4)->setEnabled(false);
-  m_buttonBox->buttons().at(3)->setEnabled(false);
-}
-
-void KSplitTransactionDlg::updateSums()
-{
-  MyMoneyMoney splits(splitsValue());
-
-  if (m_amountValid == false) {
-    m_split.setValue(-splits);
-    m_transaction.modifySplit(m_split);
-  }
-
-  splitSum->setText("<b>" + splits.formatMoney("", m_precision) + ' ');
-  splitUnassigned->setText("<b>" + diffAmount().formatMoney("", m_precision) + ' ');
-  transactionAmount->setText("<b>" + (-m_split.value()).formatMoney("", m_precision) + ' ');
+  Q_D(KSplitTransactionDlg);
+  d->ui->buttonBox->buttons().at(4)->setEnabled(false);
+  d->ui->buttonBox->buttons().at(3)->setEnabled(false);
 }
 
 MyMoneyMoney KSplitTransactionDlg::splitsValue()
 {
-  MyMoneyMoney splitsValue(m_calculatedValue);
-  QList<MyMoneySplit> list = transactionsTable->getSplits(m_transaction);
+  Q_D(KSplitTransactionDlg);
+  MyMoneyMoney splitsValue(d->m_calculatedValue);
+  QList<MyMoneySplit> list = d->ui->transactionsTable->getSplits(d->m_transaction);
   QList<MyMoneySplit>::ConstIterator it;
 
   // calculate the current sum of all split parts
@@ -437,14 +523,21 @@ MyMoneyMoney KSplitTransactionDlg::splitsValue()
   return splitsValue;
 }
 
+MyMoneyTransaction KSplitTransactionDlg::transaction() const
+{
+  Q_D(const KSplitTransactionDlg);
+  return d->m_transaction;
+}
+
 MyMoneyMoney KSplitTransactionDlg::diffAmount()
 {
+  Q_D(KSplitTransactionDlg);
   MyMoneyMoney diff;
 
   // if there is an amount specified in the transaction, we need to calculate the
   // difference, otherwise we display the difference as 0 and display the same sum.
-  if (m_amountValid) {
-    MyMoneySplit split = m_transaction.splits()[0];
+  if (d->m_amountValid) {
+    MyMoneySplit split = d->m_transaction.splits()[0];
 
     diff = -(splitsValue() + split.value());
   }
@@ -453,10 +546,11 @@ MyMoneyMoney KSplitTransactionDlg::diffAmount()
 
 void KSplitTransactionDlg::slotCreateCategory(const QString& name, QString& id)
 {
+  Q_D(KSplitTransactionDlg);
   MyMoneyAccount acc, parent;
   acc.setName(name);
 
-  if (m_isDeposit)
+  if (d->m_isDeposit)
     parent = MyMoneyFile::instance()->income();
   else
     parent = MyMoneyFile::instance()->expense();

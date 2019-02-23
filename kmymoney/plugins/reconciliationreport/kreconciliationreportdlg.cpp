@@ -21,35 +21,38 @@
 #include "kreconciliationreportdlg.h"
 
 // Qt includes
-#include <QPainter>
 #include <QPushButton>
-#include <QLayout>
 #include <QTabWidget>
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QPointer>
 
 // KDE includes
-#include <khtmlview.h>
-#include <khtml_part.h>
 #include <KStandardGuiItem>
+#ifdef ENABLE_WEBENGINE
+#include <QWebEngineView>
+#else
+#include <KWebView>
+#endif
 
-KReportDlg::KReportDlg(QWidget* parent, const QString& summaryReportHTML, const QString& detailsReportHTML) : QDialog(parent)
+KReportDlg::KReportDlg(QWidget* parent, const QString& summaryReportHTML, const QString& detailsReportHTML) :
+  QDialog(parent),
+  m_currentPrinter(nullptr)
 {
   setupUi(this);
-  m_summaryHTMLPart = new KHTMLPart(m_summaryTab);
-  m_summaryLayout->addWidget(m_summaryHTMLPart->view());
+  #ifdef ENABLE_WEBENGINE
+  m_summaryHTMLPart = new QWebEngineView(m_summaryTab);
+  m_detailsHTMLPart = new QWebEngineView(m_detailsTab);
+  #else
+  m_summaryHTMLPart = new KWebView(m_summaryTab);
+  m_detailsHTMLPart = new KWebView(m_detailsTab);
+  #endif
 
-  m_detailsHTMLPart = new KHTMLPart(m_detailsTab);
-  m_detailsLayout->addWidget(m_detailsHTMLPart->view());
+  m_summaryLayout->addWidget(m_summaryHTMLPart);
+  m_detailsLayout->addWidget(m_detailsHTMLPart);
 
-  m_summaryHTMLPart->begin();
-  m_summaryHTMLPart->write(summaryReportHTML);
-  m_summaryHTMLPart->end();
-
-  m_detailsHTMLPart->begin();
-  m_detailsHTMLPart->write(detailsReportHTML);
-  m_detailsHTMLPart->end();
+  m_summaryHTMLPart->setHtml(summaryReportHTML, QUrl("file://"));
+  m_detailsHTMLPart->setHtml(detailsReportHTML, QUrl("file://"));
 
   QPushButton* printButton = m_buttonBox->addButton(QString(), QDialogButtonBox::ActionRole);
   KGuiItem::assign(printButton, KStandardGuiItem::print());
@@ -64,27 +67,34 @@ KReportDlg::~KReportDlg()
 
 void KReportDlg::print()
 {
-  // create the QPrinter object with default options
-  QPrinter printer;
-
-  // start the print dialog to initialize the QPrinter object
-  QPointer<QPrintDialog> dlg = new QPrintDialog(&printer, this);
-
-  if (dlg->exec()) {
-    // create the painter object
-    QPainter painter(&printer);
-
-    // do the actual painting job
-    switch (m_tabWidget->currentIndex()) {
-      case 0:
-        m_summaryHTMLPart->paint(&painter, QRect(0, 0, 800, 600));
-        break;
-      case 1:
-        m_detailsHTMLPart->paint(&painter, QRect(0, 0, 800, 600));
-        break;
-      default:
-        qDebug("KReportDlg::print() current page index not handled correctly");
-    }
+  m_currentPrinter = new QPrinter();
+  QPointer<QPrintDialog> dialog = new QPrintDialog(m_currentPrinter, this);
+  dialog->setWindowTitle(QString());
+  if (dialog->exec() != QDialog::Accepted) {
+    delete m_currentPrinter;
+    m_currentPrinter = nullptr;
+    return;
   }
-  delete dlg;
+
+  // do the actual painting job
+  switch (m_tabWidget->currentIndex()) {
+    case 0:
+      #ifdef ENABLE_WEBENGINE
+      m_summaryHTMLPart->page()->print(m_currentPrinter, [=] (bool) {delete m_currentPrinter; m_currentPrinter = nullptr;});
+      #else
+      m_summaryHTMLPart->print(m_currentPrinter);
+      #endif
+      break;
+    case 1:
+      #ifdef ENABLE_WEBENGINE
+      m_detailsHTMLPart->page()->print(m_currentPrinter, [=] (bool) {delete m_currentPrinter; m_currentPrinter = nullptr;});
+      #else
+      m_detailsHTMLPart->print(m_currentPrinter);
+      #endif
+      break;
+    default:
+      delete m_currentPrinter;
+      m_currentPrinter = nullptr;
+      qDebug("KReportDlg::print() current page index not handled correctly");
+  }
 }

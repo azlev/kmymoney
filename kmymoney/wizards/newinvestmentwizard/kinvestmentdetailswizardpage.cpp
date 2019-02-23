@@ -4,6 +4,7 @@
    begin                : Sun Jun 27 2010
    copyright            : (C) 2010 by Fernando Vilas
    email                : kmymoney-devel@kde.org
+                          (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
 ***************************************************************************/
 
 /***************************************************************************
@@ -24,50 +25,70 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <klocalizedstring.h>
+#include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneymoney.h"
+#include "ui_kinvestmentdetailswizardpage.h"
 
-KInvestmentDetailsWizardPage::KInvestmentDetailsWizardPage(QWidget *parent)
-    : KInvestmentDetailsWizardPageDecl(parent)
+#include "mymoneymoney.h"
+#include "mymoneyfile.h"
+#include "mymoneysecurity.h"
+#include "kmymoneymoneyvalidator.h"
+
+KInvestmentDetailsWizardPage::KInvestmentDetailsWizardPage(QWidget *parent) :
+    QWizardPage(parent),
+    ui(new Ui::KInvestmentDetailsWizardPage)
 {
-  m_fraction->setPrecision(0);
-  m_fraction->setValue(MyMoneyMoney(100, 1));
-  kMyMoneyMoneyValidator* fractionValidator = new kMyMoneyMoneyValidator(1, 100000, 0, this);
-  m_fraction->setValidator(fractionValidator);
+  ui->setupUi(this);
+  ui->m_fraction->setPrecision(0);
+  ui->m_fraction->setValue(MyMoneyMoney(100, 1));
+  KMyMoneyMoneyValidator* fractionValidator = new KMyMoneyMoneyValidator(1, 100000, 0, this);
+  ui->m_fraction->setValidator(fractionValidator);
 
   // load the price mode combo
-  m_priceMode->insertItem(i18nc("default price mode", "(default)"), 0);
-  m_priceMode->insertItem(i18n("Price per share"), 1);
-  m_priceMode->insertItem(i18n("Total for all shares"), 2);
+  ui->m_priceMode->insertItem(i18nc("default price mode", "(default)"), 0);
+  ui->m_priceMode->insertItem(i18n("Price per share"), 1);
+  ui->m_priceMode->insertItem(i18n("Total for all shares"), 2);
 
   // load the widget with the available currencies
-  m_tradingCurrencyEdit->update(QString());
+  ui->m_tradingCurrencyEdit->update(QString());
 
   // Register the fields with the QWizard and connect the
   // appropriate signals to update the "Next" button correctly
-  registerField("investmentName", m_investmentName);
-  connect(m_investmentName, SIGNAL(textChanged(QString)),
-          this, SIGNAL(completeChanged()));
+  registerField("investmentName", ui->m_investmentName);
+  connect(ui->m_investmentName, &QLineEdit::textChanged,
+          this, &QWizardPage::completeChanged);
 
-  registerField("investmentIdentification", m_investmentIdentification);
-  connect(m_investmentIdentification, SIGNAL(textChanged(QString)),
-          this, SIGNAL(completeChanged()));
+  registerField("investmentIdentification", ui->m_investmentIdentification);
+  connect(ui->m_investmentIdentification, &QLineEdit::textChanged,
+          this, &QWizardPage::completeChanged);
 
-  registerField("investmentSymbol", m_investmentSymbol);
-  connect(m_investmentSymbol, SIGNAL(textChanged(QString)),
-          this, SIGNAL(completeChanged()));
+  registerField("investmentSymbol", ui->m_investmentSymbol);
+  connect(ui->m_investmentSymbol, &QLineEdit::textChanged,
+          this, &QWizardPage::completeChanged);
 
-  registerField("tradingCurrencyEdit", m_tradingCurrencyEdit, "security");
+  registerField("tradingCurrencyEdit", ui->m_tradingCurrencyEdit, "security");
 
-  registerField("tradingMarket", m_tradingMarket, "currentText", SIGNAL(currentIndexChanged(QString)));
+  registerField("tradingMarket", ui->m_tradingMarket, "currentText", SIGNAL(currentIndexChanged(QString)));
 
-  registerField("fraction", m_fraction, "value", SIGNAL(textChanged()));
-  connect(m_fraction, SIGNAL(textChanged(QString)),
-          this, SIGNAL(completeChanged()));
+  ui->m_roundingMethod->addItem(i18nc("Rounding method", "Round"), AlkValue::RoundRound);
+  ui->m_roundingMethod->addItem(i18nc("Rounding method", "Ceil"), AlkValue::RoundCeil);
+  ui->m_roundingMethod->addItem(i18nc("Rounding method", "Floor"), AlkValue::RoundFloor);
+  ui->m_roundingMethod->addItem(i18nc("Rounding method", "Truncate"), AlkValue::RoundTruncate);
+  registerField("roundingMethod", ui->m_roundingMethod, "currentData", SIGNAL(currentIndexChanged(int)));
+
+  registerField("fraction", ui->m_fraction, "value", SIGNAL(textChanged()));
+  connect(ui->m_fraction, &KMyMoneyEdit::textChanged,
+          this, &QWizardPage::completeChanged);
+
+  registerField("pricePrecision", ui->m_pricePrecision, "value", SIGNAL(valueChanged()));
+}
+
+KInvestmentDetailsWizardPage::~KInvestmentDetailsWizardPage()
+{
+  delete ui;
 }
 
 /**
@@ -76,12 +97,17 @@ KInvestmentDetailsWizardPage::KInvestmentDetailsWizardPage(QWidget *parent)
 void KInvestmentDetailsWizardPage::init2(const MyMoneySecurity& security)
 {
   MyMoneySecurity tradingCurrency = MyMoneyFile::instance()->currency(security.tradingCurrency());
-  m_investmentSymbol->setText(security.tradingSymbol());
-  m_tradingMarket->setCurrentIndex(m_tradingMarket->findText(security.tradingMarket(), Qt::MatchExactly));
-  m_fraction->setValue(MyMoneyMoney(security.smallestAccountFraction(), 1));
-  m_tradingCurrencyEdit->setSecurity(tradingCurrency);
+  ui->m_investmentSymbol->setText(security.tradingSymbol());
+  ui->m_tradingMarket->setCurrentIndex(ui->m_tradingMarket->findText(security.tradingMarket(), Qt::MatchExactly));
+  if (security.roundingMethod() == AlkValue::RoundNever)
+    ui->m_roundingMethod->setCurrentIndex(0);
+  else
+    ui->m_roundingMethod->setCurrentIndex(ui->m_roundingMethod->findData(security.roundingMethod()));
+  ui->m_fraction->setValue(MyMoneyMoney(security.smallestAccountFraction(), 1));
+  ui->m_pricePrecision->setValue(security.pricePrecision());
+  ui->m_tradingCurrencyEdit->setSecurity(tradingCurrency);
 
-  m_investmentIdentification->setText(security.value("kmm-security-id"));
+  ui->m_investmentIdentification->setText(security.value("kmm-security-id"));
 }
 
 /**
@@ -89,38 +115,38 @@ void KInvestmentDetailsWizardPage::init2(const MyMoneySecurity& security)
  */
 bool KInvestmentDetailsWizardPage::isComplete() const
 {
-  return (!m_investmentName->text().isEmpty()
-          && !m_investmentSymbol->text().isEmpty()
-          && !m_fraction->value().isZero());
+  return (!ui->m_investmentName->text().isEmpty()
+          && !ui->m_investmentSymbol->text().isEmpty()
+          && !ui->m_fraction->value().isZero());
 }
 
 int KInvestmentDetailsWizardPage::priceMode() const
 {
-  return m_priceMode->currentItem();
+  return ui->m_priceMode->currentItem();
 }
 
 void KInvestmentDetailsWizardPage::setCurrentPriceMode(int mode)
 {
-  m_priceMode->setCurrentItem(mode);
+  ui->m_priceMode->setCurrentItem(mode);
 }
 
 void KInvestmentDetailsWizardPage::loadName(const QString& name)
 {
-  m_investmentName->loadText(name);
+  ui->m_investmentName->loadText(name);
 }
 
 void KInvestmentDetailsWizardPage::setName(const QString& name)
 {
-  m_investmentName->setText(name);
+  ui->m_investmentName->setText(name);
 }
 
 void KInvestmentDetailsWizardPage::setPriceModeEnabled(bool enabled)
 {
-  m_priceMode->setEnabled(enabled);
+  ui->m_priceMode->setEnabled(enabled);
 }
 
 void KInvestmentDetailsWizardPage::setupInvestmentSymbol()
 {
-  m_investmentSymbol->setFocus();
-  connect(m_investmentSymbol, SIGNAL(lineChanged(QString)), this, SIGNAL(checkForExistingSymbol(QString)));
+  ui->m_investmentSymbol->setFocus();
+  connect(ui->m_investmentSymbol, &KMyMoneyLineEdit::lineChanged, this, &KInvestmentDetailsWizardPage::checkForExistingSymbol);
 }

@@ -1,31 +1,27 @@
-/***************************************************************************
-                          knewequityentrydlg.h  -  description
-                             -------------------
-    begin                : Tue Jan 29 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
+/*
+ * Copyright 2002       Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2002-2004  Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2004-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-
-#ifndef KNEWEQUITYENTRY_H
-#define KNEWEQUITYENTRY_H
+#ifndef KNEWEQUITYENTRYDLG_H
+#define KNEWEQUITYENTRYDLG_H
 
 #include <QDialog>
-
-#include "ui_knewequityentrydecl.h"
 
 /**
   *
@@ -35,43 +31,31 @@
   *
   */
 
-class kNewEquityEntryDecl : public QDialog, public Ui::kNewEquityEntryDecl
-{
-public:
-  kNewEquityEntryDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
-class KNewEquityEntryDlg : public kNewEquityEntryDecl
+class KNewEquityEntryDlgPrivate;
+class KNewEquityEntryDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KNewEquityEntryDlg)
+
 public:
-  KNewEquityEntryDlg(QWidget *parent = 0);
+  explicit KNewEquityEntryDlg(QWidget *parent = nullptr);
   virtual ~KNewEquityEntryDlg();
 
   void setSymbolName(const QString& str);
-  QString symbolName() const  {
-    return m_strSymbolName;
-  }
+  QString symbolName() const;
 
   void setName(const QString& str);
-  QString name() const  {
-    return m_strName;
-  }
+  QString name() const;
 
-  int fraction() const {
-    return m_fraction;
-  }
+  int fraction() const;
 
-protected slots:
+protected Q_SLOTS:
   void onOKClicked();
   void slotDataChanged();
 
 private:
-  QString m_strSymbolName;
-  QString m_strName;
-  int     m_fraction;
+  KNewEquityEntryDlgPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KNewEquityEntryDlg)
 };
 
 #endif

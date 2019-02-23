@@ -1,43 +1,42 @@
-
-/***************************************************************************
-                             kmymoneyaccountselector.h
-                             -------------------
-    begin                : Thu Sep 18 2003
-    copyright            : (C) 2003 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYACCOUNTSELECTOR_H
 #define KMYMONEYACCOUNTSELECTOR_H
 
+#include "kmm_widgets_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
-
-#include <QList>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-class QPushButton;
-
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmymoneyselector.h>
-#include <kmymoneyutils.h>
-#include <mymoneyaccount.h>
+#include "kmymoneyselector.h"
 
-class AccountSet;
-class MyMoneyFile;
+class MyMoneyAccount;
+
+template <typename T> class QList;
+
+namespace eMyMoney { namespace Account { enum class Type; } }
 
 /**
   * This class implements an account/category selector. It is based
@@ -55,14 +54,17 @@ class MyMoneyFile;
   *   out of the set of displayed accounts. Selection is performed
   *   by marking the account in the view.
   */
-class kMyMoneyAccountSelector : public KMyMoneySelector
+class KMyMoneyAccountSelectorPrivate;
+class KMM_WIDGETS_EXPORT KMyMoneyAccountSelector : public KMyMoneySelector
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyAccountSelector)
+
 public:
   friend class AccountSet;
 
-  explicit kMyMoneyAccountSelector(QWidget *parent = 0, Qt::WindowFlags flags = 0, const bool createButtons = true);
-  virtual ~kMyMoneyAccountSelector();
+  explicit KMyMoneyAccountSelector(QWidget* parent = nullptr, Qt::WindowFlags flags = 0, const bool createButtons = true);
+  ~KMyMoneyAccountSelector() override;
 
   /**
     * This method returns a list of account ids of those accounts
@@ -75,7 +77,8 @@ public:
     *             will be returned.
     * @return QStringList of account ids
     */
-  QStringList accountList(const QList<MyMoneyAccount::accountTypeE>& list = QList<MyMoneyAccount::accountTypeE>()) const;
+  QStringList accountList(const QList<eMyMoney::Account::Type>& list) const;
+  QStringList accountList() const;
 
   void setSelectionMode(QTreeWidget::SelectionMode mode);
 
@@ -88,7 +91,7 @@ public:
     * @retval true item matches
     * @retval false item does not match
     */
-  virtual bool match(const QRegExp& exp, QTreeWidgetItem* item) const;
+  virtual bool match(const QRegExp& exp, QTreeWidgetItem* item) const override;
 
   /**
     * This method returns, if any of the items in the selector contains
@@ -98,29 +101,25 @@ public:
     * @retval true exact match found
     * @retval false no match found
     */
-  virtual bool contains(const QString& txt) const;
+  virtual bool contains(const QString& txt) const override;
 
   /**
     * This method removes all the buttons of the widget
     */
   void removeButtons();
 
-public slots:
+public Q_SLOTS:
   /**
     * This slot selects all items that are currently in
     * the account list of the widget.
     */
-  void slotSelectAllAccounts() {
-    selectAllItems(true);
-  };
+  void slotSelectAllAccounts();
 
   /**
     * This slot deselects all items that are currently in
     * the account list of the widget.
     */
-  void slotDeselectAllAccounts() {
-    selectAllItems(false);
-  };
+  void slotDeselectAllAccounts();
 
 protected:
   /**
@@ -139,65 +138,53 @@ protected:
     */
   void selectCategories(const bool income, const bool expense);
 
-protected slots:
+protected Q_SLOTS:
   /**
     * This slot selects all income categories
     */
-  void slotSelectIncomeCategories() {
-    selectCategories(true, false);
-  };
+  void slotSelectIncomeCategories();
 
   /**
     * This slot selects all expense categories
     */
-  void slotSelectExpenseCategories() {
-    selectCategories(false, true);
-  };
+  void slotSelectExpenseCategories();
 
-protected:
-  QPushButton*              m_allAccountsButton;
-  QPushButton*              m_noAccountButton;
-  QPushButton*              m_incomeCategoriesButton;
-  QPushButton*              m_expenseCategoriesButton;
-  QList<int>                m_typeList;
-  QStringList               m_accountList;
+private:
+  Q_DECLARE_PRIVATE(KMyMoneyAccountSelector)
 };
 
-
-class AccountSet
+class AccountSetPrivate;
+class KMM_WIDGETS_EXPORT AccountSet
 {
+  Q_DISABLE_COPY(AccountSet)
+
 public:
   AccountSet();
+  AccountSet(AccountSet && other);
+  friend void swap(AccountSet& first, AccountSet& second);
+  ~AccountSet();
 
-  void addAccountType(MyMoneyAccount::accountTypeE type);
-  void addAccountGroup(MyMoneyAccount::accountTypeE type);
-  void removeAccountType(MyMoneyAccount::accountTypeE type);
+  void addAccountType(eMyMoney::Account::Type type);
+  void addAccountGroup(eMyMoney::Account::Type type);
+  void removeAccountType(eMyMoney::Account::Type type);
 
   void clear();
 
-  int load(kMyMoneyAccountSelector* selector);
-  int load(kMyMoneyAccountSelector* selector, const QString& baseName, const QList<QString>& accountIdList, const bool clear = false);
+  int load(KMyMoneyAccountSelector* selector);
+  int load(KMyMoneyAccountSelector* selector, const QString& baseName, const QList<QString>& accountIdList, const bool clear = false);
 
-  int count() const {
-    return m_count;
-  }
+  int count() const;
 
-  void setHideClosedAccounts(bool _bool) {
-    m_hideClosedAccounts = _bool;
-  }
-  bool isHidingClosedAccounts() const {
-    return m_hideClosedAccounts;
-  }
+  void setHideClosedAccounts(bool _bool);
+  bool isHidingClosedAccounts() const;
 
 protected:
-  int loadSubAccounts(kMyMoneyAccountSelector* selector, QTreeWidgetItem* parent, const QString& key, const QStringList& list);
+  int loadSubAccounts(KMyMoneyAccountSelector* selector, QTreeWidgetItem* parent, const QString& key, const QStringList& list);
   bool includeAccount(const MyMoneyAccount& acc);
 
 private:
-  int                                      m_count;
-  MyMoneyFile*                             m_file;
-  QList<MyMoneyAccount::accountTypeE>      m_typeList;
-  QTreeWidgetItem*                         m_favorites;
-  bool                                     m_hideClosedAccounts;
+  AccountSetPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(AccountSet)
 };
+
 #endif

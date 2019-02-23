@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014-2015 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -20,16 +20,24 @@
 
 #include <QDebug>
 
+#include <KPluginFactory>
+
 #include "mymoneyfile.h"
 #include "onlinejobadministration.h"
+#include "mymoneyexception.h"
 
-#include "plugins/onlinetasks/sepa/tasks/sepaonlinetransfer.h"
+#include "onlinetasks/sepa/sepaonlinetransfer.h"
 #include "sepacredittransfersettingsmockup.h"
 
-onlineJobPluginMockup::onlineJobPluginMockup()
-    : OnlinePluginExtended(nullptr, "onlinejobpluginmockup")
+onlineJobPluginMockup::onlineJobPluginMockup(QObject *parent, const QVariantList &args) :
+  OnlinePluginExtended(parent, "onlinejobpluginmockup")
 {
+  Q_UNUSED(args);
   qDebug("onlineJobPluginMockup should be used during development only!");
+}
+
+onlineJobPluginMockup::~onlineJobPluginMockup()
+{
 }
 
 void onlineJobPluginMockup::protocols(QStringList& protocolList) const
@@ -46,21 +54,21 @@ bool onlineJobPluginMockup::mapAccount(const MyMoneyAccount& acc, MyMoneyKeyValu
 {
   Q_UNUSED(acc);
 
-  onlineBankingSettings.setValue("provider", objectName());
+  onlineBankingSettings.setValue("provider", objectName().toLower());
   return true;
 }
 
 MyMoneyKeyValueContainer onlineJobPluginMockup::onlineBankingSettings(const MyMoneyKeyValueContainer& current)
 {
   MyMoneyKeyValueContainer nextKvp(current);
-  nextKvp.setValue("provider", objectName());
+  nextKvp.setValue("provider", objectName().toLower());
   return nextKvp;
 }
 
 bool onlineJobPluginMockup::updateAccount(const MyMoneyAccount& acc, bool moreAccounts)
 {
   Q_UNUSED(moreAccounts);
-  if (acc.onlineBankingSettings().value("provider") == objectName())
+  if (acc.onlineBankingSettings().value("provider").toLower() == objectName().toLower())
     return true;
   return false;
 }
@@ -68,9 +76,9 @@ bool onlineJobPluginMockup::updateAccount(const MyMoneyAccount& acc, bool moreAc
 QStringList onlineJobPluginMockup::availableJobs(QString accountId)
 {
   try {
-    if (MyMoneyFile::instance()->account(accountId).onlineBankingSettings().value("provider") == objectName())
+    if (MyMoneyFile::instance()->account(accountId).onlineBankingSettings().value("provider").toLower() == objectName().toLower())
       return onlineJobAdministration::instance()->availableOnlineTasks();
-  } catch (MyMoneyException&) {
+  } catch (const MyMoneyException &) {
   }
 
   return QStringList();
@@ -79,9 +87,9 @@ QStringList onlineJobPluginMockup::availableJobs(QString accountId)
 IonlineTaskSettings::ptr onlineJobPluginMockup::settings(QString accountId, QString taskName)
 {
   try {
-    if (taskName == sepaOnlineTransfer::name() && MyMoneyFile::instance()->account(accountId).onlineBankingSettings().value("provider") == objectName())
+    if (taskName == sepaOnlineTransfer::name() && MyMoneyFile::instance()->account(accountId).onlineBankingSettings().value("provider").toLower() == objectName().toLower())
       return IonlineTaskSettings::ptr(new sepaCreditTransferSettingsMockup);
-  } catch (MyMoneyException&) {
+  } catch (const MyMoneyException &) {
   }
   return IonlineTaskSettings::ptr();
 }
@@ -92,3 +100,7 @@ void onlineJobPluginMockup::sendOnlineJob(QList< onlineJob >& jobs)
     qDebug() << "Pretend to send: " << job.taskIid() << job.id();
   }
 }
+
+K_PLUGIN_FACTORY_WITH_JSON(onlineJobPluginMockupFactory, "onlinejobpluginmockup.json", registerPlugin<onlineJobPluginMockup>();)
+
+#include "onlinejobpluginmockup.moc"

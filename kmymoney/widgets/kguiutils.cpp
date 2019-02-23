@@ -1,19 +1,20 @@
-/***************************************************************************
-                         kguiutils.cpp  -  description
-                            -------------------
-   begin                : Fri Jan 27 2006
-   copyright            : (C) 2006 Tony Bloomfield
-   email                : Tony Bloomfield <tonybloom@users.sourceforge.net>
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2006-2010  Tony Bloomfield <tonybloom@users.sourceforge.net>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kguiutils.h"
 
@@ -27,21 +28,23 @@
 #include <QSpinBox>
 #include <QApplication>
 #include <QListWidget>
+#include <QList>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kcombobox.h>
-#include <klineedit.h>
-#include <kurlrequester.h>
-#include <kmymoneyedit.h>
-#include "kmymoneymvccombo.h"
+#include <KComboBox>
+#include <KLineEdit>
+#include <KUrlRequester>
+#include "kmymoneyedit.h"
+
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "kmymoneyglobalsettings.h"
+#include "kmymoneysettings.h"
 #include "onlinetasks/interfaces/ui/ionlinejobedit.h"
 #include "kmymoneytextedit.h"
+#include "kmymoneypayeecombo.h"
 
 /**************************************************************************
  *                                                                        *
@@ -55,29 +58,58 @@
  * With further widgets added by Allan Anderson for missing fields.       *
  **************************************************************************/
 
-void kMandatoryFieldGroup::add(QWidget *widget)
+class KMandatoryFieldGroupPrivate
 {
-  if (!m_widgets.contains(widget)) {
+  Q_DISABLE_COPY(KMandatoryFieldGroupPrivate)
+
+public:
+  KMandatoryFieldGroupPrivate() :
+    m_okButton(0),
+    m_enabled(true)
+  {
+  }
+
+  QList<QWidget *>      m_widgets;
+  QPushButton*          m_okButton;
+  bool                  m_enabled;
+};
+
+KMandatoryFieldGroup::KMandatoryFieldGroup(QObject *parent) :
+    QObject(parent),
+    d_ptr(new KMandatoryFieldGroupPrivate)
+{
+}
+
+KMandatoryFieldGroup::~KMandatoryFieldGroup()
+{
+  Q_D(KMandatoryFieldGroup);
+  delete d;
+}
+
+void KMandatoryFieldGroup::add(QWidget *widget)
+{
+  Q_D(KMandatoryFieldGroup);
+  if (!d->m_widgets.contains(widget)) {
     if (qobject_cast<QCheckBox*>(widget))
       connect(qobject_cast<QCheckBox*>(widget),
-              SIGNAL(clicked()),
-              this, SLOT(changed()));
+              &QCheckBox::clicked,
+              this, &KMandatoryFieldGroup::changed);
 
     else if (qobject_cast<KComboBox*>(widget)) {
       KComboBox* combo = qobject_cast<KComboBox*>(widget);
       KLineEdit* lineedit = qobject_cast<KLineEdit*>(combo->lineEdit());
       if (lineedit) {
-        connect(lineedit, SIGNAL(textChanged(QString)), this, SLOT(changed()));
+        connect(lineedit, &QLineEdit::textChanged, this, &KMandatoryFieldGroup::changed);
       } else {
-        connect(combo, SIGNAL(highlighted(int)), this, SLOT(changed()));
+        connect(combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::highlighted), this, &KMandatoryFieldGroup::changed);
       }
     }
 
-    else if (qobject_cast<kMyMoneyEdit*>(widget)) {
-      kMyMoneyEdit* amount = qobject_cast<kMyMoneyEdit*>(widget);
+    else if (qobject_cast<KMyMoneyEdit*>(widget)) {
+      KMyMoneyEdit* amount = qobject_cast<KMyMoneyEdit*>(widget);
       KLineEdit* lineedit = qobject_cast<KLineEdit*>(amount->lineedit());
       if (lineedit) {
-        connect(lineedit, SIGNAL(textChanged(QString)), this, SLOT(changed()));
+        connect(lineedit, &QLineEdit::textChanged, this, &KMandatoryFieldGroup::changed);
       } else {
         connect(amount, SIGNAL(highlighted(int)), this, SLOT(changed()));
       }
@@ -85,36 +117,37 @@ void kMandatoryFieldGroup::add(QWidget *widget)
 
     else if (qobject_cast<QLineEdit*>(widget)) {
       connect(qobject_cast<QLineEdit*>(widget),
-              SIGNAL(textChanged(QString)),
-              this, SLOT(changed()));
+              &QLineEdit::textChanged,
+              this, &KMandatoryFieldGroup::changed);
     }
 
     else if (qobject_cast<QSpinBox*>(widget))
       connect(qobject_cast<QSpinBox*>(widget),
-              SIGNAL(valueChanged(QString)),
-              this, SLOT(changed()));
+              static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+              this, &KMandatoryFieldGroup::changed);
 
     else if (qobject_cast<QListWidget*>(widget))
       connect(qobject_cast<QListWidget*>(widget),
-              SIGNAL(itemSelectionChanged()),
-              this, SLOT(changed()));
+              &QListWidget::itemSelectionChanged,
+              this, &KMandatoryFieldGroup::changed);
 
     else if (qobject_cast<KUrlRequester*>(widget))
       connect(qobject_cast<KUrlRequester*>(widget),
-              SIGNAL(textChanged(QString)),
-              this, SLOT(changed()));
+              &KUrlRequester::textChanged,
+              this, &KMandatoryFieldGroup::changed);
 
     else if (qobject_cast<KMyMoneyTextEdit*>(widget))
       connect(qobject_cast<KMyMoneyTextEdit*>(widget),
-              SIGNAL(textChanged()),
-              this, SLOT(changed()));
+              &KMyMoneyTextEdit::textChanged,
+              this, &KMandatoryFieldGroup::changed);
 
     else if (qobject_cast<IonlineJobEdit*>(widget)) {
       connect(qobject_cast<IonlineJobEdit*>(widget),
               SIGNAL(validityChanged(bool)),
               this, SLOT(changed()));
+
       // Do not set palette for IonlineJobEdits as they contain subwidgets
-      m_widgets.append(widget);
+      d->m_widgets.append(widget);
       changed();
       return;
     }
@@ -125,33 +158,44 @@ void kMandatoryFieldGroup::add(QWidget *widget)
     }
 
     QPalette palette = widget->palette();
-    palette.setColor(QPalette::Base, KMyMoneyGlobalSettings::requiredFieldColor());
+    palette.setColor(QPalette::Base, KMyMoneySettings::schemeColor(SchemeColor::FieldRequired));
     widget->setPalette(palette);
-    m_widgets.append(widget);
+    d->m_widgets.append(widget);
     changed();
   }
 }
 
-void kMandatoryFieldGroup::remove(QWidget *widget)
+void KMandatoryFieldGroup::removeAll()
 {
+  Q_D(KMandatoryFieldGroup);
+  while(!d->m_widgets.isEmpty()) {
+    remove(d->m_widgets.at(0));
+  }
+}
+
+void KMandatoryFieldGroup::remove(QWidget *widget)
+{
+  Q_D(KMandatoryFieldGroup);
   widget->setPalette(QApplication::palette());
-  m_widgets.removeOne(widget);
+  d->m_widgets.removeOne(widget);
   changed();
 }
 
-void kMandatoryFieldGroup::setOkButton(QPushButton *button)
+void KMandatoryFieldGroup::setOkButton(QPushButton *button)
 {
-  if (m_okButton && m_okButton != button)
-    m_okButton->setEnabled(true);
-  m_okButton = button;
+  Q_D(KMandatoryFieldGroup);
+  if (d->m_okButton && d->m_okButton != button)
+    d->m_okButton->setEnabled(true);
+  d->m_okButton = button;
   changed();
 }
 
-void kMandatoryFieldGroup::changed()
+void KMandatoryFieldGroup::changed()
 {
+  Q_D(KMandatoryFieldGroup);
   bool enable = true;
   QList<QWidget *>::ConstIterator i;
-  for (i = m_widgets.constBegin(); i != m_widgets.constEnd(); ++i) {
+  for (i = d->m_widgets.constBegin(); i != d->m_widgets.constEnd(); ++i) {
     QWidget *widget = *i;
     // disabled widgets don't count
     if (!(widget->isEnabled())) {
@@ -199,8 +243,8 @@ void kMandatoryFieldGroup::changed()
       } else
         continue;
     }
-    if ((qobject_cast<kMyMoneyEdit*>(widget))) {
-      if ((qobject_cast<kMyMoneyEdit*>(widget))->text() == "0/1") {
+    if ((qobject_cast<KMyMoneyEdit*>(widget))) {
+      if ((qobject_cast<KMyMoneyEdit*>(widget))->text() == "0/1") {
         enable = false;
         break;
       } else
@@ -224,23 +268,30 @@ void kMandatoryFieldGroup::changed()
     }
   }
 
-  if (m_okButton)
-    m_okButton->setEnabled(enable);
-  m_enabled = enable;
+  if (d->m_okButton)
+    d->m_okButton->setEnabled(enable);
+  d->m_enabled = enable;
 
   emit stateChanged();
   emit stateChanged(enable);
 }
 
-void kMandatoryFieldGroup::clear()
+bool KMandatoryFieldGroup::isEnabled() const
 {
+  Q_D(const KMandatoryFieldGroup);
+  return d->m_enabled;
+}
+
+void KMandatoryFieldGroup::clear()
+{
+  Q_D(KMandatoryFieldGroup);
   QList<QWidget *>::Iterator i;
-  for (i = m_widgets.begin(); i != m_widgets.end(); ++i)
+  for (i = d->m_widgets.begin(); i != d->m_widgets.end(); ++i)
     (*i)->setPalette(QApplication::palette());
-  m_widgets.clear();
-  if (m_okButton) {
-    m_okButton->setEnabled(true);
-    m_okButton = 0;
-    m_enabled = true;
+  d->m_widgets.clear();
+  if (d->m_okButton) {
+    d->m_okButton->setEnabled(true);
+    d->m_okButton = 0;
+    d->m_enabled = true;
   }
 }

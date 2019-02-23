@@ -1,8 +1,8 @@
 /***************************************************************************
                              kaccountssview.h
                              -------------------
-    copyright            : (C) 2005 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
+    copyright            : (C) 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
+                           (C) 2017, 2018 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  ***************************************************************************/
 
 /***************************************************************************
@@ -20,82 +20,67 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QListWidget>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <mymoneyutils.h>
-#include "accountsmodel.h"
+#include "kmymoneyaccountsviewbase.h"
 
-#include "ui_kaccountsviewdecl.h"
+class MyMoneyMoney;
+class MyMoneyAccount;
+class MyMoneyObject;
 
+namespace eMenu { enum class Action; }
+namespace KMyMoneyPlugin { class OnlinePlugin; }
+
+template <class Key, class Value> class QMap;
 
 /**
   * This class implements the accounts hierarchical and iconic 'view'.
   */
-class KAccountsView : public QWidget, public Ui::KAccountsViewDecl
+
+class KAccountsViewPrivate;
+class KAccountsView : public KMyMoneyAccountsViewBase
 {
   Q_OBJECT
 
 public:
-  KAccountsView(QWidget *parent = 0);
-  virtual ~KAccountsView();
+  explicit KAccountsView(QWidget *parent = nullptr);
+  ~KAccountsView();
 
-public slots:
-  void slotLoadAccounts();
+  void executeCustomAction(eView::Action action) override;
+  void refresh();
+  void updateActions(const MyMoneyObject &obj);
+
+public Q_SLOTS:
+  void slotNetWorthChanged(const MyMoneyMoney &);
+  void slotShowAccountMenu(const MyMoneyAccount& acc);
+
+  void slotSelectByObject(const MyMoneyObject& obj, eView::Intent intent) override;
+  void slotSelectByVariant(const QVariantList& variant, eView::Intent intent) override;
 
 protected:
-  enum accountViewRole {
-    reconcileRole = Qt::UserRole + 1
-  };
-
-  void loadIconGroups();
-
-protected slots:
-  void slotNetWorthChanged(const MyMoneyMoney &);
-  void slotOpenContextMenu(MyMoneyAccount account);
-  void slotOpenObject(QListWidgetItem* item);
-  void slotExpandCollapse();
-  void slotUnusedIncomeExpenseAccountHidden();
-
-signals:
-  /**
-    * This signal serves as proxy for KMyMoneyAccountTreeView::selectObject()
-    *
-    * @param obj const reference to object
-    */
-  void selectObject(const MyMoneyObject& obj);
-
-  /**
-    * This signal serves as proxy for
-    * KMyMoneyAccountTreeView::openContextMenu(const MyMoneyObject&)
-    *
-    * @param obj const reference to object
-    */
-  void openContextMenu(const MyMoneyObject& obj);
-
-  /**
-    * This signal will be emitted when the left mouse button is double
-    * clicked (actually the KDE executed setting is used) on an object.
-    *
-    * @param obj const reference to object
-    */
-  void openObject(const MyMoneyObject& obj);
-
-  /**
-    * This signal is emitted whenever the view is about to be shown.
-    */
-  void aboutToShow();
+  void showEvent(QShowEvent * event) override;
 
 private:
-  bool                                m_haveUnusedCategories;
+  Q_DECLARE_PRIVATE(KAccountsView)
 
-  AccountsViewFilterProxyModel        *m_filterProxyModel;
+private Q_SLOTS:
+  void slotUnusedIncomeExpenseAccountHidden();
+  void slotNewAccount();
+  void slotEditAccount();
+  void slotDeleteAccount();
+  void slotCloseAccount();
+  void slotReopenAccount();
+  void slotChartAccountBalance();
+  void slotNewCategory();
+  void slotNewPayee(const QString& nameBase, QString& id);
+  void slotAccountMapOnline();
+  void slotAccountUnmapOnline();
+  void slotAccountUpdateOnline();
+  void slotAccountUpdateOnlineAll();
 };
 
 #endif

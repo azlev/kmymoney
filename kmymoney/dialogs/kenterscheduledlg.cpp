@@ -1,19 +1,20 @@
-/***************************************************************************
-                          kenterscheduledlg.cpp
-                             -------------------
-    begin                : Sat Apr  7 2007
-    copyright            : (C) 2007 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2012  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kenterscheduledlg.h"
 
@@ -23,138 +24,190 @@
 #include <QTimer>
 #include <QWidget>
 #include <QLabel>
-#include <QResizeEvent>
 #include <QPushButton>
 #include <QIcon>
+#include <QWindow>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kmessagebox.h>
-#include <kstandardguiitem.h>
-#include <khelpclient.h>
+#include <KMessageBox>
+#include <KHelpClient>
 #include <KLocalizedString>
+#include <KGuiItem>
+#include <KStandardGuiItem>
+#include <KSharedConfig>
+#include <KWindowConfig>
+#include <KConfigGroup>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "kcurrencycalculator.h"
-#include <register.h>
-#include <transactionform.h>
-#include <transaction.h>
-#include <transactioneditor.h>
-#include <kmymoneyutils.h>
-#include <mymoneyfinancialcalculator.h>
-#include <kmymoneylineedit.h>
-#include <kmymoneycategory.h>
-#include <kmymoneyaccountselector.h>
-#include <kmymoneydateinput.h>
-#include <kmymoneyglobalsettings.h>
-#include <KGuiItem>
-#include <KStandardGuiItem>
+#include "ui_kenterscheduledlg.h"
 
-#include "kmymoney.h"
+#include "tabbar.h"
+#include "mymoneysplit.h"
+#include "mymoneytransaction.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "mymoneymoney.h"
+#include "mymoneyschedule.h"
+#include "register.h"
+#include "transactionform.h"
+#include "transaction.h"
+#include "selectedtransactions.h"
+#include "transactioneditor.h"
+#include "kmymoneyutils.h"
+#include "kmymoneylineedit.h"
+#include "kmymoneydateinput.h"
+#include "knewaccountdlg.h"
+#include "knewinvestmentwizard.h"
+#include "mymoneyexception.h"
+#include "icons/icons.h"
+#include "mymoneyenums.h"
+#include "dialogenums.h"
+#include "widgetenums.h"
 
-class KEnterScheduleDlg::Private
+using namespace Icons;
+
+class KEnterScheduleDlgPrivate
 {
-public:
-  Private() : m_item(0), m_showWarningOnce(true) {}
-  ~Private() {}
+  Q_DISABLE_COPY(KEnterScheduleDlgPrivate)
 
+public:
+  KEnterScheduleDlgPrivate() :
+    ui(new Ui::KEnterScheduleDlg),
+    m_item(nullptr),
+    m_showWarningOnce(true),
+    m_extendedReturnCode(eDialogs::ScheduleResultCode::Cancel)
+  {
+  }
+
+  ~KEnterScheduleDlgPrivate()
+  {
+    delete ui;
+  }
+
+  Ui::KEnterScheduleDlg         *ui;
   MyMoneySchedule                m_schedule;
   KMyMoneyRegister::Transaction* m_item;
   QWidgetList                    m_tabOrderWidgets;
   bool                           m_showWarningOnce;
-  KMyMoneyUtils::EnterScheduleResultCodeE m_extendedReturnCode;
+  eDialogs::ScheduleResultCode m_extendedReturnCode;
 };
 
 KEnterScheduleDlg::KEnterScheduleDlg(QWidget *parent, const MyMoneySchedule& schedule) :
-    KEnterScheduleDlgDecl(parent),
-    d(new Private)
+  QDialog(parent),
+  d_ptr(new KEnterScheduleDlgPrivate)
 {
+  Q_D(KEnterScheduleDlg);
+
+  // restore the last used dialog size
+  winId(); // needs to be called to create the QWindow
+  KConfigGroup grp = KSharedConfig::openConfig()->group("KEnterScheduleDlg");
+  if (grp.isValid()) {
+    KWindowConfig::restoreWindowSize(windowHandle(), grp);
+  }
+  // let the minimum size be 780x410
+  resize(QSize(780, 410).expandedTo(windowHandle() ? windowHandle()->size() : QSize()));
+
+  d->ui->setupUi(this);
   d->m_schedule = schedule;
-  d->m_extendedReturnCode = KMyMoneyUtils::Enter;
-  buttonOk->setIcon(QIcon::fromTheme("key-enter"));
-  buttonSkip->setIcon(QIcon::fromTheme("media-seek-forward"));
-  KGuiItem::assign(buttonCancel, KStandardGuiItem::cancel());
-  KGuiItem::assign(buttonHelp, KStandardGuiItem::help());
-  buttonIgnore->setHidden(true);
-  buttonSkip->setHidden(true);
+  d->m_extendedReturnCode = eDialogs::ScheduleResultCode::Enter;
+  d->ui->buttonOk->setIcon(Icons::get(Icon::KeyEnter));
+  d->ui->buttonSkip->setIcon(Icons::get(Icon::MediaSeekForward));
+  KGuiItem::assign(d->ui->buttonCancel, KStandardGuiItem::cancel());
+  KGuiItem::assign(d->ui->buttonHelp, KStandardGuiItem::help());
+  d->ui->buttonIgnore->setHidden(true);
+  d->ui->buttonSkip->setHidden(true);
 
   // make sure, we have a tabbar with the form
-  KMyMoneyTransactionForm::TabBar* tabbar = m_form->tabBar(m_form->parentWidget());
+  KMyMoneyTransactionForm::TabBar* tabbar = d->ui->m_form->getTabBar(d->ui->m_form->parentWidget());
 
   // we never need to see the register
-  m_register->hide();
+  d->ui->m_register->hide();
 
   // ... setup the form ...
-  m_form->setupForm(d->m_schedule.account());
+  d->ui->m_form->setupForm(d->m_schedule.account());
 
   // ... and the register ...
-  m_register->clear();
+  d->ui->m_register->clear();
 
   // ... now add the transaction to register and form ...
   MyMoneyTransaction t = transaction();
-  d->m_item = KMyMoneyRegister::Register::transactionFactory(m_register, t,
+  d->m_item = KMyMoneyRegister::Register::transactionFactory(d->ui->m_register, t,
               d->m_schedule.transaction().splits().isEmpty() ? MyMoneySplit() : d->m_schedule.transaction().splits().front(), 0);
-  m_register->selectItem(d->m_item);
+  d->ui->m_register->selectItem(d->m_item);
   // show the account row
   d->m_item->setShowRowInForm(0, true);
 
-  m_form->slotSetTransaction(d->m_item);
+  d->ui->m_form->slotSetTransaction(d->m_item);
 
   // no need to see the tabbar
   tabbar->hide();
 
   // setup name and type
-  m_scheduleName->setText(d->m_schedule.name());
-  m_type->setText(KMyMoneyUtils::scheduleTypeToString(d->m_schedule.type()));
+  d->ui->m_scheduleName->setText(d->m_schedule.name());
+  d->ui->m_type->setText(KMyMoneyUtils::scheduleTypeToString(d->m_schedule.type()));
 
-  connect(buttonHelp, SIGNAL(clicked()), this, SLOT(slotShowHelp()));
-  connect(buttonIgnore, SIGNAL(clicked()), this, SLOT(slotIgnore()));
-  connect(buttonSkip, SIGNAL(clicked()), this, SLOT(slotSkip()));
+  connect(d->ui->buttonHelp, &QAbstractButton::clicked, this, &KEnterScheduleDlg::slotShowHelp);
+  connect(d->ui->buttonIgnore, &QAbstractButton::clicked, this, &KEnterScheduleDlg::slotIgnore);
+  connect(d->ui->buttonSkip, &QAbstractButton::clicked, this, &KEnterScheduleDlg::slotSkip);
 }
 
 KEnterScheduleDlg::~KEnterScheduleDlg()
 {
+  Q_D(KEnterScheduleDlg);
+
+  // store the last used dialog size
+  KConfigGroup grp = KSharedConfig::openConfig()->group("KEnterScheduleDlg");
+  if (grp.isValid()) {
+    KWindowConfig::saveWindowSize(windowHandle(), grp);
+  }
+
   delete d;
 }
 
-KMyMoneyUtils::EnterScheduleResultCodeE KEnterScheduleDlg::resultCode() const
+eDialogs::ScheduleResultCode KEnterScheduleDlg::resultCode() const
 {
+  Q_D(const KEnterScheduleDlg);
   if (result() == QDialog::Accepted)
     return d->m_extendedReturnCode;
-  return KMyMoneyUtils::Cancel;
+  return eDialogs::ScheduleResultCode::Cancel;
 }
 
 void KEnterScheduleDlg::showExtendedKeys(bool visible)
 {
-  buttonIgnore->setVisible(visible);
-  buttonSkip->setVisible(visible);
+  Q_D(KEnterScheduleDlg);
+  d->ui->buttonIgnore->setVisible(visible);
+  d->ui->buttonSkip->setVisible(visible);
 }
 
 void KEnterScheduleDlg::slotIgnore()
 {
-  d->m_extendedReturnCode = KMyMoneyUtils::Ignore;
+  Q_D(KEnterScheduleDlg);
+  d->m_extendedReturnCode = eDialogs::ScheduleResultCode::Ignore;
   accept();
 }
 
 void KEnterScheduleDlg::slotSkip()
 {
-  d->m_extendedReturnCode = KMyMoneyUtils::Skip;
+  Q_D(KEnterScheduleDlg);
+  d->m_extendedReturnCode = eDialogs::ScheduleResultCode::Skip;
   accept();
 }
 
 MyMoneyTransaction KEnterScheduleDlg::transaction()
 {
-  MyMoneyTransaction t = d->m_schedule.transaction();
+  Q_D(KEnterScheduleDlg);
+  auto t = d->m_schedule.transaction();
 
   try {
-    if (d->m_schedule.type() == MyMoneySchedule::TYPE_LOANPAYMENT) {
+    if (d->m_schedule.type() == eMyMoney::Schedule::Type::LoanPayment) {
       KMyMoneyUtils::calculateAutoLoan(d->m_schedule, t, QMap<QString, MyMoneyMoney>());
     }
   } catch (const MyMoneyException &e) {
-    KMessageBox::detailedError(this, i18n("Unable to load schedule details"), e.what());
+    KMessageBox::detailedError(this, i18n("Unable to load schedule details"), QString::fromLatin1(e.what()));
   }
 
   t.clearId();
@@ -164,17 +217,19 @@ MyMoneyTransaction KEnterScheduleDlg::transaction()
 
 QDate KEnterScheduleDlg::date(const QDate& _date) const
 {
-  QDate date(_date);
+  Q_D(const KEnterScheduleDlg);
+  auto date(_date);
   return d->m_schedule.adjustedDate(date, d->m_schedule.weekendOption());
 }
 
 void KEnterScheduleDlg::resizeEvent(QResizeEvent* ev)
 {
-  m_register->resize(KMyMoneyRegister::DetailColumn);
-  m_form->resize(KMyMoneyTransactionForm::ValueColumn1);
-  KEnterScheduleDlgDecl::resizeEvent(ev);
+  Q_UNUSED(ev)
+  Q_D(KEnterScheduleDlg);
+  d->ui->m_register->resize((int)eWidgets::eTransaction::Column::Detail);
+  d->ui->m_form->resize((int)eWidgets::eTransactionForm::Column::Value1);
+  QDialog::resizeEvent(ev);
 }
-
 
 void KEnterScheduleDlg::slotSetupSize()
 {
@@ -183,23 +238,26 @@ void KEnterScheduleDlg::slotSetupSize()
 
 int KEnterScheduleDlg::exec()
 {
+  Q_D(KEnterScheduleDlg);
   if (d->m_showWarningOnce) {
     d->m_showWarningOnce = false;
-    KMessageBox::information(this, QString("<qt>") + i18n("<p>Please check that all the details in the following dialog are correct and press OK.</p><p>Editable data can be changed and can either be applied to just this occurrence or for all subsequent occurrences for this schedule.  (You will be asked what you intend after pressing OK in the following dialog)</p>") + QString("</qt>"), i18n("Enter scheduled transaction"), "EnterScheduleDlgInfo");
+    KMessageBox::information(parentWidget(), QString("<qt>") + i18n("<p>Please check that all the details in the following dialog are correct and press OK.</p><p>Editable data can be changed and can either be applied to just this occurrence or for all subsequent occurrences for this schedule.  (You will be asked what you intend after pressing OK in the following dialog)</p>") + QString("</qt>"), i18n("Enter scheduled transaction"), "EnterScheduleDlgInfo");
   }
 
   // force the initial height to be as small as possible
   QTimer::singleShot(0, this, SLOT(slotSetupSize()));
-
-  return KEnterScheduleDlgDecl::exec();
+  return QDialog::exec();
 }
 
 TransactionEditor* KEnterScheduleDlg::startEdit()
 {
-  KMyMoneyRegister::SelectedTransactions list(m_register);
-  TransactionEditor* editor = d->m_item->createEditor(m_form, list, QDate());
-  editor->m_scheduleInfo = d->m_schedule.name();
-  editor->m_paymentMethod = d->m_schedule.paymentType();
+  Q_D(KEnterScheduleDlg);
+  KMyMoneyRegister::SelectedTransactions list(d->ui->m_register);
+  auto editor = d->m_item->createEditor(d->ui->m_form, list, QDate());
+  if (editor) {
+    editor->setScheduleInfo(d->m_schedule.name());
+    editor->setPaymentMethod(d->m_schedule.paymentType());
+  }
 
   // check that we use the same transaction commodity in all selected transactions
   // if not, we need to update this in the editor's list. The user can also bail out
@@ -214,34 +272,30 @@ TransactionEditor* KEnterScheduleDlg::startEdit()
   }
 
   if (editor) {
-    connect(editor, SIGNAL(transactionDataSufficient(bool)), buttonOk, SLOT(setEnabled(bool)));
-    connect(editor, SIGNAL(escapePressed()), buttonCancel, SLOT(animateClick()));
-    connect(editor, SIGNAL(returnPressed()), buttonOk, SLOT(animateClick()));
+    connect(editor, &TransactionEditor::transactionDataSufficient, d->ui->buttonOk, &QWidget::setEnabled);
+    connect(editor, &TransactionEditor::escapePressed, d->ui->buttonCancel, &QAbstractButton::animateClick);
+    connect(editor, &TransactionEditor::returnPressed, d->ui->buttonOk, &QAbstractButton::animateClick);
 
-    connect(MyMoneyFile::instance(), SIGNAL(dataChanged()), editor, SLOT(slotReloadEditWidgets()));
+    connect(MyMoneyFile::instance(), &MyMoneyFile::dataChanged, editor, &TransactionEditor::slotReloadEditWidgets);
     // connect(editor, SIGNAL(finishEdit(KMyMoneyRegister::SelectedTransactions)), this, SLOT(slotLeaveEditMode(KMyMoneyRegister::SelectedTransactions)));
-    connect(editor, SIGNAL(createPayee(QString,QString&)), kmymoney, SLOT(slotPayeeNew(QString,QString&)));
-    connect(editor, SIGNAL(createTag(QString,QString&)), kmymoney, SLOT(slotTagNew(QString,QString&)));
-    connect(editor, SIGNAL(createCategory(MyMoneyAccount&,MyMoneyAccount)), kmymoney, SLOT(slotCategoryNew(MyMoneyAccount&,MyMoneyAccount)));
-    connect(editor, SIGNAL(createSecurity(MyMoneyAccount&,MyMoneyAccount)), kmymoney, SLOT(slotInvestmentNew(MyMoneyAccount&,MyMoneyAccount)));
-    connect(MyMoneyFile::instance(), SIGNAL(dataChanged()), editor, SLOT(slotReloadEditWidgets()));
+    connect(MyMoneyFile::instance(), &MyMoneyFile::dataChanged, editor, &TransactionEditor::slotReloadEditWidgets);
 
     // create the widgets, place them in the parent and load them with data
     // setup tab order
     d->m_tabOrderWidgets.clear();
-    KMyMoneyRegister::Action action = KMyMoneyRegister::ActionWithdrawal;
+    eWidgets::eRegister::Action action = eWidgets::eRegister::Action::Withdrawal;
     switch (d->m_schedule.type()) {
-      case MyMoneySchedule::TYPE_TRANSFER:
-        action = KMyMoneyRegister::ActionTransfer;
+      case eMyMoney::Schedule::Type::Transfer:
+        action = eWidgets::eRegister::Action::Transfer;
         break;
-      case MyMoneySchedule::TYPE_DEPOSIT:
-        action = KMyMoneyRegister::ActionDeposit;
+      case eMyMoney::Schedule::Type::Deposit:
+        action = eWidgets::eRegister::Action::Deposit;
         break;
-      case MyMoneySchedule::TYPE_LOANPAYMENT:
+      case eMyMoney::Schedule::Type::LoanPayment:
         switch (d->m_schedule.paymentType()) {
-          case MyMoneySchedule::STYPE_DIRECTDEPOSIT:
-          case MyMoneySchedule::STYPE_MANUALDEPOSIT:
-            action = KMyMoneyRegister::ActionDeposit;
+          case eMyMoney::Schedule::PaymentType::DirectDeposit:
+          case eMyMoney::Schedule::PaymentType::ManualDeposit:
+            action = eWidgets::eRegister::Action::Deposit;
             break;
           default:
             break;
@@ -255,23 +309,18 @@ TransactionEditor* KEnterScheduleDlg::startEdit()
     MyMoneyTransaction t = d->m_schedule.transaction();
     QString num = t.splits().first().number();
     QWidget* w = editor->haveWidget("number");
-    if (d->m_schedule.paymentType() == MyMoneySchedule::STYPE_WRITECHEQUE) {
-      MyMoneyFile* file = MyMoneyFile::instance();
-      if (file->checkNoUsed(d->m_schedule.account().id(), num)) {
-        //  increment and try again
-        num = KMyMoneyUtils::getAdjacentNumber(num);
-      }
-      num = KMyMoneyUtils::nextCheckNumber(d->m_schedule.account());
-      KMyMoneyUtils::updateLastNumberUsed(d->m_schedule.account(), num);
+    if (d->m_schedule.paymentType() == eMyMoney::Schedule::PaymentType::WriteChecque) {
+      num = KMyMoneyUtils::nextFreeCheckNumber(d->m_schedule.account());
       d->m_schedule.account().setValue("lastNumberUsed", num);
-      if (w) {
-        dynamic_cast<kMyMoneyLineEdit*>(w)->loadText(num);
-      }
+      if (w)
+        if (auto numberWidget = dynamic_cast<KMyMoneyLineEdit*>(w))
+          numberWidget->loadText(num);
     } else {
       // if it's not a check, then we need to clear
       // a possibly assigned check number
       if (w)
-        dynamic_cast<kMyMoneyLineEdit*>(w)->loadText(QString());
+        if (auto numberWidget = dynamic_cast<KMyMoneyLineEdit*>(w))
+          numberWidget->loadText(QString());
     }
 
     Q_ASSERT(!d->m_tabOrderWidgets.isEmpty());
@@ -288,12 +337,12 @@ TransactionEditor* KEnterScheduleDlg::startEdit()
     }
 
     // don't forget our three buttons
-    d->m_tabOrderWidgets.append(buttonOk);
-    d->m_tabOrderWidgets.append(buttonCancel);
-    d->m_tabOrderWidgets.append(buttonHelp);
+    d->m_tabOrderWidgets.append(d->ui->buttonOk);
+    d->m_tabOrderWidgets.append(d->ui->buttonCancel);
+    d->m_tabOrderWidgets.append(d->ui->buttonHelp);
 
-    for (int i = 0; i < d->m_tabOrderWidgets.size(); ++i) {
-      QWidget* w = d->m_tabOrderWidgets.at(i);
+    for (auto i = 0; i < d->m_tabOrderWidgets.size(); ++i) {
+      w = d->m_tabOrderWidgets.at(i);
       if (w) {
         w->installEventFilter(this);
         w->installEventFilter(editor);
@@ -307,10 +356,8 @@ TransactionEditor* KEnterScheduleDlg::startEdit()
     focusWidget->setFocus();
 
     // Make sure, we use the adjusted date
-    kMyMoneyDateInput* dateEdit = dynamic_cast<kMyMoneyDateInput*>(editor->haveWidget("postdate"));
-    if (dateEdit) {
+    if (auto dateEdit = dynamic_cast<KMyMoneyDateInput*>(editor->haveWidget("postdate")))
       dateEdit->setDate(d->m_schedule.adjustedNextDueDate());
-    }
   }
 
   return editor;
@@ -318,10 +365,10 @@ TransactionEditor* KEnterScheduleDlg::startEdit()
 
 bool KEnterScheduleDlg::focusNextPrevChild(bool next)
 {
-  bool rc = false;
-  QWidget *w = 0;
+  Q_D(KEnterScheduleDlg);
+  auto rc = false;
 
-  w = qApp->focusWidget();
+  auto w = qApp->focusWidget();
   int currentWidgetIndex = d->m_tabOrderWidgets.indexOf(w);
   while (w && currentWidgetIndex == -1) {
     // qDebug("'%s' not in list, use parent", w->className());

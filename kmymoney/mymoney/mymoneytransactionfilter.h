@@ -1,122 +1,66 @@
-/***************************************************************************
-                          mymoneytransactionfilter.h  -  description
-                             -------------------
-    begin                : Fri Aug 22 2003
-    copyright            : (C) 2000-2003 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2019  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2004       Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2008-2010  Alvaro Soliverez <asoliverez@gmail.com>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYTRANSACTIONFILTER_H
 #define MYMONEYTRANSACTIONFILTER_H
 
+#include "kmm_mymoney_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QDateTime>
-#include <QHash>
-#include <QList>
-#include <QMap>
-#include <QRegExp>
+#include <QMetaType>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneytransaction.h"
-#include "kmm_mymoney_export.h"
+class QString;
+class QDate;
+
+template <typename T> class QList;
+
+class MyMoneyMoney;
+class MyMoneySplit;
+class MyMoneyAccount;
+
+namespace eMyMoney { namespace TransactionFilter { enum class Date;
+                                                   enum class Validity; } }
 
 /**
   * @author Thomas Baumgart
+  * @author Łukasz Wojniłowicz
   */
 
+class MyMoneyTransaction;
+class MyMoneyTransactionFilterPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyTransactionFilter
 {
+  Q_DECLARE_PRIVATE(MyMoneyTransactionFilter)
+
+protected:
+  MyMoneyTransactionFilterPrivate* d_ptr;  // name shouldn't colide with the one in mymoneyreport.h
+
 public:
-  // Make sure to keep the following enum valus in sync with the values
-  // used by the GUI (for KMyMoney in kfindtransactiondlgdecl.ui)
-  enum typeOptionE {
-    allTypes = 0,
-    payments,
-    deposits,
-    transfers,
-    // insert new constants above of this line
-    typeOptionCount
-  };
-
-  // Make sure to keep the following enum valus in sync with the values
-  // used by the GUI (for KMyMoney in kfindtransactiondlgdecl.ui)
-  enum stateOptionE {
-    allStates = 0,
-    notReconciled,
-    cleared,
-    reconciled,
-    frozen,
-    // insert new constants above of this line
-    stateOptionCount
-  };
-
-  // Make sure to keep the following enum valus in sync with the values
-  // used by the GUI (for KMyMoney in kfindtransactiondlgdecl.ui)
-  enum validityOptionE {
-    anyValidity = 0,
-    valid,
-    invalid,
-    // insert new constants above of this line
-    validityOptionCount
-  };
-
-  // Make sure to keep the following enum valus in sync with the values
-  // used by the GUI (for KMyMoney in kfindtransactiondlgdecl.ui)
-  enum dateOptionE {
-    allDates = 0,
-    asOfToday,
-    currentMonth,
-    currentYear,
-    monthToDate,
-    yearToDate,
-    yearToMonth,
-    lastMonth,
-    lastYear,
-    last7Days,
-    last30Days,
-    last3Months,
-    last6Months,
-    last12Months,
-    next7Days,
-    next30Days,
-    next3Months,
-    next6Months,
-    next12Months,
-    userDefined,
-    last3ToNext3Months,
-    last11Months,
-    currentQuarter,
-    lastQuarter,
-    nextQuarter,
-    currentFiscalYear,
-    lastFiscalYear,
-    today,
-    next18Months,
-    // insert new constants above of this line
-    dateOptionCount
-  };
-
   typedef union {
     unsigned  allFilter;
     struct {
@@ -157,9 +101,14 @@ public:
     *
     * @param id reference to account id
     */
-  MyMoneyTransactionFilter(const QString& id);
+  explicit MyMoneyTransactionFilter(const QString& id);
 
-  ~MyMoneyTransactionFilter();
+  MyMoneyTransactionFilter(const MyMoneyTransactionFilter & other);
+  MyMoneyTransactionFilter(MyMoneyTransactionFilter && other);
+  MyMoneyTransactionFilter & operator=(MyMoneyTransactionFilter other);
+  friend void swap(MyMoneyTransactionFilter& first, MyMoneyTransactionFilter& second);
+
+  virtual ~MyMoneyTransactionFilter();
 
   /**
     * This method is used to clear the filter. All settings will be
@@ -230,7 +179,7 @@ public:
     */
   void setDateFilter(const QDate& from, const QDate& to);
 
-  void setDateFilter(dateOptionE range);
+  void setDateFilter(eMyMoney::TransactionFilter::Date range);
 
   /**
     * This method sets the amount filter to match only transactions with
@@ -287,8 +236,9 @@ public:
   /**
     * This method is used to check a specific transaction against the filter.
     * The transaction will match the whole filter, if all specified filters
-    * match. If the filter is cleared using the clear() method, any transaciton
-    * matches.
+    * match. If the filter is cleared using the clear() method, any transaction
+    * matches. Matching splits from the transaction are returned by @ref
+    * matchingSplits().
     *
     * @param transaction A transaction
     *
@@ -310,7 +260,7 @@ public:
     * @retval false The split does not match at least one of
     *               the filters in the filter set
     */
-  bool matchText(const MyMoneySplit * const sp) const;
+  bool matchText(const MyMoneySplit& s, const MyMoneyAccount &acc) const;
 
   /**
     * This method is used to check a specific split against the
@@ -318,18 +268,18 @@ public:
     * checked filters match. If the filter is cleared using the clear()
     * method, any split matches.
     *
-    * @param sp pointer to the split to be checked
+    * @param sp const reference to the split to be checked
     *
     * @retval true The split matches the filter set
     * @retval false The split does not match at least one of
     *               the filters in the filter set
     */
-  bool matchAmount(const MyMoneySplit * const sp) const;
+  bool matchAmount(const MyMoneySplit& s) const;
 
   /**
    * Convenience method which actually returns matchText(sp) && matchAmount(sp).
    */
-  bool match(const MyMoneySplit * const sp) const;
+  bool match(const MyMoneySplit& s) const;
 
   /**
     * This method is used to switch the amount of splits reported
@@ -344,6 +294,13 @@ public:
   void setReportAllSplits(const bool report = true);
 
   void setConsiderCategory(const bool check = true);
+
+  /**
+   * This method is to avoid returning matching splits list
+   * if only its count is needed
+   * @return count of matching splits
+   */
+  uint matchingSplitsCount(const MyMoneyTransaction& transaction);
 
   /**
     * This method returns a list of the matching splits for the filter.
@@ -363,7 +320,7 @@ public:
     *       see the documentation of the constructors MyMoneyTransactionFilter()
     *       and MyMoneyTransactionFilter(const QString&) for details.
     */
-  const QList<MyMoneySplit>& matchingSplits() const;
+  QVector<MyMoneySplit> matchingSplits(const MyMoneyTransaction& transaction);
 
   /**
     * This method returns the from date set in the filter. If
@@ -372,9 +329,7 @@ public:
     *
     * @return returns m_fromDate
     */
-  const QDate fromDate() const {
-    return m_fromDate;
-  };
+  QDate fromDate() const;
 
   /**
     * This method returns the to date set in the filter. If
@@ -383,9 +338,7 @@ public:
     *
     * @return returns m_toDate
     */
-  const QDate toDate() const {
-    return m_toDate;
-  };
+  QDate toDate() const;
 
   /**
     * This method is used to return information about the
@@ -518,6 +471,18 @@ public:
   bool firstState(int& i) const;
 
   bool states(QList<int>& list) const;
+
+  /**
+    * This method returns whether a validity filter has been set,
+    * and if so, it returns the first validity in the filter.
+    *
+    * @param i reference to int to replace with first validity filter, untouched otherwise
+    * @return return true if a validity filter has been set
+    */
+  bool firstValidity(int& i) const;
+
+  bool validities(QList<int>& list) const;
+
   /**
     * This method returns whether a text filter has been set,
     * and if so, it returns the text filter.
@@ -531,9 +496,7 @@ public:
    * This method returns whether the text filter should return
    * that DO NOT contain the text
    */
-  bool isInvertingText() const {
-    return m_invertText;
-  };
+  bool isInvertingText() const;
 
   /**
     * This method translates a plain-language date range into QDate
@@ -544,13 +507,11 @@ public:
     * @param end QDate will be set to corresponding to the last date in @p range
     * @return return true if a range was successfully set, or false if @p range was invalid
     */
-  static bool translateDateRange(dateOptionE range, QDate& start, QDate& end);
+  static bool translateDateRange(eMyMoney::TransactionFilter::Date range, QDate& start, QDate& end);
 
   static void setFiscalYearStart(int firstMonth, int firstDay);
 
-  FilterSet filterSet() const {
-    return m_filterSet;
-  };
+  FilterSet filterSet() const;
 
   /**
     * This member removes all references to object identified by @p id. Used
@@ -560,7 +521,7 @@ public:
 
 private:
   /**
-    * This is a conversion tool from MyMoneySplit::reconcileFlagE
+    * This is a conversion tool from eMyMoney::Split::State
     * to MyMoneyTransactionFilter::stateE types
     *
     * @param split reference to split in question
@@ -578,7 +539,7 @@ private:
     *
     * @return converted action of the split passed as parameter
     */
-  int splitType(const MyMoneyTransaction& t, const MyMoneySplit& split) const;
+  int splitType(const MyMoneyTransaction& t, const MyMoneySplit& split, const MyMoneyAccount &acc) const;
 
   /**
     * This method checks if a transaction is valid or not. A transaction
@@ -588,27 +549,25 @@ private:
     * @retval valid transaction is valid
     * @retval invalid transaction is invalid
     */
-  validityOptionE validTransaction(const MyMoneyTransaction& transaction) const;
-
-protected:
-  FilterSet           m_filterSet;
-  bool                m_reportAllSplits;
-  bool                m_considerCategory;
-
-  QRegExp             m_text;
-  bool                m_invertText;
-  QHash<QString, QString>    m_accounts;
-  QHash<QString, QString>    m_payees;
-  QHash<QString, QString>    m_tags;
-  QHash<QString, QString>    m_categories;
-  QHash<int, QString>      m_states;
-  QHash<int, QString>      m_types;
-  QHash<int, QString>      m_validity;
-  QString             m_fromNr, m_toNr;
-  QDate               m_fromDate, m_toDate;
-  MyMoneyMoney        m_fromAmount, m_toAmount;
-  QList<MyMoneySplit> m_matchingSplits;
+  eMyMoney::TransactionFilter::Validity validTransaction(const MyMoneyTransaction& transaction) const;
 };
+
+inline void swap(MyMoneyTransactionFilter& first, MyMoneyTransactionFilter& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
+}
+
+inline MyMoneyTransactionFilter::MyMoneyTransactionFilter(MyMoneyTransactionFilter && other) : MyMoneyTransactionFilter() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyTransactionFilter & MyMoneyTransactionFilter::operator=(MyMoneyTransactionFilter other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 /**
   * Make it possible to hold @ref MyMoneyTransactionFilter objects inside @ref QVariant objects.

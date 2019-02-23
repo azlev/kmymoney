@@ -24,19 +24,16 @@
 #include <QDomDocument>
 #include <QDomNode>
 #include <QUrl>
-#include <QSaveFile>
+#include <QMap>
 
-class QFile;
 class QTreeWidgetItem;
+class QSaveFile;
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
-
-#include "mymoneyaccount.h"
-#include "mymoneyfile.h"
 
 /**
   * @author Thomas Baumgart
@@ -48,6 +45,7 @@ class QTreeWidgetItem;
   * the current engine. Also, it can save the current account structure
   * of the engine to an XML formatted template file.
   */
+class MyMoneyAccount;
 class MyMoneyTemplate
 {
 public:
@@ -63,6 +61,10 @@ public:
   const QString& title() const;
   const QString& shortDescription() const;
   const QString& longDescription() const;
+
+  void setTitle(const QString &s);
+  void setShortDescription(const QString &s);
+  void setLongDescription(const QString &s);
 
   void hierarchy(QMap<QString, QTreeWidgetItem*>& list);
 
@@ -91,6 +93,7 @@ private:
   QUrl            m_source;
   void (*m_progressCallback)(int, int, const QString&);
   int             m_accountsRead;
+  QMap<QString,QString> m_vatAccountMap;
 };
 
 #endif

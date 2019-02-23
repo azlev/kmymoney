@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2013-2015 Christian Dávid <christian-david@web.de>
+ * Copyright 2013-2015  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,3 +27,27 @@ onlineJobFolder::onlineJobFolder(const onlineJobFolders& folder) :
 {
 }
 
+onlineJobFolder::onlineJobFolder(const onlineJobFolder &other)
+    : m_folder(other.m_folder)
+{
+}
+
+onlineJobFolder onlineJobFolder::outbox()
+{
+  return onlineJobFolder(folderOutbox);
+}
+
+onlineJobFolder onlineJobFolder::drafts()
+{
+  return onlineJobFolder(folderDrafts);
+}
+
+onlineJobFolder onlineJobFolder::templates()
+{
+  return onlineJobFolder(folderTemplates);
+}
+
+onlineJobFolder onlineJobFolder::historic()
+{
+  return onlineJobFolder(folderHistoric);
+}

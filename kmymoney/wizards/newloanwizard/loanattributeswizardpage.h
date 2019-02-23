@@ -29,45 +29,40 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_loanattributeswizardpagedecl.h"
+namespace Ui { class LoanAttributesWizardPage; }
 
 /**
  * This class implements the Loan Attributes page of the
  * @ref KNewLoanWizard.
  */
-class LoanAttributesWizardPageDecl : public QWizardPage, public Ui::LoanAttributesWizardPageDecl
-{
-public:
-  LoanAttributesWizardPageDecl(QWidget *parent) : QWizardPage(parent) {
-    setupUi(this);
-  }
-};
 
-class LoanAttributesWizardPage : public LoanAttributesWizardPageDecl
+class LoanAttributesWizardPage : public QWizardPage
 {
   Q_OBJECT
 public:
-  explicit LoanAttributesWizardPage(QWidget *parent = 0);
+  explicit LoanAttributesWizardPage(QWidget *parent = nullptr);
+  ~LoanAttributesWizardPage();
 
   /**
    * Overload the isComplete function to control the Next button
    */
-  bool isComplete() const;
+  bool isComplete() const final override;
 
   /**
    * Overload the initializePage function to set widgets based on
    * the inputs from previous pages.
    */
-  void initializePage();
+  void initializePage() final override;
 
   /**
    * Set the institution combobox to the name given
    */
   void setInstitution(const QString &institutionName);
 
-protected slots:
-  void slotNewClicked();
+  Ui::LoanAttributesWizardPage *ui;
 
+protected Q_SLOTS:
+  void slotNewClicked();
 };
 
 #endif

@@ -3,29 +3,24 @@ set (libsettings_a_SOURCES
   ksettingscolors.cpp
   ksettingsfonts.cpp
   ksettingsicons.cpp
-  ksettingsforecast.cpp
   ksettingsgeneral.cpp
-  ksettingsgpg.cpp
   ksettingshome.cpp
   ksettingsonlinequotes.cpp
   ksettingsregister.cpp
   ksettingsschedules.cpp
-  ksettingsreports.cpp
   ksettingskmymoney.cpp
+  ksettingsplugins.cpp
   )
 
 set (libsettings_a_UI
-  ksettingscolorsdecl.ui
-  ksettingsfontsdecl.ui
-  ksettingsiconsdecl.ui
-  ksettingsforecastdecl.ui
-  ksettingsgeneraldecl.ui
-  ksettingsgpgdecl.ui
-  ksettingshomedecl.ui
-  ksettingsonlinequotesdecl.ui
-  ksettingsregisterdecl.ui
-  ksettingsschedulesdecl.ui
-  ksettingsreportsdecl.ui
+  ksettingscolors.ui
+  ksettingsfonts.ui
+  ksettingsicons.ui
+  ksettingsgeneral.ui
+  ksettingshome.ui
+  ksettingsonlinequotes.ui
+  ksettingsregister.ui
+  ksettingsschedules.ui
   )
 
 ki18n_wrap_ui(libsettings_a_SOURCES ${libsettings_a_UI} )
@@ -43,11 +38,10 @@ target_link_libraries(settings PUBLIC
   KF5::KCMUtils
   KF5::ItemViews
   Alkimia::alkimia
-  Qt5::Sql
 )
 
-if (KF5Holidays_FOUND)
+if (ENABLE_HOLIDAYS)
   target_link_libraries(settings PUBLIC KF5::Holidays)
 endif()
 
-add_dependencies(settings widgets kmm_config)
+add_dependencies(settings widgets kmm_settings)

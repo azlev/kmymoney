@@ -1,33 +1,30 @@
-/***************************************************************************
-                          mymoneysecurity.h  -  description
-                             -------------------
-    begin                : Tue Jan 29 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYSECURITY_H
 #define MYMONEYSECURITY_H
 
+#include "kmm_mymoney_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QDateTime>
-#include <QMap>
+#include <QMetaType>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -35,11 +32,13 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneymoney.h>
-#include <mymoneyutils.h>
-#include <mymoneyobject.h>
-#include <mymoneykeyvaluecontainer.h>
+#include <alkimia/alkvalue.h>
+#include "mymoneyobject.h"
+#include "mymoneykeyvaluecontainer.h"
+
+class QString;
+
+namespace eMyMoney { namespace Security { enum class Type; } }
 
 /**
   * Class that holds all the required information about a security that the user
@@ -48,15 +47,36 @@
   *
   * @author Kevin Tambascio
   * @author Thomas Baumgart
+  * @author Łukasz Wojniłowicz
   */
+
+class MyMoneySecurityPrivate;
 class KMM_MYMONEY_EXPORT MyMoneySecurity : public MyMoneyObject, public MyMoneyKeyValueContainer
 {
+  Q_DECLARE_PRIVATE_D(MyMoneyObject::d_ptr, MyMoneySecurity)
+
+  KMM_MYMONEY_UNIT_TESTABLE
+
 public:
   MyMoneySecurity();
-  MyMoneySecurity(const QString& id, const MyMoneySecurity& equity);
-  MyMoneySecurity(const QString& id, const QString& name, const QString& symbol = QString(), const int partsPerUnit = 100, const int smallestCashFraction = 100, const int smallestAccountFraction = 0);
-  MyMoneySecurity(const QDomElement& node);
-  virtual ~MyMoneySecurity();
+  explicit MyMoneySecurity(const QString &id);
+
+  explicit MyMoneySecurity(const QString& id,
+                           const QString& name,
+                           const QString& symbol = QString(),
+                           const int smallestCashFraction = 100,
+                           const int smallestAccountFraction = 0,
+                           const int pricePrecision = 4);
+
+  MyMoneySecurity(const QString& id,
+                  const MyMoneySecurity& other);
+
+  MyMoneySecurity(const MyMoneySecurity & other);
+  MyMoneySecurity(MyMoneySecurity && other);
+  MyMoneySecurity & operator=(MyMoneySecurity other);
+  friend void swap(MyMoneySecurity& first, MyMoneySecurity& second);
+
+  ~MyMoneySecurity();
 
   bool operator < (const MyMoneySecurity&) const;
 
@@ -71,79 +91,36 @@ public:
     *
     * @param r the right side of the comparison
     */
-  bool operator != (const MyMoneySecurity& r) const {
-    return !(*this == r);
-  }
+  bool operator != (const MyMoneySecurity& r) const;
 
-public:
-  typedef enum {
-    SECURITY_STOCK,
-    SECURITY_MUTUALFUND,
-    SECURITY_BOND,
-    SECURITY_CURRENCY,
-    SECURITY_NONE
-  } eSECURITYTYPE;
+  QString name() const;
+  void setName(const QString& str);
 
-  const QString& name() const                 {
-    return m_name;
-  }
-  void           setName(const QString& str)   {
-    m_name = str;
-  }
+  QString tradingSymbol() const;
+  void setTradingSymbol(const QString& str);
 
-  const QString&  tradingSymbol() const               {
-    return m_tradingSymbol;
-  }
-  void            setTradingSymbol(const QString& str) {
-    m_tradingSymbol = str;
-  }
+  eMyMoney::Security::Type securityType() const;
+  void setSecurityType(const eMyMoney::Security::Type s);
 
-  eSECURITYTYPE securityType() const                {
-    return m_securityType;
-  }
-  void          setSecurityType(const eSECURITYTYPE& s)   {
-    m_securityType = s;
-  }
-  bool    isCurrency() const {
-    return m_securityType == SECURITY_CURRENCY;
-  };
+  bool isCurrency() const;
 
-  const QString& tradingMarket() const  {
-    return m_tradingMarket;
-  }
-  void           setTradingMarket(const QString& str) {
-    m_tradingMarket = str;
-  }
+  AlkValue::RoundingMethod roundingMethod() const;
+  void setRoundingMethod(const AlkValue::RoundingMethod rnd);
 
-  const QString& tradingCurrency() const {
-    return m_tradingCurrency;
-  };
-  void           setTradingCurrency(const QString& str) {
-    m_tradingCurrency = str;
-  };
+  QString tradingMarket() const;
+  void setTradingMarket(const QString& str);
 
-  int smallestAccountFraction() const {
-    return m_smallestAccountFraction;
-  };
-  void setSmallestAccountFraction(const int sf) {
-    m_smallestAccountFraction = sf;
-  };
+  QString tradingCurrency() const;
+  void setTradingCurrency(const QString& str);
 
-  int partsPerUnit() const {
-    return m_partsPerUnit;
-  };
-  int smallestCashFraction() const {
-    return m_smallestCashFraction;
-  };
+  int smallestAccountFraction() const;
+  void setSmallestAccountFraction(const int sf);
 
-  void setPartsPerUnit(const int ppu) {
-    m_partsPerUnit = ppu;
-  };
-  void setSmallestCashFraction(const int sf) {
-    m_smallestCashFraction = sf;
-  };
+  int smallestCashFraction() const;
+  void setSmallestCashFraction(const int cf);
 
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
+  int pricePrecision() const;
+  void setPricePrecision(const int pp);
 
   /**
    * This method checks if a reference to the given object exists. It returns,
@@ -154,7 +131,7 @@ public:
    * @retval true This object references object with id @p id.
    * @retval false This object does not reference the object with id @p id.
    */
-  bool hasReferenceTo(const QString& id) const;
+  bool hasReferenceTo(const QString& id) const override;
 
   /**
    * This method is used to convert the internal representation of
@@ -165,24 +142,42 @@ public:
    *
    * @return QString representing the human readable form
    */
-  static QString securityTypeToString(const MyMoneySecurity::eSECURITYTYPE securityType);
+  static QString securityTypeToString(const eMyMoney::Security::Type securityType);
 
-
-protected:
-  QString               m_name;
-  QString               m_tradingSymbol;
-  QString               m_tradingMarket;
-  QString               m_tradingCurrency;
-  eSECURITYTYPE         m_securityType;
-  int                   m_smallestAccountFraction;
-  int                   m_smallestCashFraction;
-  int                   m_partsPerUnit;
+  /**
+   * This method is used to convert the internal representation of
+   * an rounding method into a human readable format
+   *
+   * @param roundingMethod enumerated representation of the rouding method.
+   *                     For possible values, see AlkValue::RoundingMethod
+   *
+   * @return QString representing the human readable form
+   */
+  static QString roundingMethodToString(const AlkValue::RoundingMethod roundingMethod);
 };
+
+inline void swap(MyMoneySecurity& first, MyMoneySecurity& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.MyMoneyObject::d_ptr, second.MyMoneyObject::d_ptr);
+  swap(first.MyMoneyKeyValueContainer::d_ptr, second.MyMoneyKeyValueContainer::d_ptr);
+}
+
+inline MyMoneySecurity::MyMoneySecurity(MyMoneySecurity && other) : MyMoneySecurity() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneySecurity & MyMoneySecurity::operator=(MyMoneySecurity other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
+
 
 /**
   * Make it possible to hold @ref MyMoneySecurity objects inside @ref QVariant objects.
   */
 Q_DECLARE_METATYPE(MyMoneySecurity)
-
 
 #endif

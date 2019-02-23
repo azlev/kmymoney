@@ -8,72 +8,66 @@ set(libdialogs_a_SOURCES
   investtransactioneditor.cpp
   kaccountselectdlg.cpp
   kbackupdlg.cpp
-  kbalancechartdlg.cpp
   kbalancewarning.cpp
   kcategoryreassigndlg.cpp
   kchooseimportexportdlg.cpp
   kconfirmmanualenterdlg.cpp
   kcurrencycalculator.cpp
   kcurrencyeditdlg.cpp
+  kavailablecurrencydlg.cpp
+  kcurrencyeditordlg.cpp
   keditscheduledlg.cpp
   kenterscheduledlg.cpp
   kequitypriceupdatedlg.cpp
-  kexportdlg.cpp
+  kequitypriceupdateconfdlg.cpp
   kfindtransactiondlg.cpp
-  daterangedlg.cpp
-  kgeneratesqldlg.cpp
-  kgncimportoptionsdlg.cpp
-  kgncpricesourcedlg.cpp
-  kgpgkeyselectiondlg.cpp
-  kimportdlg.cpp
   kloadtemplatedlg.cpp
   kmergetransactionsdlg.cpp
   kmymoneyfileinfodlg.cpp
   kmymoneypricedlg.cpp
   kmymoneysplittable.cpp
   knewaccountdlg.cpp
+  hierarchyfilterproxymodel.cpp
   knewbankdlg.cpp
-  knewbudgetdlg.cpp
   knewequityentrydlg.cpp
   editpersonaldatadlg.cpp
   kpayeereassigndlg.cpp
   ktagreassigndlg.cpp
-  kreportconfigurationfilterdlg.cpp
-  kselectdatabasedlg.cpp
   kselecttransactionsdlg.cpp
   ksplittransactiondlg.cpp
+  ktemplateexportdlg.cpp
   kupdatestockpricedlg.cpp
-  mymoneyqifprofileeditor.cpp
   transactioneditor.cpp
+  stdtransactioneditor.cpp
   transactionmatcher.cpp
-  konlinetransferform.cpp
+  ksaveasquestion.cpp
 )
 
 set(dialogs_HEADERS
   splitadjustdialog.h
-  investtransactioneditor.h kcurrencycalculator.h transactioneditor.h
+  investtransactioneditor.h kcurrencycalculator.h transactioneditor.h stdtransactioneditor.h
   )
 
 set(dialogs_UI
   splitadjustdialog.ui
-  kaccountselectdlgdecl.ui kbackupdlgdecl.ui
-  kcategoryreassigndlgdecl.ui kchooseimportexportdlgdecl.ui
-  kconfirmmanualenterdlgdecl.ui
-  kcurrencycalculatordecl.ui kcurrencyeditdlgdecl.ui
-  keditscheduledlgdecl.ui
-  kenterscheduledlgdecl.ui
-  kequitypriceupdatedlgdecl.ui kexportdlgdecl.ui
-  kfindtransactiondlgdecl.ui daterangedlgdecl.ui kgeneratesqldlgdecl.ui kgncimportoptionsdlgdecl.ui
-  kgncpricesourcedlgdecl.ui kimportdlgdecl.ui kloadtemplatedlgdecl.ui
-  kmymoneyfileinfodlgdecl.ui kmymoneypricedlgdecl.ui
-  knewaccountdlgdecl.ui knewbankdlgdecl.ui knewbudgetdlgdecl.ui
-  knewequityentrydecl.ui editpersonaldatadlgdecl.ui kpayeereassigndlgdecl.ui
-  ktagreassigndlgdecl.ui
-  kselectdatabasedlgdecl.ui kselecttransactionsdlgdecl.ui
-  ksortoptiondlg.ui ksplitcorrectiondlg.ui ksplittransactiondlgdecl.ui
-  kupdatestockpricedlgdecl.ui mymoneyqifprofileeditordecl.ui
-  ../widgets/kaccounttemplateselectordecl.ui ../widgets/transactionsortoptiondecl.ui
-  konlinetransferformdecl.ui
+  kaccountselectdlg.ui kbackupdlg.ui
+  kcategoryreassigndlg.ui kchooseimportexportdlg.ui
+  kconfirmmanualenterdlg.ui
+  kcurrencycalculator.ui kcurrencyeditdlg.ui kavailablecurrencydlg.ui kcurrencyeditordlg.ui
+  keditscheduledlg.ui
+  kenterscheduledlg.ui
+  kequitypriceupdatedlg.ui kequitypriceupdateconfdlg.ui
+  kfindtransactiondlg.ui
+  kloadtemplatedlg.ui
+  kmymoneyfileinfodlg.ui kmymoneypricedlg.ui
+  knewaccountdlg.ui knewbankdlg.ui
+  knewequityentrydlg.ui editpersonaldatadlg.ui kpayeereassigndlg.ui
+  ktagreassigndlg.ui
+  kselecttransactionsdlg.ui
+  ksortoptiondlg.ui ksplitcorrectiondlg.ui ksplittransactiondlg.ui
+  ktemplateexportdlg.ui
+  kupdatestockpricedlg.ui
+  ksaveasquestion.ui
 )
 
 ki18n_wrap_ui(libdialogs_a_SOURCES ${dialogs_UI} )
@@ -82,17 +76,18 @@ add_library(dialogs STATIC ${libdialogs_a_SOURCES})
 
 target_link_libraries(dialogs
   PUBLIC
-    KChart
     KF5::ItemViews
     KF5::I18n
     KF5::TextWidgets
     KF5::Completion
     Qt5::Widgets
-    Qt5::Sql
     Alkimia::alkimia
     kmm_mymoney
     onlinetask_interfaces
     kmm_widgets
+    kmm_utils_platformtools
+  PRIVATE
+    KF5::KIOGui
 )
 
 target_link_libraries(dialogs LINK_PUBLIC

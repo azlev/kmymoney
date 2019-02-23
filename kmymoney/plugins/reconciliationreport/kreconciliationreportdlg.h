@@ -21,9 +21,16 @@
 #ifndef KRECONCILIATIONREPORTDLG_H
 #define KRECONCILIATIONREPORTDLG_H
 
+#include <config-kmymoney.h>
+
 #include "ui_kreconciliationreportdlgdecl.h"
 
-class KHTMLPart;
+class QPrinter;
+#ifdef ENABLE_WEBENGINE
+class QWebEngineView;
+#else
+class KWebView;
+#endif
 
 class KReportDlg : public QDialog, public Ui::KReconciliationReportDlgDecl
 {
@@ -33,12 +40,18 @@ public:
   KReportDlg(QWidget* parent, const QString& summaryReportHTML, const QString& detailsReportHTML);
   ~KReportDlg();
 
-protected slots:
+protected Q_SLOTS:
   void print();
 
 private:
-  KHTMLPart* m_summaryHTMLPart;
-  KHTMLPart* m_detailsHTMLPart;
+  #ifdef ENABLE_WEBENGINE
+  QWebEngineView *m_summaryHTMLPart;
+  QWebEngineView *m_detailsHTMLPart;
+  #else
+  KWebView       *m_summaryHTMLPart;
+  KWebView       *m_detailsHTMLPart;
+  #endif
+  QPrinter       *m_currentPrinter;
 };
 
 #endif

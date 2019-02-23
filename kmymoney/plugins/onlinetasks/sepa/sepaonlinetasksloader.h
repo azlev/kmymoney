@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -25,9 +25,10 @@ class sepaOnlineTasksLoader : public QObject, public KMyMoneyPlugin::onlineTaskF
 {
   Q_OBJECT
   Q_INTERFACES(KMyMoneyPlugin::onlineTaskFactory)
+
 public:
-  sepaOnlineTasksLoader(QObject* parent = nullptr, const QVariantList& options = QVariantList{});
-  virtual onlineTask* createOnlineTask(const QString& taskId) const;
+  explicit sepaOnlineTasksLoader(QObject* parent = nullptr, const QVariantList& options = QVariantList{});
+  onlineTask* createOnlineTask(const QString& taskId) const final override;
 
 };
 

@@ -1,24 +1,22 @@
-/***************************************************************************
-                          kmymoneybriefschedule.h  -  description
-                             -------------------
-    begin                : Sun Jul 6 2003
-    copyright            : (C) 2000-2003 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
+/*
+ * Copyright 2000-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2003-2012  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
 #ifndef KMYMONEYBRIEFSCHEDULE_H
 #define KMYMONEYBRIEFSCHEDULE_H
 
@@ -27,8 +25,6 @@
 // QT Includes
 
 #include <QWidget>
-#include <QStringList>
-#include <QList>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -36,45 +32,39 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kschedulebriefwidget.h"
-#include "mymoneyfile.h"
+class QDate;
+class MyMoneySchedule;
+
+template <typename T> class QList;
 
 /**
   *@author Michael Edwardes
   */
 
-class kScheduleBriefWidget : public QWidget, public Ui::kScheduleBriefWidget
-{
-public:
-  kScheduleBriefWidget(QWidget *parent) : QWidget(parent) {
-    setupUi(this);
-  }
-};
-
-class KMyMoneyBriefSchedule : public kScheduleBriefWidget
+class KMyMoneyBriefSchedulePrivate;
+class KMyMoneyBriefSchedule : public QWidget
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyBriefSchedule)
+
 public:
-  KMyMoneyBriefSchedule(QWidget *parent = 0);
+  explicit KMyMoneyBriefSchedule(QWidget* parent = nullptr);
   ~KMyMoneyBriefSchedule();
   void setSchedules(QList<MyMoneySchedule> list, const QDate& date);
 
-signals:
+Q_SIGNALS:
   void enterClicked(const MyMoneySchedule&, const QDate&);
   void skipClicked(const MyMoneySchedule&, const QDate&);
 
-protected slots:
+protected Q_SLOTS:
   void slotPrevClicked();
   void slotNextClicked();
   void slotEnterClicked();
   void slotSkipClicked();
 
 private:
-  QList<MyMoneySchedule> m_scheduleList;
-  int m_index;
-  QDate m_date;
-
-  void loadSchedule();
+  KMyMoneyBriefSchedulePrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KMyMoneyBriefSchedule)
 };
 
 #endif

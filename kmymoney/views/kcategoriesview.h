@@ -8,6 +8,7 @@
                            Felix Rodriguez <frodriguez@users.sourceforge.net>
                            John C <thetacoturtle@users.sourceforge.net>
                            Kevin Tambascio <ktambascio@users.sourceforge.net>
+                           (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  ***************************************************************************/
 
 /***************************************************************************
@@ -25,18 +26,16 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QPixmap>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <mymoneyutils.h>
+#include "kmymoneyaccountsviewbase.h"
 
-#include "ui_kcategoriesviewdecl.h"
+class MyMoneyMoney;
+class MyMoneyAccount;
 
 /**
   * @brief  This class contains the implementation of the categories view.
@@ -58,78 +57,39 @@
   * kmymoney.cpp): category_new, category_edit and category_delete. They are
   * accessible from either the main menu or the context menu.
   */
-
-class KCategoriesView : public QWidget, public Ui::KCategoriesViewDecl
+class KCategoriesViewPrivate;
+class KCategoriesView : public KMyMoneyAccountsViewBase
 {
   Q_OBJECT
 
 public:
-  KCategoriesView(QWidget *parent = 0);
-  virtual ~KCategoriesView();
+  explicit KCategoriesView(QWidget *parent = nullptr);
+  ~KCategoriesView();
+
+  void executeCustomAction(eView::Action action) override;
+  void refresh();
+  void updateActions(const MyMoneyObject& obj);
+
+public Q_SLOTS:
+  void slotProfitChanged(const MyMoneyMoney &);
+  void slotShowCategoriesMenu(const MyMoneyAccount& acc);
+
+  void slotSelectByObject(const MyMoneyObject& obj, eView::Intent intent) override;
+  void slotSelectByVariant(const QVariantList& variant, eView::Intent intent) override;
 
 protected:
-  void loadAccounts();
+  void showEvent(QShowEvent * event) override;
 
-public slots:
-  void slotLoadAccounts();
-
-  /**
-    * Override the base class behaviour to include all updates that
-    * happened in the meantime and restore the layout.
-    */
-  void showEvent(QShowEvent * event);
-
-protected slots:
-  void slotProfitChanged(const MyMoneyMoney &);
-  void slotExpandCollapse();
+protected Q_SLOTS:
   void slotUnusedIncomeExpenseAccountHidden();
 
 private:
-  /**
-    * This method returns an icon according to the account type
-    * passed in the argument @p type.
-    *
-    * @param type account type as defined in MyMoneyAccount::accountTypeE
-    */
-  const QPixmap accountImage(const MyMoneyAccount::accountTypeE type) const;
+  Q_DECLARE_PRIVATE(KCategoriesView)
 
-signals:
-  /**
-    * This signal serves as proxy for KMyMoneyAccountTreeView::selectObject()
-    */
-  void selectObject(const MyMoneyObject&);
-
-  /**
-    * This signal serves as proxy for
-    * KMyMoneyAccountTreeView::openContextMenu(const MyMoneyObject&)
-    */
-  void openContextMenu(const MyMoneyObject& obj);
-
-  /**
-    * This signal will be emitted when the left mouse button is double
-    * clicked (actually the KDE executed setting is used) on an account.
-    */
-  void openObject(const MyMoneyObject& obj);
-
-  /**
-    * This signal is emitted, when the user selected to reparent the
-    * account @p acc to be a subordinate account of @p parent.
-    *
-    * @param acc const reference to account to be reparented
-    * @param parent const reference to new parent account
-    */
-  void reparent(const MyMoneyAccount& acc, const MyMoneyAccount& parent);
-
-  /**
-    * This signal is emitted whenever the view is about to be shown.
-    */
-  void aboutToShow();
-
-private:
-  /// set if a view needs to be reloaded during showEvent()
-  bool                         m_needReload;
-  bool                         m_haveUnusedCategories;
-  AccountsViewFilterProxyModel *m_filterProxyModel;
+private Q_SLOTS:
+  void slotNewCategory();
+  void slotEditCategory();
+  void slotDeleteCategory();
 };
 
 #endif

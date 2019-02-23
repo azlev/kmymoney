@@ -1,25 +1,21 @@
-/***************************************************************************
-                          kcurrencyeditdlg.h  -  description
-                             -------------------
-    begin                : Wed Mar 24 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
-                           Alvaro Soliverez <asoliverez@gmail.com>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2009-2010  Alvaro Soliverez <asoliverez@gmail.com>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KCURRENCYEDITDLG_H
 #define KCURRENCYEDITDLG_H
@@ -31,64 +27,57 @@
 // KDE Includes
 
 #include <QDialog>
-#include <ktreewidgetsearchlinewidget.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_kcurrencyeditdlgdecl.h"
-#include "mymoneysecurity.h"
-
 class QTreeWidgetItem;
+class KAvailableCurrencyDlg;
+class KCurrencyEditorDlg;
+class KTreeWidgetSearchLineWidget;
 
-class KCurrencyEditDlgDecl : public QDialog, public Ui::KCurrencyEditDlgDecl
-{
-public:
-  KCurrencyEditDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
+class MyMoneySecurity;
 /**
   * @author Thomas Baumgart
   */
-class KCurrencyEditDlg : public KCurrencyEditDlgDecl
+class KCurrencyEditDlgPrivate;
+class KCurrencyEditDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KCurrencyEditDlg)
+
 public:
-  KCurrencyEditDlg(QWidget *parent = 0);
+  explicit KCurrencyEditDlg(QWidget *parent = nullptr);
   ~KCurrencyEditDlg();
 
-public slots:
+public Q_SLOTS:
   void slotSelectCurrency(const QString& id);
 
-protected:
-
-
-protected slots:
-  void slotSelectCurrency(QTreeWidgetItem *);
-  void slotStartRename();
-  void slotOpenContextMenu(const QPoint& p);
+protected Q_SLOTS:
+  void slotSelectCurrency(QTreeWidgetItem *citem, QTreeWidgetItem *pitem);
+  void slotSelectCurrency(QTreeWidgetItem *item);
+  void slotItemSelectionChanged();
+  void slotShowCurrencyMenu(const QPoint& p);
   void slotLoadCurrencies();
-  void slotUpdateCurrency(QTreeWidgetItem *item);
-
-private slots:
-  void timerDone();
-  void slotSelectBaseCurrency();
-
-signals:
-  void selectObject(const MyMoneySecurity& currency);
-  void openContextMenu(const MyMoneySecurity& currency);
-  void updateCurrency(const QString &currencyId, const QString& currencyName, const QString& currencyTradingSymbol);
-  void selectBaseCurrency(const MyMoneySecurity& currency);
+  void slotUpdateCurrency(QTreeWidgetItem* citem, int column);
+  void slotUpdateCurrency(QTreeWidgetItem *citem, QTreeWidgetItem *pitem);
 
 private:
-  MyMoneySecurity               m_currency;
-  /**
-    * Search widget for the list
-    */
-  KTreeWidgetSearchLineWidget*  m_searchWidget;
-  QPushButton*                  m_selectBaseCurrencyButton;
+  KCurrencyEditDlgPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KCurrencyEditDlg)
+
+private Q_SLOTS:
+  void timerDone();
+  void slotSelectBaseCurrency();
+  void slotAddCurrency();
+  void slotRemoveCurrency();
+  void slotRemoveUnusedCurrency();
+  void slotEditCurrency();
+
+  void slotNewCurrency();
+  void slotRenameCurrency();
+  void slotDeleteCurrency();
+  void slotSetBaseCurrency();
 };
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -22,7 +22,8 @@
 #include <QWidget>
 #include <QVariant>
 
-#include "mymoney/onlinejob.h"
+class MyMoneyMoney;
+class onlineJob;
 
 /**
  * @brief Interface for widgets editing onlineTasks
@@ -34,10 +35,7 @@ class IonlineJobEdit : public QWidget
   Q_OBJECT
 
 public:
-  explicit IonlineJobEdit(QWidget* parent = 0, QVariantList args = QVariantList())
-      : QWidget(parent) {
-    Q_UNUSED(args);
-  }
+  explicit IonlineJobEdit(QWidget* parent = 0, QVariantList args = QVariantList());
 
   /**
    * @brief Reads interface and creates an onlineJob
@@ -64,7 +62,7 @@ public:
    */
   virtual bool isReadOnly() const = 0;
 
-public slots:
+public Q_SLOTS:
   /**
    * @brief Set an onlineJob to edit
    *
@@ -75,13 +73,13 @@ public slots:
    */
   virtual bool setOnlineJob(const onlineJob&) = 0;
   virtual void setOriginAccount(const QString&) = 0;
-  virtual void showAllErrorMessages(const bool) {}
+  virtual void showAllErrorMessages(const bool);
 
-signals:
+Q_SIGNALS:
   /**
    * @brief Emitted if a job which transfers money changed it's value
    */
-  void transferValueChanged(MyMoneyMoney);
+  void transferValueChanged(const MyMoneyMoney &);
 
   /**
    * @brief Emitted if a job got valid or invalid
@@ -97,6 +95,6 @@ signals:
 
 };
 
-Q_DECLARE_INTERFACE(IonlineJobEdit, "org.kmymoney.plugin.ionlinejobedit");
+Q_DECLARE_INTERFACE(IonlineJobEdit, "org.kmymoney.plugin.ionlinejobedit")
 
 #endif // IONLINEJOBEDIT_H

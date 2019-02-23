@@ -1,44 +1,52 @@
-
-/***************************************************************************
-                          registersearchline.cpp
-                             -------------------
-    copyright            : (C) 2006 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "registersearchline.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QApplication>
 #include <QLabel>
-#include <QToolButton>
 #include <QTimer>
 #include <QScrollBar>
+#include <QHBoxLayout>
+#include <QHash>
+#include <QIcon>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <ktoolbar.h>
-#include <kcombobox.h>
+#include <KComboBox>
 #include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmymoneyutils.h>
+#include "kmymoneyutils.h"
+#include "register.h"
+#include "registeritem.h"
+#include "registerfilter.h"
+#include "icons/icons.h"
+#include "widgetenums.h"
 
+using namespace eWidgets;
 using namespace KMyMoneyRegister;
+using namespace Icons;
 
 class RegisterSearchLine::RegisterSearchLinePrivate
 {
@@ -47,13 +55,13 @@ public:
       reg(0),
       combo(0),
       queuedSearches(0),
-      status(RegisterFilter::Any) {}
+      status(eRegister::ItemState::Any) {}
 
   Register* reg;
   KComboBox* combo;
   QString search;
   int queuedSearches;
-  RegisterFilter::ItemState status;
+  eRegister::ItemState status;
 };
 
 RegisterSearchLine::RegisterSearchLine(QWidget* parent, Register* reg) :
@@ -61,16 +69,12 @@ RegisterSearchLine::RegisterSearchLine(QWidget* parent, Register* reg) :
     d(new RegisterSearchLinePrivate)
 {
   setClearButtonEnabled(true);
-  init(reg);
-}
 
-void RegisterSearchLine::init(Register *reg)
-{
   if (!parentWidget()->layout())
     parentWidget()->setLayout(new QHBoxLayout);
   parentWidget()->layout()->addWidget(this);
   d->reg = reg;
-  connect(this, SIGNAL(textChanged(QString)), this, SLOT(queueSearch(QString)));
+  connect(this, &QLineEdit::textChanged, this, &RegisterSearchLine::queueSearch);
 
   QLabel* label = new QLabel(i18nc("label for status combo", "Stat&us"), parentWidget());
   parentWidget()->layout()->addWidget(label);
@@ -78,25 +82,21 @@ void RegisterSearchLine::init(Register *reg)
   parentWidget()->layout()->addWidget(d->combo);
   // don't change the order of the following lines unless updating
   // the case labels in RegisterSearchLine::itemMatches() at the same time
-  d->combo->insertItem(RegisterFilter::Any, QIcon::fromTheme(QStringLiteral("system-run"),
-                                                             QIcon::fromTheme(QStringLiteral("media-playback-start"))), i18n("Any status"));
-  d->combo->insertItem(RegisterFilter::Imported, QIcon::fromTheme(QStringLiteral("document-import"),
-                                                                  QIcon::fromTheme(QStringLiteral("format-indent-less"))), i18n("Imported"));
-  d->combo->insertItem(RegisterFilter::Matched, KMyMoneyUtils::overlayIcon("view-financial-transfer", "document-import"), i18n("Matched"));
-  d->combo->insertItem(RegisterFilter::Erroneous, QIcon::fromTheme(QStringLiteral("task-attention"),
-                                                                   QIcon::fromTheme(QStringLiteral("dialog-warning"))), i18n("Erroneous"));
-  d->combo->insertItem(RegisterFilter::NotMarked, i18n("Not marked"));
-  d->combo->insertItem(RegisterFilter::NotReconciled, i18n("Not reconciled"));
-  d->combo->insertItem(RegisterFilter::Cleared, i18nc("Reconciliation state 'Cleared'", "Cleared"));
-  d->combo->setCurrentIndex(RegisterFilter::Any);
-  connect(d->combo, SIGNAL(activated(int)), this, SLOT(slotStatusChanged(int)));
-  connect(this, SIGNAL(clearButtonClicked()), this, SLOT(reset()));
-
+  d->combo->insertItem((int)eRegister::ItemState::Any, Icons::get(Icon::SystemRun), i18n("Any status"));
+  d->combo->insertItem((int)eRegister::ItemState::Imported, Icons::get(Icon::DocumentImport), i18n("Imported"));
+  d->combo->insertItem((int)eRegister::ItemState::Matched, Icons::get(Icon::TransactionMatch), i18n("Matched"));
+  d->combo->insertItem((int)eRegister::ItemState::Erroneous, Icons::get(Icon::TaskAttention), i18n("Erroneous"));
+  d->combo->insertItem((int)eRegister::ItemState::Scheduled, Icons::get(Icon::ViewSchedules), i18n("Scheduled"));
+  d->combo->insertItem((int)eRegister::ItemState::NotMarked, i18n("Not marked"));
+  d->combo->insertItem((int)eRegister::ItemState::NotReconciled, i18n("Not reconciled"));
+  d->combo->insertItem((int)eRegister::ItemState::Cleared, i18nc("Reconciliation state 'Cleared'", "Cleared"));
+  d->combo->setCurrentIndex((int)eRegister::ItemState::Any);
+  connect(d->combo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, &RegisterSearchLine::slotStatusChanged);
   label->setBuddy(d->combo);
 
   if (reg) {
-    connect(reg, SIGNAL(destroyed()), this, SLOT(registerDestroyed()));
-    connect(reg, SIGNAL(itemAdded(RegisterItem*)), this, SLOT(itemAdded(RegisterItem*)));
+    connect(reg, &QObject::destroyed, this, &RegisterSearchLine::registerDestroyed);
+    connect(reg, &Register::itemAdded, this, &RegisterSearchLine::itemAdded);
   } else {
     setEnabled(false);
   }
@@ -110,15 +110,15 @@ RegisterSearchLine::~RegisterSearchLine()
 void RegisterSearchLine::setRegister(Register* reg)
 {
   if (d->reg) {
-    disconnect(d->reg, SIGNAL(destroyed()), this, SLOT(registerDestroyed()));
-    disconnect(d->reg, SIGNAL(itemAdded(RegisterItem*)), this, SLOT(itemAdded(RegisterItem*)));
+    disconnect(d->reg, &QObject::destroyed, this, &RegisterSearchLine::registerDestroyed);
+    disconnect(d->reg, &Register::itemAdded, this, &RegisterSearchLine::itemAdded);
   }
 
   d->reg = reg;
 
   if (reg) {
-    connect(reg, SIGNAL(destroyed()), this, SLOT(registerDestroyed()));
-    connect(reg, SIGNAL(itemAdded(RegisterItem*)), this, SLOT(itemAdded(RegisterItem*)));
+    connect(reg, &QObject::destroyed, this, &RegisterSearchLine::registerDestroyed);
+    connect(reg, &Register::itemAdded, this, &RegisterSearchLine::itemAdded);
   }
 
   setEnabled(reg != 0);
@@ -126,7 +126,7 @@ void RegisterSearchLine::setRegister(Register* reg)
 
 void RegisterSearchLine::slotStatusChanged(int status)
 {
-  d->status = static_cast<RegisterFilter::ItemState>(status);
+  d->status = static_cast<eRegister::ItemState>(status);
   updateSearch();
 }
 
@@ -172,19 +172,19 @@ void RegisterSearchLine::updateSearch(const QString& s)
   // it on screen
   if (focusItem && focusItem->isVisible()) {
     d->reg->update();
-    d->reg->ensureItemVisible(focusItem);
+     /* it's totally fine to call ensureFocusItemVisible instantly
+      * while narrowing (by adding another letter) filtered results
+      * because removing items from QTableWidget is fast
+      * but while widening (by removing some letter) filtered results
+      * QTableWidget lags and ensureFocusItemVisible() happens before
+      * its update and focused item isn't made visible therefore
+     */
+    QTimer::singleShot(500, d->reg, SLOT(ensureFocusItemVisible()));
   }
   // if the scrollbar's visibility changed, we need to resize the contents
   if (scrollBarVisible != d->reg->verticalScrollBar()->isVisible()) {
-    d->reg->resize(DetailColumn);
+    d->reg->resize((int)eTransaction::Column::Detail);
   }
-}
-
-void RegisterSearchLine::reset()
-{
-  clear();
-  d->combo->setCurrentIndex(RegisterFilter::Any);
-  slotStatusChanged(RegisterFilter::Any);
 }
 
 void RegisterSearchLine::itemAdded(RegisterItem* item) const
@@ -216,7 +216,7 @@ RegisterSearchLineWidget::RegisterSearchLineWidget(Register* reg, QWidget* paren
     d(new RegisterSearchLineWidgetPrivate)
 {
   d->reg = reg;
-  QTimer::singleShot(0, this, SLOT(createWidgets()));
+  createWidgets();
 }
 
 RegisterSearchLineWidget::~RegisterSearchLineWidget()

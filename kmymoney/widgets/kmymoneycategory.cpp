@@ -1,56 +1,62 @@
-/***************************************************************************
-                          kmymoneycategory.cpp  -  description
-                             -------------------
-    begin                : Mon Jul 10 2006
-    copyright            : (C) 2006 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2006-2010  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kmymoneycategory.h"
+#include "kmymoneycombo_p.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QRect>
-#include <QPainter>
 #include <QPalette>
-#include <QLayout>
 #include <QTimer>
 #include <QHBoxLayout>
 #include <QFrame>
-#include <QFocusEvent>
 #include <QPushButton>
 #include <QIcon>
+#include <QEvent>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kguiitem.h>
+#include <KGuiItem>
 #include <KLocalizedString>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyfile.h>
+#include "kmymoneyaccountselector.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
 #include "kmymoneyaccountcompletion.h"
+#include "icons/icons.h"
 
-class KMyMoneyCategory::Private
+using namespace Icons;
+
+class KMyMoneyCategoryPrivate : public KMyMoneyComboPrivate
 {
 public:
-  Private() :
+  KMyMoneyCategoryPrivate() :
       splitButton(0),
       frame(0),
       recursive(false),
-      isSplit(false) {}
+      isSplit(false)
+  {
+  }
 
   QPushButton*      splitButton;
   QFrame*           frame;
@@ -58,12 +64,12 @@ public:
   bool              isSplit;
 };
 
-KMyMoneyCategory::KMyMoneyCategory(QWidget* parent, bool splitButton) :
-    KMyMoneyCombo(true, parent),
-    d(new Private)
+KMyMoneyCategory::KMyMoneyCategory(bool splitButton, QWidget* parent) :
+  KMyMoneyCombo(*new KMyMoneyCategoryPrivate, true, parent)
 {
+  Q_D(KMyMoneyCategory);
   if (splitButton) {
-    d->frame = new QFrame(0);
+    d->frame = new QFrame(nullptr);
     // don't change the following name unless you want to break TransactionEditor::setup()
     d->frame->setObjectName("KMyMoneyCategoryFrame");
     d->frame->setFocusProxy(this);
@@ -79,9 +85,8 @@ KMyMoneyCategory::KMyMoneyCategory(QWidget* parent, bool splitButton) :
     }
 
     // create button
-    KGuiItem splitButtonItem("",
-                             QIcon::fromTheme(QStringLiteral("split"),
-                                              QIcon::fromTheme(QStringLiteral("transaction-split"))), "", "");
+    KGuiItem splitButtonItem(QString(),
+                             Icons::get(Icon::Split), QString(), QString());
     d->splitButton = new QPushButton(d->frame);
     d->splitButton->setObjectName("splitButton");
     KGuiItem::assign(d->splitButton, splitButtonItem);
@@ -92,27 +97,28 @@ KMyMoneyCategory::KMyMoneyCategory(QWidget* parent, bool splitButton) :
     installEventFilter(this);
   }
 
-  m_completion = new kMyMoneyAccountCompletion(this);
-  connect(m_completion, SIGNAL(itemSelected(QString)), this, SLOT(slotItemSelected(QString)));
-  connect(this, SIGNAL(editTextChanged(QString)), m_completion, SLOT(slotMakeCompletion(QString)));
+  d->m_completion = new KMyMoneyAccountCompletion(this);
+  connect(d->m_completion, &KMyMoneyCompletion::itemSelected, this, &KMyMoneyCategory::slotItemSelected);
+  connect(this, &QComboBox::editTextChanged, d->m_completion, &KMyMoneyCompletion::slotMakeCompletion);
 }
 
 KMyMoneyCategory::~KMyMoneyCategory()
 {
+  Q_D(KMyMoneyCategory);
   // make sure to wipe out the frame, button and layout
   if (d->frame && !d->frame->parentWidget())
     d->frame->deleteLater();
-
-  delete d;
 }
 
 QPushButton* KMyMoneyCategory::splitButton() const
 {
+  Q_D(const KMyMoneyCategory);
   return d->splitButton;
 }
 
 void KMyMoneyCategory::setPalette(const QPalette& palette)
 {
+  Q_D(KMyMoneyCategory);
   if (d->frame)
     d->frame->setPalette(palette);
   KMyMoneyCombo::setPalette(palette);
@@ -120,6 +126,7 @@ void KMyMoneyCategory::setPalette(const QPalette& palette)
 
 void KMyMoneyCategory::reparent(QWidget *parent, Qt::WindowFlags w, const QPoint&, bool showIt)
 {
+  Q_D(KMyMoneyCategory);
   if (d->frame) {
     d->frame->setParent(parent, w);
     if (showIt)
@@ -131,9 +138,9 @@ void KMyMoneyCategory::reparent(QWidget *parent, Qt::WindowFlags w, const QPoint
   }
 }
 
-kMyMoneyAccountSelector* KMyMoneyCategory::selector() const
+KMyMoneyAccountSelector* KMyMoneyCategory::selector() const
 {
-  return dynamic_cast<kMyMoneyAccountSelector*>(KMyMoneyCombo::selector());
+  return dynamic_cast<KMyMoneyAccountSelector*>(KMyMoneyCombo::selector());
 }
 
 void KMyMoneyCategory::setCurrentTextById(const QString& id)
@@ -151,12 +158,13 @@ void KMyMoneyCategory::setCurrentTextById(const QString& id)
 
 void KMyMoneyCategory::slotItemSelected(const QString& id)
 {
+  Q_D(KMyMoneyCategory);
   setCurrentTextById(id);
 
-  m_completion->hide();
+  d->m_completion->hide();
 
-  if (m_id != id) {
-    m_id = id;
+  if (d->m_id != id) {
+    d->m_id = id;
     emit itemSelected(id);
   }
 }
@@ -182,6 +190,7 @@ void KMyMoneyCategory::focusInEvent(QFocusEvent *ev)
 
 void KMyMoneyCategory::setSplitTransaction()
 {
+  Q_D(KMyMoneyCategory);
   d->isSplit = true;
   setEditText(i18nc("Split transaction (category replacement)", "Split transaction"));
   setSuppressObjectCreation(true);
@@ -189,11 +198,23 @@ void KMyMoneyCategory::setSplitTransaction()
 
 bool KMyMoneyCategory::isSplitTransaction() const
 {
+  Q_D(const KMyMoneyCategory);
   return d->isSplit;
+}
+
+void KMyMoneyCategory::setCurrentText(const QString& txt)
+{
+  KMyMoneyCombo::setCurrentText(txt);
+}
+
+void KMyMoneyCategory::setCurrentText()
+{
+  KMyMoneyCombo::setCurrentText(QString());
 }
 
 bool KMyMoneyCategory::eventFilter(QObject *o, QEvent *ev)
 {
+  Q_D(KMyMoneyCategory);
   // forward enable/disable state to split button
   if (o == this && ev->type() == QEvent::EnabledChange) {
     if (d->splitButton) {
@@ -204,12 +225,22 @@ bool KMyMoneyCategory::eventFilter(QObject *o, QEvent *ev)
 }
 
 KMyMoneySecurity::KMyMoneySecurity(QWidget* parent) :
-    KMyMoneyCategory(parent, false)
+  KMyMoneyCategory(false, parent)
 {
 }
 
 KMyMoneySecurity::~KMyMoneySecurity()
 {
+}
+
+void KMyMoneySecurity::setCurrentText(const QString& txt)
+{
+  KMyMoneyCategory::setCurrentText(txt);
+}
+
+void KMyMoneySecurity::setCurrentText()
+{
+  KMyMoneyCategory::setCurrentText(QString());
 }
 
 void KMyMoneySecurity::setCurrentTextById(const QString& id)

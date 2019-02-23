@@ -15,6 +15,8 @@
  *                                                                         *
  ***************************************************************************/
 
+// krazy:excludeall=dpointer
+
 #ifndef VIEWINTERFACE_H
 #define VIEWINTERFACE_H
 
@@ -22,25 +24,30 @@
 // QT Includes
 
 #include <QObject>
-#include <QString>
-#include <QPixmap>
-#include <QPair>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
-
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <mymoneyinstitution.h>
-#include <mymoneytransaction.h>
+#include "mymoneytransaction.h"
+#include "mymoneysplit.h"
+
 #include <kmm_plugin_export.h>
-class KMyMoneyViewBase;
+
 namespace KMyMoneyRegister
 {
 class SelectedTransactions;
 }
+
+enum class View;
+
+class MyMoneyInstitution;
+class MyMoneyAccount;
+class MyMoneySplit;
+class MyMoneyTransaction;
+class KMyMoneyViewBase;
 
 namespace KMyMoneyPlugin
 {
@@ -56,13 +63,23 @@ class KMM_PLUGIN_EXPORT ViewInterface : public QObject
 
 public:
   explicit ViewInterface(QObject* parent, const char* name = 0);
-  ~ViewInterface() {}
+  virtual ~ViewInterface();
+
+  /**
+    * Brings up a dialog to change the list(s) settings and saves them into the
+    * class KMyMoneySettings (a singleton).
+    *
+    * @see KListSettingsDlg
+    * Refreshes all views. Used e.g. after settings have been changed or
+    * data has been loaded from external sources (QIF import).
+    **/
+  virtual void slotRefreshViews() = 0;
 
   /**
     * This method creates a new page in the application.
     * See KPageWidget::addPage() for details.
     */
-  virtual KMyMoneyViewBase* addPage(const QString& item, const QString& icon) = 0;
+//  virtual KMyMoneyViewBase* addPage(const QString& item, const QString& icon) = 0;
 
   /**
     * This method adds a widget to the layout of the view
@@ -71,9 +88,12 @@ public:
     * @param view pointer to view widget
     * @param w widget to be added to @p page
     */
-  virtual void addWidget(KMyMoneyViewBase* view, QWidget* w) = 0;
+//  virtual void addWidget(KMyMoneyViewBase* view, QWidget* w) = 0;
 
-signals:
+    virtual void addView(KMyMoneyViewBase* view, const QString& name, View idView) = 0;
+    virtual void removeView(View idView) = 0;
+
+Q_SIGNALS:
   /**
    * This signal is emitted when a new account has been selected by
    * the GUI. If no account is selected or the selection is removed,
@@ -96,7 +116,7 @@ signals:
    * @a institution is identical to MyMoneyInstitution(). This signal is used
    * by plugins to get information about changes.
    */
-  void institutionSelected(const MyMoneyInstitution& institution);
+//  void institutionSelected(const MyMoneyInstitution& institution);
 
   /**
    * This signal is emitted when an account has been successfully reconciled
@@ -112,9 +132,7 @@ signals:
    */
   void accountReconciled(const MyMoneyAccount& account, const QDate& date, const MyMoneyMoney& startingBalance, const MyMoneyMoney& endingBalance, const QList<QPair<MyMoneyTransaction, MyMoneySplit> >& transactionList);
 
-
   void viewStateChanged(bool);
-  void kmmFilePlugin(unsigned int);
 };
 
 } // namespace

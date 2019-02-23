@@ -16,13 +16,17 @@
 
 #include "../kmymoney/mymoney/mymoneyaccount.h"
 
+#include <QDir>
 #include <QFile>
 #include <QStringList>
 #include <QMap>
 #include <QTextStream>
 #include <QXmlStreamReader>
-#include <QtDebug>
+#include <QDebug>
 
+#include "mymoneyenums.h"
+
+using namespace eMyMoney;
 
 QDebug operator <<(QDebug out, const QXmlStreamNamespaceDeclaration &a)
 {
@@ -50,23 +54,42 @@ bool noLevel1Names = false;
 bool withTax = false;
 bool prefixNameWithCode = false;
 
+typedef QMap<QString,QString> DirNameMapType;
+
+/**
+ * map to hold differences from gnucash to kmymoney template directory
+ * @return directory name map
+ */
+DirNameMapType &getDirNameMap()
+{
+    static DirNameMapType dirNameMap;
+    dirNameMap["cs"] = "cs_CZ";
+    dirNameMap["da"] = "dk";
+    dirNameMap["ja"] = "ja_JP";
+    dirNameMap["ko"] = "ko_KR";
+    dirNameMap["nb"] = "nb_NO";
+    dirNameMap["nl"] = "nl_NL";
+    dirNameMap["ru"] = "ru_RU";
+    return dirNameMap;
+}
+
 int toKMyMoneyAccountType(const QString &type)
 {
-    if(type == "ROOT") return MyMoneyAccount::UnknownAccountType;
-    else if (type == "BANK") return MyMoneyAccount::Checkings;
-    else if (type == "CASH") return MyMoneyAccount::Cash;
-    else if (type == "CREDIT") return MyMoneyAccount::CreditCard;
-    else if (type == "INVEST") return MyMoneyAccount::Investment;
-    else if (type == "RECEIVABLE") return MyMoneyAccount::Asset;
-    else if (type == "ASSET") return MyMoneyAccount::Asset;
-    else if (type == "PAYABLE") return MyMoneyAccount::Liability;
-    else if (type == "LIABILITY") return MyMoneyAccount::Liability;
-    else if (type == "CURRENCY") return MyMoneyAccount::Currency;
-    else if (type == "INCOME") return MyMoneyAccount::Income;
-    else if (type == "EXPENSE") return MyMoneyAccount::Expense;
-    else if (type == "STOCK") return MyMoneyAccount::Stock;
-    else if (type == "MUTUAL") return MyMoneyAccount::Stock;
-    else if (type == "EQUITY") return MyMoneyAccount::Equity;
+    if(type == "ROOT")              return (int)Account::Type::Unknown;
+    else if (type == "BANK")        return (int)Account::Type::Checkings;
+    else if (type == "CASH")        return (int)Account::Type::Cash;
+    else if (type == "CREDIT")      return (int)Account::Type::CreditCard;
+    else if (type == "INVEST")      return (int)Account::Type::Investment;
+    else if (type == "RECEIVABLE")  return (int)Account::Type::Asset;
+    else if (type == "ASSET")       return (int)Account::Type::Asset;
+    else if (type == "PAYABLE")     return (int)Account::Type::Liability;
+    else if (type == "LIABILITY")   return (int)Account::Type::Liability;
+    else if (type == "CURRENCY")    return (int)Account::Type::Currency;
+    else if (type == "INCOME")      return (int)Account::Type::Income;
+    else if (type == "EXPENSE")     return (int)Account::Type::Expense;
+    else if (type == "STOCK")       return (int)Account::Type::Stock;
+    else if (type == "MUTUAL")      return (int)Account::Type::Stock;
+    else if (type == "EQUITY")      return (int)Account::Type::Equity;
     else return 99; // unknown
 }
 
@@ -77,8 +100,8 @@ public:
     typedef QMap<QString,QString> SlotList;
 
     QString id;
-    QString type;
-    QString name;
+    QString m_type;
+    QString m_name;
     QString code;
     QString parent;
     SlotList slotList;
@@ -89,8 +112,8 @@ public:
 
     TemplateAccount(const TemplateAccount &b)
       : id(b.id),
-        type(b.type),
-        name(b.name),
+        m_type(b.m_type),
+        m_name(b.m_name),
         code(b.code),
         parent(b.parent),
         slotList(b.slotList)
@@ -100,8 +123,8 @@ public:
     void clear()
     {
         id = "";
-        type = "";
-        name = "";
+        m_type = "";
+        m_name = "";
         code = "";
         parent = "";
         slotList.clear();
@@ -149,18 +172,18 @@ public:
             xml.readNext();
             QStringRef _name = xml.name();
             if (xml.isEndElement() && _name == "account") {
-                if (prefixNameWithCode && !code.isEmpty() && !name.startsWith(code))
-                    name = code + " " + name;
+                if (prefixNameWithCode && !code.isEmpty() && !m_name.startsWith(code))
+                    m_name = code + ' ' + m_name;
                 return true;
             }
             if (xml.isStartElement())
             {
                 if (_name == "name")
-                    name = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
+                    m_name = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
                 else if (_name == "id")
                     id = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
                 else if (_name == "type")
-                    type = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
+                    m_type = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
                 else if (_name == "code")
                     code = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
                 else if (_name == "parent")
@@ -169,7 +192,6 @@ public:
                     readSlots(xml);
                 else
                 {
-                    xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
                     if (debug)
                         qDebug() << "skipping" << _name.toString();
                 }
@@ -182,9 +204,9 @@ public:
 QDebug operator <<(QDebug out, const TemplateAccount &a)
 {
     out << "TemplateAccount("
-        << "name:" << a.name
+        << "name:" << a.m_name
         << "id:" << a.id
-        << "type:" << a.type
+        << "type:" << a.m_type
         << "code:" << a.code
         << "parent:" << a.parent
         << "slotList:" << a.slotList
@@ -264,18 +286,18 @@ public:
 
         foreach(TemplateAccount *account, list)
         {
-            if (account->type != "ROOT")
+            if (account->m_type != "ROOT")
             {
                 xml.writeStartElement("","account");
-                xml.writeAttribute("type", QString::number(toKMyMoneyAccountType(account->type)));
-                xml.writeAttribute("name", noLevel1Names && index < 2 ? "" : account->name);
+                xml.writeAttribute("type", QString::number(toKMyMoneyAccountType(account->m_type)));
+                xml.writeAttribute("name", noLevel1Names && index < 2 ? "" : account->m_name);
                 if (withID)
                     xml.writeAttribute("id", account->id);
                 if (withTax) {
                     if (account->slotList.contains("tax-related")) {
                         xml.writeStartElement("flag");
                         xml.writeAttribute("name","Tax");
-                        xml.writeAttribute("value",account->slotList["tax-related"]);
+                        xml.writeAttribute("value",account->slotList["tax-related"] == "1" ? "Yes" : "No");
                         xml.writeEndElement();
                     }
                 }
@@ -305,7 +327,7 @@ public:
         for(int i=0; i < accounts.size(); i++)
         {
             TemplateAccount &account = accounts[i];
-            if (account.type == type)
+            if (account.m_type == type)
                 list.append(&account);
         }
         return list;
@@ -314,7 +336,7 @@ public:
 
     static bool nameLessThan(TemplateAccount *a1, TemplateAccount *a2)
     {
-        return a1->name < a2->name;
+        return a1->m_name < a2->m_name;
     }
 
     TemplateAccount::PointerList accountsByParentID(const QString &parentID)
@@ -344,7 +366,7 @@ public:
         {
             QString a;
             a.fill(' ', index);
-            qDebug() << a << account->name << toKMyMoneyAccountType(account->type);
+            qDebug() << a << account->m_name << toKMyMoneyAccountType(account->m_type);
             index++;
             dumpTemplates(account->id, index);
             index--;
@@ -428,35 +450,36 @@ protected:
 
     bool read(QIODevice *device)
     {
-        xml.setDevice(device);
-        while(!xml.atEnd())
+        m_xml.setDevice(device);
+        while(!m_xml.atEnd())
         {
-            xml.readNext();
-            if (xml.isStartElement())
+            m_xml.readNext();
+            if (m_xml.isStartElement())
             {
-                if (xml.name() == "gnc-account-example")
+                if (m_xml.name() == "gnc-account-example")
                 {
-                    checkAndUpdateAvailableNamespaces(xml);
-                    _template.read(xml);
+                    checkAndUpdateAvailableNamespaces(m_xml);
+                    _template.read(m_xml);
                 }
                 else
-                    xml.raiseError(QObject::tr("The file is not an gnucash account template file."));
+                    m_xml.raiseError(QObject::tr("The file is not an gnucash account template file."));
             }
         }
-        if (xml.error() != QXmlStreamReader::NoError)
-            qWarning() << xml.errorString();
-        return !xml.error();
+        if (m_xml.error() != QXmlStreamReader::NoError)
+            qWarning() << m_xml.errorString();
+        return !m_xml.error();
     }
 
     bool writeAsXml(QIODevice *device)
     {
-            QXmlStreamWriter xml(device);
+        QXmlStreamWriter xml(device);
         xml.setAutoFormatting(true);
         xml.setAutoFormattingIndent(1);
         xml.setCodec("utf-8");
         xml.writeStartDocument();
 
-        QString fileName = inFileName.replace(QRegExp(".*/accounts"),"accounts");
+        QString fileName = inFileName;
+        fileName.replace(QRegExp(".*/accounts"),"accounts");
         xml.writeComment(QString("\n"
             "     Converted using xea2kmt from GnuCash sources\n"
             "\n"
@@ -473,10 +496,94 @@ protected:
         return result;
     }
 
-    QXmlStreamReader xml;
+    QXmlStreamReader m_xml;
     TemplateFile _template;
     QString inFileName;
 };
+
+void scanDir(QDir dir, QStringList &files)
+{
+    dir.setNameFilters(QStringList("*.gnucash-xea"));
+    dir.setFilter(QDir::Files | QDir::NoDotAndDotDot | QDir::NoSymLinks);
+
+    if (debug)
+        qDebug() << "Scanning: " << dir.path();
+
+    QStringList fileList = dir.entryList();
+    for (int i=0; i<fileList.count(); i++)
+    {
+        if (debug)
+            qDebug() << "Found file: " << fileList[i];
+        files.append(QString("%1/%2").arg(dir.absolutePath()).arg(fileList[i]));
+    }
+
+    dir.setFilter(QDir::AllDirs | QDir::NoDotAndDotDot | QDir::NoSymLinks);
+    QStringList dirList = dir.entryList();
+    for (int i=0; i<dirList.size(); ++i)
+    {
+        QString newPath = QString("%1/%2").arg(dir.absolutePath()).arg(dirList.at(i));
+        scanDir(QDir(newPath), files);
+    }
+}
+
+bool convertFile(const QString &inFile, const QString &outFile)
+{
+    GnuCashAccountTemplateReader reader;
+    if (!reader.read(inFile))
+        return false;
+    return reader.writeAsXml(outFile);
+}
+
+int convertFileStructure(const QString &indir, const QString &outdir)
+{
+    DirNameMapType &dirNameMap = getDirNameMap();
+    // get gnucash account files
+    QDir d(indir);
+    QStringList files;
+    scanDir(d, files);
+
+    QString inPath = d.absolutePath();
+    QDir outDir(outdir);
+    QString outPath = outDir.absolutePath();
+    QStringList mapKeys = dirNameMap.keys();
+    int result = 0;
+
+    // process templates
+    foreach (const QString &file, files)
+    {
+        if (debug)
+            qDebug() << "processing" << file;
+
+        // create output file dir
+        QFileInfo fi(file);
+        auto outFileName = fi.canonicalFilePath();
+        outFileName.replace(inPath, outPath);
+        outFileName.remove("acctchrt_");
+        outFileName.replace(".gnucash-xea", ".kmt");
+        foreach(const QString &key, mapKeys)
+        {
+            if (outFileName.contains('/' + key + '/'))
+                outFileName = outFileName.replace('/' + key + '/', '/' + dirNameMap[key] + '/');
+        }
+        fi.setFile(outFileName);
+
+        d = fi.absolutePath();
+        if (!d.exists())
+        {
+            if  (debug)
+                qDebug() << "creating path " << fi.absolutePath();
+            d.mkpath(fi.absolutePath());
+        }
+        if (debug)
+            qDebug() << "writing to " << outFileName;
+        if (!convertFile(file, outFileName))
+        {
+            qWarning() << "could not create" << outFileName;
+            result = 1;
+        }
+    }
+    return result;
+}
 
 int main(int argc, char *argv[])
 {
@@ -484,6 +591,7 @@ int main(int argc, char *argv[])
     {
         qWarning() << "xea2kmt: convert gnucash template file to kmymoney template file";
         qWarning() << argv[0] << "<options> <gnucash-template-file> [<kmymoney-template-output-file>]";
+        qWarning() << argv[0] << "<options> --in-dir <gnucash-template-files-root> --out-dir <kmymoney-template-files-root>";
         qWarning() << "options:";
         qWarning() << "          --debug                   - output debug information";
         qWarning() << "          --help                    - this page";
@@ -491,11 +599,15 @@ int main(int argc, char *argv[])
         qWarning() << "          --prefix-name-with-code   - prefix account name with account code if present";
         qWarning() << "          --with-id                 - write account id attribute";
         qWarning() << "          --with-tax-related        - parse and export gnucash 'tax-related' flag";
+        qWarning() << "          --in-dir <dir>            - search for gnucash templates files in <dir>";
+        qWarning() << "          --out-dir <dir>           - generate kmymoney templates below <dir";
         return -1;
     }
 
     QString inFileName;
     QString outFileName;
+    QString inDir;
+    QString outDir;
     for(int i = 1; i < argc; i++)
     {
         QString arg = QLatin1String(argv[i]);
@@ -509,6 +621,10 @@ int main(int argc, char *argv[])
             withTax = true;
         else if (arg == "--prefix-name-with-code")
             prefixNameWithCode = true;
+        else if (arg == "--in-dir")
+            inDir = argv[++i];
+        else if (arg == "--out-dir")
+            outDir = argv[++i];
         else if (!arg.startsWith(QLatin1String("--")))
         {
             if (inFileName.isEmpty())
@@ -521,6 +637,11 @@ int main(int argc, char *argv[])
             qWarning() << "invalid command line parameter'" << arg << "'";
             return -1;
         }
+    }
+
+    if (!inDir.isEmpty() && !outDir.isEmpty())
+    {
+        return convertFileStructure(inDir, outDir);
     }
 
     GnuCashAccountTemplateReader reader;

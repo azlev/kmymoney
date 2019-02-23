@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2012 Thomas Baumgart <ipwizard@users.sourceforge.net>
  * Copyright (C) 2015 Christian Dávid <christian-david@web.de>
  *
@@ -18,8 +18,9 @@
  */
 
 #include "kmymoneyutils-test.h"
+#include "mymoneyaccount.h"
 
-#include <QtTest/QtTest>
+#include <QtTest>
 
 QTEST_GUILESS_MAIN(KMyMoneyUtilsTest)
 
@@ -59,7 +60,7 @@ void KMyMoneyUtilsTest::testNextCheckNumber()
   acc.setValue("lastNumberUsed", QLatin1String("No 123 ABC"));
   QVERIFY(KMyMoneyUtils::nextCheckNumber(acc) == QLatin1String("No 124 ABC"));
 
-  // a number containig a dash (e.g. invoice number)
+  // a number containing a dash (e.g. invoice number)
   acc.setValue("lastNumberUsed", QLatin1String("No 123-001 ABC"));
   QVERIFY(KMyMoneyUtils::nextCheckNumber(acc) == QLatin1String("No 123-002 ABC"));
 

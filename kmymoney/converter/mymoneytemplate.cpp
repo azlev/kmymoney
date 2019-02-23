@@ -22,7 +22,6 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QApplication>
 #include <QTextStream>
 #include <QList>
 #include <QSaveFile>
@@ -34,11 +33,17 @@
 #include <KMessageBox>
 #include <QTemporaryFile>
 #include <KXmlGuiWindow>
+#include <KIO/StoredTransferJob>
+#include <KJobWidgets>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
 #include "kmymoneyutils.h"
+#include "mymoneyfile.h"
+#include "mymoneyaccount.h"
+#include "mymoneyexception.h"
+#include "mymoneyenums.h"
 
 MyMoneyTemplate::MyMoneyTemplate() :
     m_progressCallback(0),
@@ -60,7 +65,7 @@ MyMoneyTemplate::~MyMoneyTemplate()
 bool MyMoneyTemplate::loadTemplate(const QUrl &url)
 {
   QString filename;
-
+  bool downloadedFile = false;
   if (!url.isValid()) {
     qDebug("Invalid template URL '%s'", qPrintable(url.url()));
     return false;
@@ -71,17 +76,22 @@ bool MyMoneyTemplate::loadTemplate(const QUrl &url)
     filename = url.toLocalFile();
 
   } else {
-    bool rc = false;
-    // TODO: port to kf5
-    //rc = KIO::NetAccess::download(url, filename, KMyMoneyUtils::mainWindow());
-    if (!rc) {
-      KMessageBox::detailedError(KMyMoneyUtils::mainWindow(),
+    downloadedFile = true;
+    KIO::StoredTransferJob *transferjob = KIO::storedGet (url);
+    KJobWidgets::setWindow(transferjob, KMyMoneyUtils::mainWindow());
+    if (! transferjob->exec()) {
+        KMessageBox::detailedError(KMyMoneyUtils::mainWindow(),
                                  i18n("Error while loading file '%1'.", url.url()),
-                                 // TODO: port to kf5
-                                 QString(),//KIO::NetAccess::lastErrorString(),
+                                 transferjob->errorString(),
                                  i18n("File access error"));
-      return false;
+        return false;
     }
+    QTemporaryFile file;
+    file.setAutoRemove(false);
+    file.open();
+    file.write(transferjob->data());
+    filename = file.fileName();
+    file.close();
   }
 
   bool rc = true;
@@ -109,11 +119,12 @@ bool MyMoneyTemplate::loadTemplate(const QUrl &url)
     rc = false;
   }
 
-  // if a temporary file was constructed by NetAccess::download,
-  // then it will be removed with the next call. Otherwise, it
-  // stays untouched on the local filesystem
-  // TODO: port to kf5
-  //KIO::NetAccess::removeTempFile(filename);
+  // if a temporary file was downloaded, then it will be removed
+  // with the next call. Otherwise, it stays untouched on the local
+  // filesystem.
+  if (downloadedFile) {
+    QFile::remove(filename);
+  }
   return rc;
 }
 
@@ -178,29 +189,21 @@ void MyMoneyTemplate::hierarchy(QMap<QString, QTreeWidgetItem*>& list)
   bool rc = !m_accounts.isNull();
   QDomNode accounts = m_accounts;
   while (rc == true && !accounts.isNull() && accounts.isElement()) {
-    QDomElement childElement = accounts.toElement();
-    if (childElement.tagName() == "account"
-        && childElement.attribute("name").isEmpty()) {
-      switch (childElement.attribute("type").toUInt()) {
-        case MyMoneyAccount::Asset:
-          list[i18n("Asset")] = 0;
-          rc = hierarchy(list, i18n("Asset"), childElement.firstChild());
-          break;
-        case MyMoneyAccount::Liability:
-          list[i18n("Liability")] = 0;
-          rc = hierarchy(list, i18n("Liability"), childElement.firstChild());
-          break;
-        case MyMoneyAccount::Income:
-          list[i18n("Income")] = 0;
-          rc = hierarchy(list, i18n("Income"), childElement.firstChild());
-          break;
-        case MyMoneyAccount::Expense:
-          list[i18n("Expense")] = 0;
-          rc = hierarchy(list, i18n("Expense"), childElement.firstChild());
-          break;
-        case MyMoneyAccount::Equity:
-          list[i18n("Equity")] = 0;
-          rc = hierarchy(list, i18n("Equity"), childElement.firstChild());
+    QDomElement rootNode = accounts.toElement();
+    QString name = rootNode.attribute("name");
+    if (rootNode.tagName() == "account") {
+        rootNode = rootNode.firstChild().toElement();
+        eMyMoney::Account::Type type = static_cast<eMyMoney::Account::Type>(accounts.toElement().attribute("type").toUInt());
+        switch (type) {
+        case eMyMoney::Account::Type::Asset:
+        case eMyMoney::Account::Type::Liability:
+        case eMyMoney::Account::Type::Income:
+        case eMyMoney::Account::Type::Expense:
+        case eMyMoney::Account::Type::Equity:
+          if (name.isEmpty())
+            name = MyMoneyAccount::accountTypeToString(type);
+          list[name] = 0;
+          rc = hierarchy(list, name, rootNode);
           break;
 
         default:
@@ -224,24 +227,23 @@ bool MyMoneyTemplate::importTemplate(void(*callback)(int, int, const QString&))
 
   while (rc == true && !m_accounts.isNull() && m_accounts.isElement()) {
     QDomElement childElement = m_accounts.toElement();
-    if (childElement.tagName() == "account"
-        && childElement.attribute("name").isEmpty()) {
+    if (childElement.tagName() == "account") {
       ++m_accountsRead;
       MyMoneyAccount parent;
       switch (childElement.attribute("type").toUInt()) {
-        case MyMoneyAccount::Asset:
+        case (uint)eMyMoney::Account::Type::Asset:
           parent = file->asset();
           break;
-        case MyMoneyAccount::Liability:
+        case (uint)eMyMoney::Account::Type::Liability:
           parent = file->liability();
           break;
-        case MyMoneyAccount::Income:
+        case (uint)eMyMoney::Account::Type::Income:
           parent = file->income();
           break;
-        case MyMoneyAccount::Expense:
+        case (uint)eMyMoney::Account::Type::Expense:
           parent = file->expense();
           break;
-        case MyMoneyAccount::Equity:
+        case (uint)eMyMoney::Account::Type::Equity:
           parent = file->equity();
           break;
 
@@ -251,13 +253,35 @@ bool MyMoneyTemplate::importTemplate(void(*callback)(int, int, const QString&))
       }
 
       if (rc == true) {
-        rc = createAccounts(parent, childElement.firstChild());
+        if (childElement.attribute("name").isEmpty())
+            rc = createAccounts(parent, childElement.firstChild());
+        else
+            rc = createAccounts(parent, childElement);
       }
     } else {
       rc = false;
     }
     m_accounts = m_accounts.nextSibling();
   }
+
+  /*
+   * Resolve imported vat account assignments
+   *
+   * The template account id of the assigned vat account
+   * is stored temporarly in the account key/value pair
+   * 'UnresolvedVatAccount' and resolved below.
+   */
+  QList<MyMoneyAccount> accounts;
+  file->accountList(accounts);
+  foreach (MyMoneyAccount acc, accounts) {
+    if (!acc.pairs().contains("UnresolvedVatAccount"))
+      continue;
+    QString id = acc.value("UnresolvedVatAccount");
+    acc.setValue("VatAccount", m_vatAccountMap[id]);
+    acc.deletePair("UnresolvedVatAccount");
+    MyMoneyFile::instance()->modifyAccount(acc);
+  }
+
   signalProgress(-1, -1);
   return rc;
 }
@@ -279,6 +303,9 @@ bool MyMoneyTemplate::createAccounts(MyMoneyAccount& parent, QDomNode account)
           for (it = subAccountList.constBegin(); it != subAccountList.constEnd(); ++it) {
             if ((*it).name() == accountElement.attribute("name")) {
               acc = *it;
+              QString id = accountElement.attribute("id");
+              if (!id.isEmpty())
+                m_vatAccountMap[id] = acc.id();
               break;
             }
           }
@@ -286,12 +313,15 @@ bool MyMoneyTemplate::createAccounts(MyMoneyAccount& parent, QDomNode account)
         if (it == subAccountList.constEnd()) {
           // not found, we need to create it
           acc.setName(accountElement.attribute("name"));
-          acc.setAccountType(static_cast<MyMoneyAccount::_accountTypeE>(accountElement.attribute("type").toUInt()));
+          acc.setAccountType(static_cast<eMyMoney::Account::Type>(accountElement.attribute("type").toUInt()));
           setFlags(acc, account.firstChild());
           try {
             MyMoneyFile::instance()->addAccount(acc, parent);
           } catch (const MyMoneyException &) {
           }
+          QString id = accountElement.attribute("id");
+          if (!id.isEmpty())
+            m_vatAccountMap[id] = acc.id();
         }
         createAccounts(acc, account.firstChild());
       }
@@ -311,11 +341,21 @@ bool MyMoneyTemplate::setFlags(MyMoneyAccount& acc, QDomNode flags)
         // make sure, we only store flags we know!
         QString value = flagElement.attribute("name");
         if (value == "Tax") {
-          acc.setValue(value.toLatin1(), "Yes");
+          acc.setValue(value, "Yes");
+       } else if (value == "VatRate") {
+          acc.setValue(value, flagElement.attribute("value"));
+        } else if (value == "VatAccount") {
+          // will be resolved later in importTemplate()
+          acc.setValue("UnresolvedVatAccount", flagElement.attribute("value"));
+        } else if (value == "OpeningBalanceAccount") {
+          acc.setValue("OpeningBalanceAccount", "Yes");
         } else {
           KMessageBox::error(KMyMoneyUtils::mainWindow(), i18n("<p>Invalid flag type <b>%1</b> for account <b>%3</b> in template file <b>%2</b></p>", flagElement.attribute("name"), m_source.toDisplayString(), acc.name()));
           rc = false;
         }
+        QString currency = flagElement.attribute("currency");
+        if (!currency.isEmpty())
+          acc.setCurrencyId(currency);
       }
     }
     flags = flags.nextSibling();
@@ -333,6 +373,17 @@ bool MyMoneyTemplate::exportTemplate(void(*callback)(int, int, const QString&))
 {
   m_progressCallback = callback;
 
+  // prepare vat account map
+  QList<MyMoneyAccount> accountList;
+  MyMoneyFile::instance()->accountList(accountList);
+  int i = 0;
+  QList<MyMoneyAccount>::Iterator it;
+  for (it = accountList.begin(); it != accountList.end(); ++it) {
+    if (!(*it).pairs().contains("VatAccount"))
+      continue;
+    m_vatAccountMap[(*it).value("VatAccount")] = QString::fromLatin1("%1").arg(i++, 3, 10, QLatin1Char('0'));
+  }
+
   m_doc = QDomDocument("KMYMONEY-TEMPLATE");
 
   QDomProcessingInstruction instruct = m_doc.createProcessingInstruction(QString("xml"), QString("version=\"1.0\" encoding=\"utf-8\""));
@@ -342,12 +393,18 @@ bool MyMoneyTemplate::exportTemplate(void(*callback)(int, int, const QString&))
   m_doc.appendChild(mainElement);
 
   QDomElement title = m_doc.createElement("title");
+  QDomText t = m_doc.createTextNode(m_title);
+  title.appendChild(t);
   mainElement.appendChild(title);
 
   QDomElement shortDesc = m_doc.createElement("shortdesc");
+  t = m_doc.createTextNode(m_shortDesc);
+  shortDesc.appendChild(t);
   mainElement.appendChild(shortDesc);
 
   QDomElement longDesc = m_doc.createElement("longdesc");
+  t = m_doc.createTextNode(m_longDesc);
+  longDesc.appendChild(t);
   mainElement.appendChild(longDesc);
 
   QDomElement accounts = m_doc.createElement("accounts");
@@ -377,6 +434,21 @@ const QString& MyMoneyTemplate::longDescription() const
   return m_longDesc;
 }
 
+void MyMoneyTemplate::setTitle(const QString &s)
+{
+  m_title = s;
+}
+
+void MyMoneyTemplate::setShortDescription(const QString &s)
+{
+  m_shortDesc = s;
+}
+
+void MyMoneyTemplate::setLongDescription(const QString &s)
+{
+  m_longDesc = s;
+}
+
 static bool nameLessThan(MyMoneyAccount &a1, MyMoneyAccount &a2)
 {
   return a1.name() < a2.name();
@@ -391,9 +463,38 @@ bool MyMoneyTemplate::addAccountStructure(QDomElement& parent, const MyMoneyAcco
     account.setAttribute(QString("name"), QString());
   else
     account.setAttribute(QString("name"), acc.name());
-  account.setAttribute(QString("type"), acc.accountType());
+  account.setAttribute(QString("type"), (int)acc.accountType());
 
-  // FIXME: add tax flag stuff
+  if (acc.pairs().contains("Tax")) {
+    QDomElement flag = m_doc.createElement("flag");
+    flag.setAttribute(QString("name"), "Tax");
+    flag.setAttribute(QString("value"), acc.value("Tax"));
+    account.appendChild(flag);
+  }
+  if (m_vatAccountMap.contains(acc.id()))
+    account.setAttribute(QString("id"), m_vatAccountMap[acc.id()]);
+
+  if (acc.pairs().contains("VatRate")) {
+    QDomElement flag = m_doc.createElement("flag");
+    flag.setAttribute(QString("name"), "VatRate");
+    flag.setAttribute(QString("value"), acc.value("VatRate"));
+    account.appendChild(flag);
+  }
+  if (acc.pairs().contains("VatAccount")) {
+    QDomElement flag = m_doc.createElement("flag");
+    flag.setAttribute(QString("name"), "VatAccount");
+    flag.setAttribute(QString("value"), m_vatAccountMap[acc.value("VatAccount")]);
+    account.appendChild(flag);
+  }
+  if (acc.pairs().contains("OpeningBalanceAccount")) {
+    QString openingBalanceAccount = acc.value("OpeningBalanceAccount");
+    if (openingBalanceAccount == "Yes") {
+      QDomElement flag = m_doc.createElement("flag");
+      flag.setAttribute(QString("name"), "OpeningBalanceAccount");
+      flag.setAttribute(QString("currency"), acc.currencyId());
+      account.appendChild(flag);
+    }
+  }
 
   // any child accounts?
   if (acc.accountList().count() > 0) {
@@ -423,25 +524,31 @@ bool MyMoneyTemplate::saveTemplate(const QUrl &url)
     if (qfile.open(QIODevice::WriteOnly)) {
       saveToLocalFile(&qfile);
       if (!qfile.commit()) {
-        throw MYMONEYEXCEPTION(i18n("Unable to write changes to '%1'", filename));
+        throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to write changes to '%1'").arg(filename));
       }
     } else {
-      throw MYMONEYEXCEPTION(i18n("Unable to write changes to '%1'", filename));
+      throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to write changes to '%1'").arg(filename));
     }
   } else {
     QTemporaryFile tmpfile;
+    tmpfile.open();
     QSaveFile qfile(tmpfile.fileName());
     if (qfile.open(QIODevice::WriteOnly)) {
       saveToLocalFile(&qfile);
       if (!qfile.commit()) {
-        throw MYMONEYEXCEPTION(i18n("Unable to upload to '%1'", url.url()));
+        throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to upload to '%1'").arg(url.toDisplayString()));
       }
     } else {
-      throw MYMONEYEXCEPTION(i18n("Unable to upload to '%1'", url.url()));
+      throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to upload to '%1'").arg(url.toDisplayString()));
     }
-    // TODO: port to kf5
-    //if (!KIO::NetAccess::upload(tmpfile.fileName(), url, 0))
-    //  throw MYMONEYEXCEPTION(i18n("Unable to upload to '%1'", url.url()));
+    int permission = -1;
+    QFile file(tmpfile.fileName());
+    file.open(QIODevice::ReadOnly);
+    KIO::StoredTransferJob *putjob = KIO::storedPut(file.readAll(), url, permission, KIO::JobFlag::Overwrite);
+    if (!putjob->exec()) {
+      throw MYMONEYEXCEPTION(QString::fromLatin1("Unable to upload to '%1'.<br />%2").arg(url.toDisplayString(), putjob->errorString()));
+    }
+    file.close();
   }
   return true;
 }

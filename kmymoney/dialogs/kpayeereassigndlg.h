@@ -1,19 +1,21 @@
-/***************************************************************************
-                          kpayeereassigndlg.cpp
-                             -------------------
-    copyright            : (C) 2005 by Andreas Nicolai <ghorwin@users.sourceforge.net>
-                           (C) 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005       Andreas Nicolai <Andreas.Nicolai@gmx.net>
+ * Copyright 2007-2008  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KPAYEEREASSIGNDLG_H
 #define KPAYEEREASSIGNDLG_H
@@ -21,7 +23,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QCheckBox>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -29,26 +31,19 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneypayee.h>
-#include "ui_kpayeereassigndlgdecl.h"
-
 /**
  *  Implementation of the dialog that lets the user select a payee in order
  *  to re-assign transactions (for instance, if payees are deleted).
  */
 
+class MyMoneyPayee;
 
-class KPayeeReassignDlgDecl : public QDialog, public Ui::KPayeeReassignDlgDecl
-{
-public:
-  KPayeeReassignDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
-class KPayeeReassignDlg : public KPayeeReassignDlgDecl
+class KPayeeReassignDlgPrivate;
+class KPayeeReassignDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KPayeeReassignDlg)
+
 public:
   /** Change behavior based on type of operation */
   enum OperationType {
@@ -58,7 +53,7 @@ public:
   };
 
   /** Default constructor */
-  KPayeeReassignDlg(OperationType type, QWidget* parent = 0);
+  explicit KPayeeReassignDlg(OperationType type, QWidget* parent = nullptr);
 
   /** Destructor */
   ~KPayeeReassignDlg();
@@ -78,16 +73,14 @@ public:
    * Returns true, if the names of the payees to be deleted should be copied
    * to the selected payee's match list.
    */
-  bool addToMatchList() const {
-    return m_copyToMatchList->isChecked();
-  }
+  bool addToMatchList() const;
 
 protected:
-  void accept();
+  void accept() override;
 
-private:
-  OperationType m_type;
-
+private:  
+  KPayeeReassignDlgPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KPayeeReassignDlg)
 };
 
 #endif // KPAYEEREASSIGNDLG_H

@@ -17,18 +17,20 @@
 
 #include "converter-test.h"
 
-#include <QtTest/QtTest>
+#include <QtTest>
 #include <QFile>
 
 // uses helper functions from reports tests
-#include "reportstestcommon.h"
+#include "tests/testutilities.h"
 using namespace test;
 
+#include "mymoneyinstitution.h"
 #include "mymoneysecurity.h"
 #include "mymoneyprice.h"
 #include "mymoneyreport.h"
+#include "mymoneypayee.h"
 #include "mymoneystatement.h"
-#include "storage/mymoneystoragexml.h"
+#include "mymoneyexception.h"
 #include "storage/mymoneystoragedump.h"
 #include "webpricequote.h"
 
@@ -38,7 +40,7 @@ using namespace convertertest;
 
 void ConverterTest::init()
 {
-  storage = new MyMoneySeqAccessMgr;
+  storage = new MyMoneyStorageMgr;
   file = MyMoneyFile::instance();
   file->attachStorage(storage);
 
@@ -46,25 +48,27 @@ void ConverterTest::init()
 
   file->addCurrency(MyMoneySecurity("CAD", "Canadian Dollar",        "C$"));
   file->addCurrency(MyMoneySecurity("USD", "US Dollar",              "$"));
-  file->addCurrency(MyMoneySecurity("JPY", "Japanese Yen",           QChar(0x00A5), 100, 1));
+  file->addCurrency(MyMoneySecurity("JPY", "Japanese Yen",           QChar(0x00A5), 1));
   file->addCurrency(MyMoneySecurity("GBP", "British Pound",           "#"));
   file->setBaseCurrency(file->currency("USD"));
 
-  MyMoneyPayee payeeTest("Test Payee");
+  MyMoneyPayee payeeTest;
+  payeeTest.setName("Test Payee");
   file->addPayee(payeeTest);
-  MyMoneyPayee payeeTest2("Thomas Baumgart");
+  MyMoneyPayee payeeTest2;
+  payeeTest2.setName("Thomas Baumgart");
   file->addPayee(payeeTest2);
 
   acAsset = (MyMoneyFile::instance()->asset().id());
   acLiability = (MyMoneyFile::instance()->liability().id());
   acExpense = (MyMoneyFile::instance()->expense().id());
   acIncome = (MyMoneyFile::instance()->income().id());
-  acChecking = makeAccount("Checking Account", MyMoneyAccount::Checkings, moConverterCheckingOpen, QDate(2004, 5, 15), acAsset);
-  acCredit = makeAccount("Credit Card", MyMoneyAccount::CreditCard, moConverterCreditOpen, QDate(2004, 7, 15), acLiability);
-  acSolo = makeAccount("Solo", MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
-  acParent = makeAccount("Parent", MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
-  acChild = makeAccount("Child", MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent);
-  acForeign = makeAccount("Foreign", MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
+  acChecking = makeAccount("Checking Account", eMyMoney::Account::Type::Checkings, moConverterCheckingOpen, QDate(2004, 5, 15), acAsset);
+  acCredit = makeAccount("Credit Card", eMyMoney::Account::Type::CreditCard, moConverterCreditOpen, QDate(2004, 7, 15), acLiability);
+  acSolo = makeAccount("Solo", eMyMoney::Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
+  acParent = makeAccount("Parent", eMyMoney::Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
+  acChild = makeAccount("Child", eMyMoney::Account::Type::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent);
+  acForeign = makeAccount("Foreign", eMyMoney::Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense);
 
   MyMoneyInstitution i("Bank of the World", "", "", "", "", "", "");
   file->addInstitution(i);
@@ -126,7 +130,7 @@ void ConverterTest::testWebQuotesDefault()
     // Quote value should at least be positive
     QVERIFY(qr.m_price.isPositive());
   } catch (const MyMoneyException &e) {
-    QFAIL(qPrintable(e.what()));
+    QFAIL(e.what());
   }
 #endif
 }
@@ -149,7 +153,7 @@ void ConverterTest::testWebQuotes()
     QVERIFY(qr.m_price.isPositive());
 
   } catch (const MyMoneyException &e) {
-    QFAIL(qPrintable(e.what()));
+    QFAIL(e.what());
   }
 #endif
 }
@@ -193,6 +197,6 @@ void ConverterTest::testDateFormat()
     QVERIFY(format.convertString("1/1/90", false, 2000) == QDate(1990, 1, 1));
     QVERIFY(format.convertString("december 31st, 5", false) == QDate(2005, 12, 31));
   } catch (const MyMoneyException &e) {
-    QFAIL(qPrintable(e.what()));
+    QFAIL(e.what());
   }
 }

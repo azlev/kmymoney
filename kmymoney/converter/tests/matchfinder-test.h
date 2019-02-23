@@ -17,11 +17,12 @@
 #ifndef MATCHFINDERTEST_H
 #define MATCHFINDERTEST_H
 
-#include <QtCore/QObject>
+#include <QObject>
 #include <QScopedPointer>
 
 #include "mymoneyaccount.h"
-#include "mymoneyseqaccessmgr.h"
+#include "mymoneypayee.h"
+#include "mymoneystoragemgr.h"
 #include "existingtransactionmatchfinder.h"
 #include "scheduledtransactionmatchfinder.h"
 
@@ -35,7 +36,7 @@ private:
   MyMoneyFile *                       file;
   QScopedPointer<MyMoneyAccount>      account;
   QScopedPointer<MyMoneyAccount>      otherAccount;
-  QScopedPointer<MyMoneySeqAccessMgr> storage;
+  QScopedPointer<MyMoneyStorageMgr> storage;
   MyMoneyPayee                        payee;
   MyMoneyPayee                        otherPayee;
   static const int                    MATCH_WINDOW = 4;
@@ -45,7 +46,7 @@ private:
   TransactionMatchFinder::MatchResult matchResult;
   QScopedPointer<ExistingTransactionMatchFinder> existingTrFinder;
 
-  MyMoneySchedule                     schedule;
+  MyMoneySchedule                     m_schedule;
   QScopedPointer<ScheduledTransactionMatchFinder> scheduledTrFinder;
 
   void setupStorage();
@@ -63,7 +64,7 @@ private:
   void expectMatchWithExistingTransaction(TransactionMatchFinder::MatchResult expectedResult);
   void expectMatchWithScheduledTransaction(TransactionMatchFinder::MatchResult expectedResult);
 
-private slots:
+private Q_SLOTS:
   void init();
   void cleanup();
 
@@ -102,6 +103,8 @@ private slots:
   void testScheduleMatch_overdue();
   void testScheduleMismatch_dueDate();
   void testScheduleMismatch_amount();
+public:
+  MatchFinderTest();
 };
 
 #endif // MATCHFINDERTEST_H

@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2015 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -19,15 +19,15 @@
 #ifndef CHARVALIDATOR_H
 #define CHARVALIDATOR_H
 
-#include <QtGui/QValidator>
+#include <QValidator>
 
 class charValidator : public QValidator
 {
   Q_OBJECT
 
 public:
-  charValidator(QObject* parent = 0, const QString& characters = QString());
-  virtual QValidator::State validate(QString& , int&) const;
+  explicit charValidator(QObject* parent = 0, const QString& characters = QString());
+  QValidator::State validate(QString& , int&) const final override;
 
   void setAllowedCharacters(const QString&);
 

@@ -1,22 +1,21 @@
-/***************************************************************************
-                          kmymoneylineedit.h  -  description
-                             -------------------
-    begin                : Wed May 9 2001
-    copyright            : (C) 2001 by Michael Edwardes <mte@users.sourceforge.net>
-                               2006 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Javier Campos Morales <javi_c@ctv.es>
-                           Felix Rodriguez <frodriguez@mail.wesleyan.edu>
-
-****************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2001       Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2002       Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2006-2011  Thomas Baumgart <tbaumgart@kde.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYLINEEDIT_H
 #define KMYMONEYLINEEDIT_H
@@ -28,8 +27,6 @@
 // KDE Includes
 
 #include <KLineEdit>
-#include <QFocusEvent>
-#include <QKeyEvent>
 
 // ----------------------------------------------------------------------------
 // Project Includes
@@ -45,7 +42,9 @@
   * @author Michael Edwardes
   * @author Thomas Baumgart
   */
-class KMM_WIDGETS_EXPORT kMyMoneyLineEdit : public KLineEdit
+class QFocusEvent;
+class QKeyEvent;
+class KMM_WIDGETS_EXPORT KMyMoneyLineEdit : public KLineEdit
 {
   Q_OBJECT
 public:
@@ -56,8 +55,8 @@ public:
     * @param alignment Controls the alignment of the text. Default is Qt::AlignLeft | Qt::AlignVCenter.
     *                  See Qt::AlignmentFlags for other possible values.
     */
-  explicit kMyMoneyLineEdit(QWidget *w = 0, bool forceMonetaryDecimalSymbol = false, Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter));
-  ~kMyMoneyLineEdit();
+  explicit KMyMoneyLineEdit(QWidget *w = 0, bool forceMonetaryDecimalSymbol = false, Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter));
+  ~KMyMoneyLineEdit();
 
   /**
     * This method is used to set the value of the widget back to
@@ -72,10 +71,10 @@ public:
     */
   void skipSelectAll(bool skipIt);
 
-public slots:
+public Q_SLOTS:
   void loadText(const QString& text);
 
-signals:
+Q_SIGNALS:
   /**
     * This signal is emitted when the focus leaves the object and the text
     * has been changed. The new text is passed as @a str.
@@ -83,8 +82,8 @@ signals:
   void lineChanged(const QString& str);
 
 protected:
-  void focusOutEvent(QFocusEvent *ev);
-  void focusInEvent(QFocusEvent *ev);
+  void focusOutEvent(QFocusEvent *ev) override;
+  void focusInEvent(QFocusEvent *ev) override;
 
   /**
     * Overridden so that the period key on the numeric keypad always sends
@@ -97,7 +96,7 @@ protected:
     *
     * @param ev pointer to current QKeyEvent
     */
-  void keyPressEvent(QKeyEvent* ev);
+  void keyPressEvent(QKeyEvent* ev) override;
 
   /**
     * Overridden so that the period key on the numeric keypad always sends
@@ -110,7 +109,7 @@ protected:
     *
     * @param ev pointer to current QKeyEvent
     */
-  void keyReleaseEvent(QKeyEvent* ev);
+  void keyReleaseEvent(QKeyEvent* ev) override;
 
 private:
   /// \internal d-pointer class.

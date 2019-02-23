@@ -1,19 +1,21 @@
-/***************************************************************************
-                          kmymoneycombo.h  -  description
-                             -------------------
-    begin                : Mon Mar 12 2007
-    copyright            : (C) 2007 by Thomas Baumgart
-    email                : ipwizard@users.sourceforge.net
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2001       Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2002-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYCOMBO_H
 #define KMYMONEYCOMBO_H
@@ -21,37 +23,31 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QTimer>
-#include <QMutex>
-#include <QPaintEvent>
-#include <QFocusEvent>
-#include <QList>
-#include <QMouseEvent>
-#include <QKeyEvent>
-#include <QStandardItemModel>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kcombobox.h>
+#include <KComboBox>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-class kMyMoneyCompletion;
+class KMyMoneyCompletion;
 class KMyMoneySelector;
-class kMyMoneyLineEdit;
 
 /**
   * @author Thomas Baumgart
   */
+class KMyMoneyComboPrivate;
 class KMyMoneyCombo : public KComboBox
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyCombo)
   Q_PROPERTY(QString selectedItem READ selectedItem WRITE setSelectedItem STORED false)
+
 public:
-  KMyMoneyCombo(QWidget *w = 0);
-  explicit KMyMoneyCombo(bool rw, QWidget *w = 0);
+  explicit KMyMoneyCombo(QWidget *parent = nullptr);
+  explicit KMyMoneyCombo(bool rw = false, QWidget *parent = nullptr);
+  virtual ~KMyMoneyCombo();
 
   /**
     * This method is used to turn on/off the hint display and to setup the appropriate text.
@@ -72,9 +68,9 @@ public:
   /**
     * This method returns a pointer to the completion object of the combo box.
     *
-    * @return pointer to kMyMoneyCompletion or derivative.
+    * @return pointer to KMyMoneyCompletion or derivative.
     */
-  kMyMoneyCompletion* completion() const;
+  KMyMoneyCompletion* completion() const;
 
   /**
     * This method returns a pointer to the completion object's selector.
@@ -98,9 +94,7 @@ public:
     * @return reference to QString containing the id. If no item
     *         is selected the QString will be empty.
     */
-  const QString& selectedItem() const {
-    return m_id;
-  }
+  QString selectedItem() const;
 
   /**
     * This method selects the item with the respective @a id.
@@ -115,45 +109,42 @@ public:
     */
   bool isInArrowArea(const QPoint& pos) const;
 
-  void setSuppressObjectCreation(bool suppress) {
-    m_canCreateObjects = !suppress;
-  }
+  void setSuppressObjectCreation(bool suppress);
 
   /**
     * overridden for internal reasons, no API change
     */
-  void setCurrentText(const QString& txt = QString()) {
-    KComboBox::setItemText(KComboBox::currentIndex(), txt);
-  }
+  void setCurrentText(const QString& txt);
+  void setCurrentText();
 
   /**
    * Overridden to support our own completion box
    */
-  QSize sizeHint() const;
+  QSize sizeHint() const override;
 
-protected slots:
+protected Q_SLOTS:
   virtual void slotItemSelected(const QString& id);
 
 protected:
   /**
     * reimplemented to support our own popup widget
     */
-  void mousePressEvent(QMouseEvent *e);
+  void mousePressEvent(QMouseEvent *e) override;
 
   /**
     * reimplemented to support our own popup widget
     */
-  void keyPressEvent(QKeyEvent *e);
+  void keyPressEvent(QKeyEvent *e) override;
 
   /**
     * reimplemented to support our own popup widget
     */
-  void paintEvent(QPaintEvent *);
+  void paintEvent(QPaintEvent *) override;
 
   /**
     * reimplemented to support detection of new items
     */
-  void focusOutEvent(QFocusEvent*);
+  void focusOutEvent(QFocusEvent*) override;
 
   /**
     * set the widgets text area based on the item with the given @a id.
@@ -163,50 +154,24 @@ protected:
   /**
     * Overridden for internal reasons, no API change
     */
-  void connectNotify(const QMetaMethod & signal);
+  void connectNotify(const QMetaMethod & signal) override;
 
   /**
     * Overridden for internal reasons, no API change
     */
-  void disconnectNotify(const QMetaMethod & signal);
+  void disconnectNotify(const QMetaMethod & signal) override;
 
 protected:
-  /**
-    * This member keeps a pointer to the object's completion object
-    */
-  kMyMoneyCompletion*    m_completion;
+  KMyMoneyComboPrivate * const d_ptr;
+  KMyMoneyCombo(KMyMoneyComboPrivate &dd, bool rw = false, QWidget *parent = 0);
 
-  /**
-    * Use our own line edit to provide hint functionality
-    */
-  kMyMoneyLineEdit*      m_edit;
-
-  /**
-    * The currently selected item
-    */
-  QString                m_id;
-
-signals:
+Q_SIGNALS:
   void itemSelected(const QString& id);
   void objectCreation(bool);
   void createItem(const QString&, QString&);
 
 private:
-  QTimer                 m_timer;
-  QMutex                 m_focusMutex;
-  /**
-    * Flag to control object creation. Use setSuppressObjectCreation()
-    * to modify it's setting. Defaults to @a false.
-    */
-  bool                   m_canCreateObjects;
-
-  /**
-    * Flag to check whether a focusOutEvent processing is underway or not
-    */
-  bool                   m_inFocusOutEvent;
+  Q_DECLARE_PRIVATE(KMyMoneyCombo)
 };
-
-
-
 
 #endif

@@ -16,12 +16,10 @@
  ***************************************************************************/
 
 #include "ledgerviewpage.h"
-#include <mymoneyaccount.h>
+#include "mymoneyaccount.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
-
-#include <QDebug>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -33,6 +31,7 @@
 #include "models.h"
 #include "ledgermodel.h"
 #include "ui_ledgerviewpage.h"
+#include "mymoneyenums.h"
 
 class LedgerViewPage::Private
 {
@@ -52,6 +51,12 @@ public:
     ui->splitter->setStretchFactor(1, 1);
     ui->splitter->setSizes(QList<int>() << 10000 << ui->formWidget->sizeHint().height());
   }
+
+  ~Private()
+  {
+    delete ui;
+  }
+
   Ui_LedgerViewPage*  ui;
   NewTransactionForm* form;
   QSet<QString>       hideFormReasons;
@@ -61,12 +66,12 @@ LedgerViewPage::LedgerViewPage(QWidget* parent)
   : QWidget(parent)
   , d(new Private(this))
 {
-  connect(d->ui->ledgerView, SIGNAL(transactionSelected(QString)), this, SIGNAL(transactionSelected(QString)));
-  connect(d->ui->ledgerView, SIGNAL(aboutToStartEdit()), this, SIGNAL(aboutToStartEdit()));
-  connect(d->ui->ledgerView, SIGNAL(aboutToFinishEdit()), this, SIGNAL(aboutToFinishEdit()));
-  connect(d->ui->ledgerView, SIGNAL(aboutToStartEdit()), this, SLOT(startEdit()));
-  connect(d->ui->ledgerView, SIGNAL(aboutToFinishEdit()), this, SLOT(finishEdit()));
-  connect(d->ui->splitter, SIGNAL(splitterMoved(int,int)), this, SLOT(splitterChanged(int,int)));
+  connect(d->ui->ledgerView, &LedgerView::transactionSelected, this, &LedgerViewPage::transactionSelected);
+  connect(d->ui->ledgerView, &LedgerView::aboutToStartEdit, this, &LedgerViewPage::aboutToStartEdit);
+  connect(d->ui->ledgerView, &LedgerView::aboutToFinishEdit, this, &LedgerViewPage::aboutToFinishEdit);
+  connect(d->ui->ledgerView, &LedgerView::aboutToStartEdit, this, &LedgerViewPage::startEdit);
+  connect(d->ui->ledgerView, &LedgerView::aboutToFinishEdit, this, &LedgerViewPage::finishEdit);
+  connect(d->ui->splitter, &QSplitter::splitterMoved, this, &LedgerViewPage::splitterChanged);
 }
 
 LedgerViewPage::~LedgerViewPage()
@@ -87,7 +92,7 @@ void LedgerViewPage::setAccount(const MyMoneyAccount& acc)
   d->hideFormReasons.insert(QLatin1String("FormAvailable"));
 
   switch(acc.accountType()) {
-    case MyMoneyAccount::Investment:
+    case eMyMoney::Account::Type::Investment:
       break;
 
     default:
@@ -102,8 +107,10 @@ void LedgerViewPage::setAccount(const MyMoneyAccount& acc)
       d->ui->formWidget->setLayout(new QHBoxLayout(d->ui->formWidget));
     }
     d->ui->formWidget->layout()->addWidget(d->form);
-    connect(d->ui->ledgerView, SIGNAL(transactionSelected(QString)), d->form, SLOT(showTransaction(QString)));
-    connect(Models::instance()->ledgerModel(), SIGNAL(dataChanged(QModelIndex,QModelIndex)), d->form, SLOT(modelDataChanged(QModelIndex,QModelIndex)));
+    connect(d->ui->ledgerView, &LedgerView::transactionSelected,
+            d->form, &NewTransactionForm::showTransaction);
+    connect(Models::instance()->ledgerModel(), &LedgerModel::dataChanged,
+            d->form, &NewTransactionForm::modelDataChanged);
   }
   d->ui->formWidget->setVisible(d->hideFormReasons.isEmpty());
   d->ui->ledgerView->setAccount(acc);
@@ -129,6 +136,8 @@ void LedgerViewPage::finishEdit()
 {
   d->hideFormReasons.remove(QLatin1String("Edit"));
   d->ui->formWidget->setVisible(d->hideFormReasons.isEmpty());
+  // the focus should be on the ledger view once editing ends
+  d->ui->ledgerView->setFocus();
 }
 
 void LedgerViewPage::splitterChanged(int pos, int index)

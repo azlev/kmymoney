@@ -1,19 +1,20 @@
-/***************************************************************************
-                         kguiutils.h  -  description
-                            -------------------
-   begin                : Fri Jan 27 2006
-   copyright            : (C) 2006 Tony Bloomfield
-   email                : Tony Bloomfield <tonybloom@users.sourceforge.net>
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2006-2010  Tony Bloomfield <tonybloom@users.sourceforge.net>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KGUIUTILS_H
 #define KGUIUTILS_H
@@ -22,30 +23,30 @@
 // QT Includes
 
 #include <QObject>
-#include <QList>
-#include <QPushButton>
-class QWidget;
 
 // ----------------------------------------------------------------------------
 // KDE Includes
-
-#include <kcombobox.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
 #include "kmm_widgets_export.h"
 
+class QWidget;
+class QPushButton;
+
 /**
   * @author Tony Bloomfield
   */
-class KMM_WIDGETS_EXPORT kMandatoryFieldGroup : public QObject
+class KMandatoryFieldGroupPrivate;
+class KMM_WIDGETS_EXPORT KMandatoryFieldGroup : public QObject
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMandatoryFieldGroup)
 
 public:
-  kMandatoryFieldGroup(QObject *parent) :
-      QObject(parent), m_okButton(0), m_enabled(true) {}
+  explicit KMandatoryFieldGroup(QObject *parent);
+  ~KMandatoryFieldGroup();
 
   /**
     * This method adds a widget to the list of mandatory fields for the current dialog
@@ -62,6 +63,11 @@ public:
   void remove(QWidget *widget);
 
   /**
+   * This method removes all widgets from the list of mandatory fields for the current dialog
+   */
+  void removeAll();
+
+  /**
     * This method designates the button to be enabled when all mandatory fields
     * have been completed
     *
@@ -73,11 +79,9 @@ public:
     * This method returns if all requirements for the mandatory group
     * have been fulfilled (@p true) or not (@p false).
     */
-  bool isEnabled() const {
-    return m_enabled;
-  }
+  bool isEnabled() const;
 
-public slots:
+public Q_SLOTS:
   void clear();
 
   /**
@@ -85,14 +89,13 @@ public slots:
     */
   void changed();
 
-signals:
+Q_SIGNALS:
   void stateChanged();
   void stateChanged(bool state);
 
 private:
-  QList<QWidget *>      m_widgets;
-  QPushButton*          m_okButton;
-  bool                  m_enabled;
+  KMandatoryFieldGroupPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KMandatoryFieldGroup)
 };
 
 #endif // KGUIUTILS_H

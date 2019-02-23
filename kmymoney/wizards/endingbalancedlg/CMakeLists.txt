@@ -9,17 +9,17 @@ set (libendingbalancedlg_a_SOURCES
   )
 
 set (libendingbalancedlg_a_UI
-  kendingbalancedlgdecl.ui
-  checkingstartwizardpagedecl.ui
-  checkingstatementinfowizardpagedecl.ui
-  interestchargecheckingswizardpagedecl.ui
-  previouspostponewizardpagedecl.ui
+  kendingbalancedlg.ui
+  checkingstartwizardpage.ui
+  checkingstatementinfowizardpage.ui
+  interestchargecheckingswizardpage.ui
+  previouspostponewizardpage.ui
   )
 
 ki18n_wrap_ui(libendingbalancedlg_a_SOURCES ${libendingbalancedlg_a_UI} )
 
 add_library(endingbalancedlg STATIC ${libendingbalancedlg_a_SOURCES})
-target_link_libraries(endingbalancedlg KF5::ConfigWidgets KF5::WidgetsAddons KF5::I18n KF5::Completion Qt5::Widgets Qt5::Sql Qt5::Xml Alkimia::alkimia)
+target_link_libraries(endingbalancedlg KF5::ConfigWidgets KF5::WidgetsAddons KF5::I18n KF5::Completion Qt5::Widgets Qt5::Xml Alkimia::alkimia)
 
 # we rely on some widgets to be generated
 add_dependencies(endingbalancedlg widgets dialogs)

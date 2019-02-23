@@ -1,48 +1,39 @@
-/***************************************************************************
-                         kmymoneyaccountbutton  -  description
-                            -------------------
-   begin                : Mon May 31 2004
-   copyright            : (C) 2000-2004 by Michael Edwardes
-   email                : mte@users.sourceforge.net
-                          Javier Campos Morales <javi_c@users.sourceforge.net>
-                          Felix Rodriguez <frodriguez@users.sourceforge.net>
-                          John C <thetacoturtle@users.sourceforge.net>
-                          Thomas Baumgart <ipwizard@users.sourceforge.net>
-                          Kevin Tambascio <ktambascio@users.sourceforge.net>
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-
-#include <config-kmymoney.h>
+/*
+ * Copyright 2004-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kmymoneyaccountcombo.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QPainter>
-#include <QStyle>
-#include <QApplication>
-#include <QMouseEvent>
 #include <QList>
 #include <QKeyEvent>
 #include <QTreeView>
-#include <QHeaderView>
 #include <QLineEdit>
-#include <QDebug>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
+
+#include "mymoneyfile.h"
+#include "modelenums.h"
 
 class KMyMoneyAccountCombo::Private
 {
@@ -93,7 +84,7 @@ void KMyMoneyAccountCombo::Private::selectFirstMatchingItem()
   if(m_popupView) {
     bool isBlocked = m_popupView->blockSignals(true);
     m_popupView->setCurrentIndex(QModelIndex());
-    for (int i = 0; i < m_q->model()->rowCount(QModelIndex()); ++i) {
+    for (auto i = 0; i < m_q->model()->rowCount(QModelIndex()); ++i) {
       QModelIndex childIndex = m_q->model()->index(i, 0);
       if (m_q->model()->hasChildren(childIndex)) {
         // search the first leaf
@@ -138,7 +129,7 @@ void KMyMoneyAccountCombo::setEditable(bool isEditable)
   // don't do the standard behavior
   if(lineEdit()) {
     lineEdit()->setObjectName("AccountComboLineEdit");
-    connect(lineEdit(), SIGNAL(textEdited(QString)), this, SLOT(makeCompletion(QString)));
+    connect(lineEdit(), &QLineEdit::textEdited, this, &KMyMoneyAccountCombo::makeCompletion);
   }
 }
 
@@ -162,9 +153,9 @@ void KMyMoneyAccountCombo::collapseAll()
 
 void KMyMoneyAccountCombo::activated()
 {
-  QVariant data = view()->currentIndex().data(AccountsModel::AccountIdRole);
-  if (data.isValid()) {
-    setSelected(data.toString());
+  auto variant = view()->currentIndex().data((int)eAccountsModel::Role::ID);
+  if (variant.isValid()) {
+    setSelected(variant.toString());
   }
 }
 
@@ -192,6 +183,7 @@ bool KMyMoneyAccountCombo::eventFilter(QObject* o, QEvent* e)
       switch(kev->key()) {
         case Qt::Key_Enter:
         case Qt::Key_Return:
+          activated();
           hidePopup();
           break;
       }
@@ -208,32 +200,36 @@ bool KMyMoneyAccountCombo::eventFilter(QObject* o, QEvent* e)
 
 void KMyMoneyAccountCombo::setSelected(const QString& id)
 {
+  if (id.isEmpty()) {
+    d->m_lastSelectedAccount.clear();
+    return;
+  }
+
   // make sure, we have all items available for search
   if(isEditable()) {
     lineEdit()->clear();
   }
-  // find which item has this id and set is as the current item
-  QModelIndexList list = model()->match(model()->index(0, 0), AccountsModel::AccountIdRole,
+  // find which item has this id and set it as the current item
+  QModelIndexList list = model()->match(model()->index(0, 0), (int)eAccountsModel::Role::ID,
                                         QVariant(id),
                                         1,
-                                        Qt::MatchFlags(Qt::MatchExactly | Qt::MatchCaseSensitive | Qt::MatchRecursive));
-  if (list.count() > 0) {
+                                        Qt::MatchFlags(Qt::MatchExactly | Qt::MatchWrap | Qt::MatchRecursive)); // CAUTION: Without Qt::MatchWrap no results for credit card, so nothing happens in ledger view
+
+  if (!list.isEmpty()) {
+    // make sure the popup is closed from here on
+    hidePopup();
     d->m_lastSelectedAccount = id;
     QModelIndex index = list.front();
-    QString accountName = d->fullAccountName(model(), index);
 
-    // set the current index, for this we must set the parent item as the root item
-    QModelIndex oldRootModelIndex = rootModelIndex();
-    setRootModelIndex(index.parent());
-    setCurrentIndex(index.row());
     if(isEditable()) {
-      d->m_popupView->collapseAll();
-      d->m_popupView->expand(index);
-    }
-    // restore the old root item
-    setRootModelIndex(oldRootModelIndex);
-    if(isEditable()) {
-      lineEdit()->setText(accountName);
+      lineEdit()->setText(d->fullAccountName(model(), index));
+    } else {
+      // ensure that combobox is properly set when KMyMoneyAccountCombo::setSelected is called programmatically
+      blockSignals(true);
+      setRootModelIndex(index.parent());
+      setCurrentIndex(index.row());
+      setRootModelIndex(QModelIndex());
+      blockSignals(false);
     }
     emit accountSelected(id);
   }
@@ -246,38 +242,49 @@ const QString& KMyMoneyAccountCombo::getSelected() const
 
 void KMyMoneyAccountCombo::setModel(QSortFilterProxyModel *model)
 {
+  // CAUTION! Assumption is being made that Account column number is always 0
+  if ((int)eAccountsModel::Column::Account != 0) {
+    qFatal("eAccountsModel::Column::Account must be 0 in modelenums.h");
+  }
+
+  // since we create a new popup view, we get rid of an existing one
   delete d->m_popupView;
 
+  // call base class implementation
   KComboBox::setModel(model);
 
-  model->setFilterKeyColumn(AccountsModel::Account);
-  model->setFilterRole(AccountsModel::FullNameRole);
+  // setup filtering criteria
+  model->setFilterKeyColumn((int)eAccountsModel::Column::Account);
+  model->setFilterRole((int)eAccountsModel::Role::FullName);
 
+  // create popup view, attach model and allow to select a single item
   d->m_popupView = new QTreeView(this);
   d->m_popupView->setModel(model);
   d->m_popupView->setSelectionMode(QAbstractItemView::SingleSelection);
   setView(d->m_popupView);
 
+  // setup view parameters
   d->m_popupView->setHeaderHidden(true);
-  d->m_popupView->setRootIsDecorated(false);
+  d->m_popupView->setRootIsDecorated(true);
   d->m_popupView->setAlternatingRowColors(true);
   d->m_popupView->setAnimated(true);
 
   d->m_popupView->expandAll();
 
-  connect(this, SIGNAL(activated(int)), SLOT(activated()));
-  connect(d->m_popupView, SIGNAL(activated(QModelIndex)), this, SLOT(selectItem(QModelIndex)));
-  connect(d->m_popupView, SIGNAL(pressed(QModelIndex)), this, SLOT(selectItem(QModelIndex)));
+  // setup signal connections
+  connect(d->m_popupView, &QAbstractItemView::activated, this, &KMyMoneyAccountCombo::selectItem);
 
   if(isEditable()) {
-    connect(lineEdit(), SIGNAL(textEdited(QString)), this, SLOT(makeCompletion(QString)));
+    connect(lineEdit(), &QLineEdit::textEdited, this, &KMyMoneyAccountCombo::makeCompletion);
+  } else {
+    connect(this, static_cast<void (KComboBox::*)(int)>(&KMyMoneyAccountCombo::KComboBox::activated), this, &KMyMoneyAccountCombo::activated);
   }
 }
 
 void KMyMoneyAccountCombo::selectItem(const QModelIndex& index)
 {
   if(index.isValid() && (model()->flags(index) & Qt::ItemIsSelectable)) {
-    setSelected(model()->data(index, AccountsModel::AccountIdRole).toString());
+    setSelected(model()->data(index, (int)eAccountsModel::Role::ID).toString());
   }
 }
 
@@ -288,20 +295,21 @@ void KMyMoneyAccountCombo::makeCompletion(const QString& txt)
     AccountNamesFilterProxyModel* filterModel = qobject_cast<AccountNamesFilterProxyModel*>(model());
 
     if(filterModel) {
-      if (txt.contains(MyMoneyFile::AccountSeperator) == 0) {
+      const auto completionStr = QStringLiteral(".*");
+      if (txt.contains(MyMoneyFile::AccountSeparator) == 0) {
         // for some reason it helps to avoid internal errors if we
         // clear the filter before setting it to a new value
         filterModel->setFilterFixedString(QString());
-        const QString filterString = QString("%1%2%3").arg(".*").arg(QRegExp::escape(txt)).arg(".*");
+        const auto filterString = QString::fromLatin1("%1%2%3").arg(completionStr).arg(QRegExp::escape(txt)).arg(completionStr);
         filterModel->setFilterRegExp(QRegExp(filterString, Qt::CaseInsensitive));
       } else {
-        QStringList parts = txt.split(MyMoneyFile::AccountSeperator /*, QString::SkipEmptyParts */);
+        QStringList parts = txt.split(MyMoneyFile::AccountSeparator /*, QString::SkipEmptyParts */);
         QString pattern;
         QStringList::iterator it;
         for (it = parts.begin(); it != parts.end(); ++it) {
           if (pattern.length() > 1)
-            pattern += MyMoneyFile::AccountSeperator;
-          pattern += QRegExp::escape(QString(*it).trimmed()) + ".*";
+            pattern += MyMoneyFile::AccountSeparator;
+          pattern += QRegExp::escape(QString(*it).trimmed()) + completionStr;
         }
         // for some reason it helps to avoid internal errors if we
         // clear the filter before setting it to a new value
@@ -312,7 +320,7 @@ void KMyMoneyAccountCombo::makeCompletion(const QString& txt)
         if (filterModel->visibleItems() == 0) {
           // for some reason it helps to avoid internal errors if we
           // clear the filter before setting it to a new value
-          pattern = pattern.prepend(QString(".*") + MyMoneyFile::AccountSeperator);
+          pattern = pattern.prepend(completionStr + MyMoneyFile::AccountSeparator);
           filterModel->setFilterFixedString(QString());
           filterModel->setFilterRegExp(QRegExp(pattern, Qt::CaseInsensitive));
         }
@@ -358,3 +366,5 @@ void KMyMoneyAccountCombo::hidePopup()
   }
   KComboBox::hidePopup();
 }
+
+// kate: space-indent on; indent-width 2; remove-trailing-space on; remove-trailing-space-save on;

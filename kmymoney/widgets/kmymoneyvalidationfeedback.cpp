@@ -1,11 +1,11 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2015  Christian Dávid <christian-david@web.de>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,20 +20,38 @@
 #include "ui_kmymoneyvalidationfeedback.h"
 
 #include <QIcon>
+#include "icons/icons.h"
+#include "widgetenums.h"
 
-class KMyMoneyValidationFeedback::Private
+using namespace eWidgets;
+using namespace Icons;
+
+class KMyMoneyValidationFeedbackPrivate
 {
-public:
-  KMyMoneyValidationFeedback::MessageType type;
-};
+  Q_DISABLE_COPY(KMyMoneyValidationFeedbackPrivate)
 
+public:
+  KMyMoneyValidationFeedbackPrivate() :
+    ui(new Ui::KMyMoneyValidationFeedback),
+    type(ValidationFeedback::MessageType::None)
+  {
+  }
+
+  ~KMyMoneyValidationFeedbackPrivate()
+  {
+    delete ui;
+  }
+
+  Ui::KMyMoneyValidationFeedback *ui;
+  ValidationFeedback::MessageType type;
+};
 
 KMyMoneyValidationFeedback::KMyMoneyValidationFeedback(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::KMyMoneyValidationFeedback),
-    d_ptr(new Private)
+    d_ptr(new KMyMoneyValidationFeedbackPrivate)
 {
-  ui->setupUi(this);
+  Q_D(KMyMoneyValidationFeedback);
+  d->ui->setupUi(this);
   setHidden(true);
   QSizePolicy newSizePolicy = sizePolicy();
   newSizePolicy.setControlType(QSizePolicy::Label);
@@ -44,40 +62,38 @@ KMyMoneyValidationFeedback::KMyMoneyValidationFeedback(QWidget *parent) :
 
 KMyMoneyValidationFeedback::~KMyMoneyValidationFeedback()
 {
-  Q_D();
-
-  delete ui;
+  Q_D(KMyMoneyValidationFeedback);
   delete d;
 }
 
 /**
  * @todo Set icon size according to text size
  */
-void KMyMoneyValidationFeedback::setFeedback(KMyMoneyValidationFeedback::MessageType type, QString message)
+void KMyMoneyValidationFeedback::setFeedback(ValidationFeedback::MessageType type, QString message)
 {
-  Q_D();
+  Q_D(KMyMoneyValidationFeedback);
   d->type = type;
 
-  if (type == None) {
-    if (message.isEmpty() || message == ui->label->text())
+  if (type == ValidationFeedback::MessageType::None) {
+    if (message.isEmpty() || message == d->ui->label->text())
       setHidden(true);
   } else {
     setHidden(false);
-    ui->label->setText(message);
+    d->ui->label->setText(message);
     QIcon icon;
     switch (type) {
-      case Error:
-        icon = QIcon::fromTheme("dialog-error");
+      case ValidationFeedback::MessageType::Error:
+        icon = Icons::get(Icon::DialogError);
         break;
-      case Positive:
-      case Information:
-        icon = QIcon::fromTheme("dialog-information");
+      case ValidationFeedback::MessageType::Positive:
+      case ValidationFeedback::MessageType::Information:
+        icon = Icons::get(Icon::DialogInformation);
         break;
-      case Warning:
+      case ValidationFeedback::MessageType::Warning:
       default:
-        icon = QIcon::fromTheme("dialog-warning");
+        icon = Icons::get(Icon::DialogWarning);
     }
-    ui->icon->setPixmap(icon.pixmap(24));
+    d->ui->icon->setPixmap(icon.pixmap(24));
   }
 }
 
@@ -86,11 +102,10 @@ void KMyMoneyValidationFeedback::removeFeedback()
   setHidden(true);
 }
 
-void KMyMoneyValidationFeedback::removeFeedback(KMyMoneyValidationFeedback::MessageType type, QString message)
+void KMyMoneyValidationFeedback::removeFeedback(ValidationFeedback::MessageType type, QString message)
 {
-  Q_D();
-
-  if (d->type == type && ui->label->text() == message)
+  Q_D(KMyMoneyValidationFeedback);
+  if (d->type == type && d->ui->label->text() == message)
     removeFeedback();
 }
 

@@ -28,7 +28,7 @@
 #include "gwen-gui-qt5/qt5_gui.hpp"
 
 /**
- * @brief Gwenhywfar Gui for KDE
+ * @brief Gwenhywfar Gui by KDE
  *
  *
  * @author Christian David
@@ -39,14 +39,14 @@ public:
   gwenKdeGui();
   ~gwenKdeGui();
 
-  virtual int getPassword(uint32_t flags,
+  int getPassword(uint32_t flags,
                           const char *token,
                           const char *title,
                           const char *text,
                           char *buffer,
                           int minLen,
                           int maxLen,
-                          uint32_t guiid);
+                          uint32_t guiid) final override;
 };
 
 /**
@@ -57,13 +57,13 @@ class gwenKdeGuiTanResult : public QObject
   Q_OBJECT
 
 public:
-  gwenKdeGuiTanResult(QObject* parent = nullptr)
+  explicit gwenKdeGuiTanResult(QObject* parent = nullptr)
       : QObject(parent),
       m_tan(QString()),
       m_aborted(false)
       {}
 
-  virtual ~gwenKdeGuiTanResult() {}
+  ~gwenKdeGuiTanResult() {}
 
   QString tan() {
     return m_tan;
@@ -73,7 +73,7 @@ public:
     return m_aborted;
   }
 
-public slots:
+public Q_SLOTS:
   void abort() {
     m_aborted = true;
   }

@@ -1,24 +1,20 @@
-/***************************************************************************
-                          mymoneyprice  -  description
-                             -------------------
-    begin                : Sun Nov 21 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYPRICE_H
 #define MYMONEYPRICE_H
@@ -26,11 +22,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QDateTime>
-#include <QPair>
-#include <QMap>
-#include <QDomElement>
+#include <QMetaType>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -38,8 +30,16 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneymoney.h>
-#include <kmm_mymoney_export.h>
+#include "kmm_mymoney_export.h"
+
+class QString;
+class QDate;
+class QDomElement;
+
+class MyMoneyMoney;
+
+template <class T1, class T2> class QMap;
+template <class T1, class T2> struct QPair;
 
 /**
   * @author Thomas Baumgart
@@ -63,12 +63,26 @@
   * Using the @p rate() member function, one can retrieve the conversion rate based
   * upon the @p toSecurity or the @p fromSecurity.
   */
+class MyMoneyPricePrivate;
 class KMM_MYMONEY_EXPORT MyMoneyPrice
 {
+  Q_DECLARE_PRIVATE(MyMoneyPrice)
+  MyMoneyPricePrivate * d_ptr;
+
 public:
   MyMoneyPrice();
-  MyMoneyPrice(const QString& from, const QString& to, const QDomElement& node);
-  MyMoneyPrice(const QString& from, const QString& to, const QDate& date, const MyMoneyMoney& rate, const QString& source = QString());
+  explicit MyMoneyPrice(const QString& from,
+                        const QString& to,
+                        const QDomElement& node);
+  explicit MyMoneyPrice(const QString& from,
+                        const QString& to,
+                        const QDate& date,
+                        const MyMoneyMoney& rate,
+                        const QString& source);
+  MyMoneyPrice(const MyMoneyPrice & other);
+  MyMoneyPrice(MyMoneyPrice && other);
+  MyMoneyPrice & operator=(MyMoneyPrice other);
+  friend void swap(MyMoneyPrice& first, MyMoneyPrice& second);
   virtual ~MyMoneyPrice();
 
   /**
@@ -78,7 +92,7 @@ public:
     * object is invalid (see isValid()) MyMoneyMoney(1,1) is returned.
     *
     * @param id return price to be the factor to be used to convert a value into
-    *           the correcponding value in security @p id.
+    *           the corresponding value in security @p id.
     *
     * @return returns the exchange rate (price) as MyMoneyMoney object.
     *
@@ -103,20 +117,12 @@ public:
     * @p 3/1 even though the price information kept with the object was @p 1/3, but based on the other
     * conversion direction (from ADF to GBP).
     */
-  const MyMoneyMoney& rate(const QString& id) const;
+  MyMoneyMoney rate(const QString& id) const;
 
-  const QDate& date() const {
-    return m_date;
-  };
-  const QString& source() const {
-    return m_source;
-  };
-  const QString& from() const {
-    return m_fromSecurity;
-  };
-  const QString& to() const {
-    return m_toSecurity;
-  };
+  QDate date() const;
+  QString source() const;
+  QString from() const;
+  QString to() const;
 
   /**
     * Check whether the object is valid or not. A MyMoneyPrice object
@@ -132,9 +138,7 @@ public:
   bool operator == (const MyMoneyPrice &) const;
 
   // Inequality operator
-  bool operator != (const MyMoneyPrice &right) const {
-    return !(operator == (right));
-  };
+  bool operator != (const MyMoneyPrice &right) const;
 
   /**
     * This method checks if a reference to the given object exists. It returns,
@@ -146,16 +150,24 @@ public:
     * @retval false This object does not reference the object with id @p id.
     */
   bool hasReferenceTo(const QString& id) const;
-
-private:
-  QString       m_fromSecurity;
-  QString       m_toSecurity;
-  QDate         m_date;
-  MyMoneyMoney  m_rate;
-  MyMoneyMoney  m_invRate;
-  QString       m_source;
 };
 
+inline void swap(MyMoneyPrice& first, MyMoneyPrice& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
+}
+
+inline MyMoneyPrice::MyMoneyPrice(MyMoneyPrice && other) : MyMoneyPrice() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyPrice & MyMoneyPrice::operator=(MyMoneyPrice other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 typedef QPair<QString, QString> MyMoneySecurityPair;
 typedef QMap<QDate, MyMoneyPrice> MyMoneyPriceEntries;

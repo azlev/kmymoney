@@ -1,23 +1,25 @@
-/***************************************************************************
-                          mymoneykeyvaluecontainer.h
-                             -------------------
-    begin                : Sun Nov 10 2002
-    copyright            : (C) 2000-2005 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2002-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYKEYVALUECONTAINER_H
 #define MYMONEYKEYVALUECONTAINER_H
 
+#include "kmm_mymoney_export.h"
 
 /**
   * @author Thomas Baumgart
@@ -26,16 +28,16 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QMap>
-#include <QDomDocument>
-#include <QDomElement>
+#include <qglobal.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <kmm_mymoney_export.h>
-#include <mymoneyunittestable.h>
+#include "mymoneyunittestable.h"
+
+class QString;
+
+template <class Key, class Value> class QMap;
 
 /**
   * This class implements a container for key/value pairs. This is used
@@ -47,15 +49,24 @@
   * To give any class the ability to have a key/value pair container,
   * just derive the class from this one. See MyMoneyAccount as an example.
   */
+
+class MyMoneyKeyValueContainerPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyKeyValueContainer
 {
+  Q_DECLARE_PRIVATE(MyMoneyKeyValueContainer)
   KMM_MYMONEY_UNIT_TESTABLE
+
+protected:
+  MyMoneyKeyValueContainerPrivate * d_ptr;
 
 public:
   MyMoneyKeyValueContainer();
-  MyMoneyKeyValueContainer(const QDomElement& node);
 
-  ~MyMoneyKeyValueContainer();
+  MyMoneyKeyValueContainer(const MyMoneyKeyValueContainer & other);
+  MyMoneyKeyValueContainer(MyMoneyKeyValueContainer && other);
+  MyMoneyKeyValueContainer & operator=(MyMoneyKeyValueContainer other);
+  friend void swap(MyMoneyKeyValueContainer& first, MyMoneyKeyValueContainer& second);
+  virtual ~MyMoneyKeyValueContainer();
 
   /**
     * This method can be used to retrieve the value for a specific @p key.
@@ -63,9 +74,9 @@ public:
     *
     * @param key const reference to QString with the key to search for
     * @return reference to value of this key. If the key does not exist,
-    *         an emtpy string is returned.
+    *         an empty string is returned.
     */
-  const QString& value(const QString& key) const;
+  QString value(const QString& key) const;
 
   /**
     * This method is used to add a key/value pair to the container or
@@ -97,9 +108,7 @@ public:
     * @return QMap<QString, QString> containing all key/value pairs of
     *         this container.
     */
-  const QMap<QString, QString>& pairs() const {
-    return m_kvp;
-  };
+  QMap<QString, QString> pairs() const;
 
   /**
     * This method is used to initially store a set of key/value pairs
@@ -118,28 +127,26 @@ public:
     */
   bool operator == (const MyMoneyKeyValueContainer &) const;
 
-  const QString& operator[](const QString& k) const {
-    return value(k);
-  }
+  QString operator[](const QString& k) const;
 
-  QString& operator[](const QString& k) {
-    return m_kvp[k];
-  }
-
-  /**
-    * This method creates a QDomElement for the @p document
-    * under the parent node @p parent.
-    *
-    * @param document reference to QDomDocument
-    * @param parent reference to QDomElement parent node
-    */
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
-
-private:
-  /**
-    * This member variable represents the container of key/value pairs.
-    */
-  QMap<QString, QString>  m_kvp;
+  QString& operator[](const QString& k);
 };
+
+inline void swap(MyMoneyKeyValueContainer& first, MyMoneyKeyValueContainer& second) // krazy:exclude=inline
+{
+  using std::swap;
+  swap(first.d_ptr, second.d_ptr);
+}
+
+inline MyMoneyKeyValueContainer::MyMoneyKeyValueContainer(MyMoneyKeyValueContainer && other) : MyMoneyKeyValueContainer() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyKeyValueContainer & MyMoneyKeyValueContainer::operator=(MyMoneyKeyValueContainer other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 #endif

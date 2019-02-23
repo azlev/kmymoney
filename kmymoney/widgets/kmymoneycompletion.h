@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kmymoneycompletion.h  -  description
-                             -------------------
-    begin                : Mon Apr 26 2004
-    copyright            : (C) 2000-2004 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2004-2011  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYCOMPLETION_H
 #define KMYMONEYCOMPLETION_H
@@ -27,17 +23,15 @@
 // QT Includes
 
 #include <QWidget>
-#include <QRegExp>
-#include <QEvent>
-class QTreeWidgetItem;
-class QTreeWidget;
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-
 // ----------------------------------------------------------------------------
 // Project Includes
+
+class QTreeWidgetItem;
+class QTreeWidget;
 
 class KMyMoneySelector;
 
@@ -45,13 +39,16 @@ class KMyMoneySelector;
   * @author Thomas Baumgart
   */
 
-class kMyMoneyCompletion : public QWidget
+class KMyMoneyCompletionPrivate;
+class KMyMoneyCompletion : public QWidget
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneyCompletion)
+
 public:
 
-  kMyMoneyCompletion(QWidget *parent = 0);
-  virtual ~kMyMoneyCompletion();
+  explicit  KMyMoneyCompletion(QWidget* parent = nullptr);
+  virtual ~KMyMoneyCompletion();
 
   /**
     * Re-implemented for internal reasons.  API is unaffected.
@@ -66,26 +63,24 @@ public:
     */
   void setSelected(const QString& id);
 
-  virtual KMyMoneySelector* selector() const {
-    return m_selector;
-  }
+  KMyMoneySelector* selector() const;
 
-public slots:
+public Q_SLOTS:
   void slotMakeCompletion(const QString& txt);
 
   void slotItemSelected(QTreeWidgetItem *item, int col);
 
 protected:
   /**
-    * Reimplemented from kMyMoneyAccountSelector to get events from the viewport (to hide
+    * Reimplemented from KMyMoneyAccountSelector to get events from the viewport (to hide
     * this widget on mouse-click, Escape-presses, etc.
     */
-  virtual bool eventFilter(QObject *, QEvent *);
+  bool eventFilter(QObject *, QEvent *) override;
 
   /**
     * Re-implemented for internal reasons.  API is unaffected.
     */
-  virtual void showEvent(QShowEvent*);
+  void showEvent(QShowEvent*) override;
 
   /**
     * This method resizes the widget to show a maximum of @p count
@@ -105,19 +100,13 @@ protected:
 
   void show(bool presetSelected);
 
-signals:
+Q_SIGNALS:
   void itemSelected(const QString& id);
 
 protected:
-  QWidget*                    m_parent;
-  QWidget*                    m_widget;
-  QString                     m_id;
-  QTreeWidget*                m_lv;
-  KMyMoneySelector*           m_selector;
-  QRegExp                     m_lastCompletion;
-
-  static const int MAX_ITEMS;
-
+  KMyMoneyCompletionPrivate * const d_ptr;
+  KMyMoneyCompletion(KMyMoneyCompletionPrivate &dd, QWidget* parent = nullptr);
+  Q_DECLARE_PRIVATE(KMyMoneyCompletion)
 };
 
 #endif

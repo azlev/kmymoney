@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2005 Thomas Baumgart <ipwizard@users.sourceforge.net>
  * Copyright (C) 2015 Christian Dávid <christian-david@web.de>
  *
@@ -20,6 +20,8 @@
 #ifndef KMYMONEYPLUGIN_H
 #define KMYMONEYPLUGIN_H
 
+#include <kmm_plugin_export.h>
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
@@ -29,16 +31,24 @@
 // KDE Includes
 
 #include <KXMLGUIClient>
-class KAction;
 class KToggleAction;
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <viewinterface.h>
-#include <statementinterface.h>
-#include <importinterface.h>
-#include <kmm_plugin_export.h>
+#include "mymoneykeyvaluecontainer.h"
+
+class MyMoneyStorageMgr;
+class MyMoneyAccount;
+class KMyMoneySettings;
+class IMyMoneyOperationsFormat;
+
+namespace KMyMoneyPlugin { class AppInterface; }
+namespace KMyMoneyPlugin { class ImportInterface; }
+namespace KMyMoneyPlugin { class StatementInterface; }
+namespace KMyMoneyPlugin { class ViewInterface; }
+
+namespace eKMyMoney { enum class StorageType; }
 
 /**
  * @defgroup KMyMoneyPlugin
@@ -103,10 +113,10 @@ class KMM_PLUGIN_EXPORT Plugin : public QObject, public KXMLGUIClient
 {
   Q_OBJECT
 public:
-  Plugin(QObject* parent = nullptr, const char* name = "");
+  explicit Plugin(QObject* parent = nullptr, const char* name = "");
   virtual ~Plugin();
 
-public slots:
+public Q_SLOTS:
   /**
    * @brief Called during plug in process
    */
@@ -133,6 +143,8 @@ protected:
   // named Xxx:
   //
   // XxxInterface* xxxInterface();
+
+  AppInterface* appInterface() const;
   ViewInterface* viewInterface() const;
   StatementInterface* statementInterface() const;
   ImportInterface* importInterface() const;
@@ -151,8 +163,8 @@ protected:
 class KMM_PLUGIN_EXPORT OnlinePlugin
 {
 public:
-  OnlinePlugin() {}
-  virtual ~OnlinePlugin() {}
+  OnlinePlugin();
+  virtual ~OnlinePlugin();
 
   virtual void protocols(QStringList& protocolList) const = 0;
 
@@ -217,8 +229,8 @@ public:
 class KMM_PLUGIN_EXPORT ImporterPlugin
 {
 public:
-  ImporterPlugin() {}
-  virtual ~ImporterPlugin() {}
+  ImporterPlugin();
+  virtual ~ImporterPlugin();
 
   /**
     * This method returns the english-language name of the format
@@ -267,10 +279,101 @@ public:
 
 };
 
+/**
+  * This class describes the interface between the KMyMoney
+  * application and it's STORAGE plugins. All storage plugins
+  * must provide this interface.
+  *
+  */
+class KMM_PLUGIN_EXPORT StoragePlugin
+{
+public:
+  StoragePlugin() = default;
+  virtual ~StoragePlugin() = default;
+
+  /**
+   * @brief Loads file into storage
+   * @param storage Storage manager for the file
+   * @param url URL of the file
+   * @return true if successfully opened
+   */
+  virtual MyMoneyStorageMgr *open(const QUrl &url) = 0;
+
+  /**
+   * @brief Saves storage into file
+   * @param url URL of the file
+   * @return true if successfully saved
+   */
+  virtual bool save(const QUrl &url) = 0;
+
+  /**
+   * @brief Saves storage into file
+   * @param url URL of the file
+   * @return true if successfully saved
+   */
+  virtual bool saveAs() = 0;
+
+  /**
+   * @brief Storage identifier
+   * @return Storage identifier
+   */
+  virtual eKMyMoney::StorageType storageType() const = 0;
+
+  virtual QString fileExtension() const = 0;
+
+  /**
+   * @brief returns the full URL used to open the database (incl. password)
+   * @return QUrl to re-open the database
+   */
+  virtual QUrl openUrl() const = 0;
+};
+
+/**
+  * This class describes the interface between the KMyMoney
+  * application and its data plugins. All data plugins
+  * must provide this interface.
+  *
+  */
+class KMM_PLUGIN_EXPORT DataPlugin
+{
+public:
+  DataPlugin() = default;
+  virtual ~DataPlugin() = default;
+
+  /**
+   * @brief Gets data from data service
+   * @param arg Item name to retrieve data for
+   * @param type Data type to retrieve for item
+   * @return a data like int or QString
+   */
+  virtual QVariant requestData(const QString &arg, uint type) = 0;
+};
+
+class OnlinePluginExtended;
+
+/**
+ * @brief The Container struct to hold all plugin interfaces
+ */
+struct Container {
+  QMap<QString, Plugin*>               standard;  // this should contain all loaded plugins because every plugin should inherit Plugin class
+  QMap<QString, OnlinePlugin*>         online;    // casted standard plugin, if such interface is available
+  QMap<QString, OnlinePluginExtended*> extended;  // casted standard plugin, if such interface is available
+  QMap<QString, ImporterPlugin*>       importer;  // casted standard plugin, if such interface is available
+  QMap<QString, StoragePlugin*>        storage;   // casted standard plugin, if such interface is available
+  QMap<QString, DataPlugin*>           data;      // casted standard plugin, if such interface is available
+};
+
 } // end of namespace
+
+/**
+ * @brief Structure of plugins objects by their interfaces
+ */
+KMM_PLUGIN_EXPORT extern KMyMoneyPlugin::Container pPlugins;
 
 Q_DECLARE_INTERFACE(KMyMoneyPlugin::OnlinePlugin, "org.kmymoney.plugin.onlineplugin")
 Q_DECLARE_INTERFACE(KMyMoneyPlugin::ImporterPlugin, "org.kmymoney.plugin.importerplugin")
+Q_DECLARE_INTERFACE(KMyMoneyPlugin::StoragePlugin, "org.kmymoney.plugin.storageplugin")
+Q_DECLARE_INTERFACE(KMyMoneyPlugin::DataPlugin, "org.kmymoney.plugin.dataplugin")
 
 
 /** @} */

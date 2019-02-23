@@ -47,7 +47,7 @@ class KMM_PLUGIN_EXPORT ImportInterface : public QObject
 
 public:
   explicit ImportInterface(QObject* parent, const char* name = 0);
-  ~ImportInterface() {}
+  virtual ~ImportInterface();
 
   /**
    * This method is provided by KMyMoney to select a file to
@@ -64,7 +64,7 @@ public:
    */
   virtual QUrl selectFile(const QString& title, const QString& path, const QString& mask, QFileDialog::FileMode mode, QWidget *widget) const = 0;
 
-signals:
+Q_SIGNALS:
 };
 
 } // namespace

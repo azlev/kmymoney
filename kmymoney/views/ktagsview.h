@@ -3,6 +3,7 @@
                           -------------
     begin                : Sat Oct 13 2012
     copyright            : (C) 2012 by Alessandro Russo <axela74@yahoo.it>
+                           (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
 
 ***************************************************************************/
 
@@ -21,82 +22,53 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QVector>
-#include <QWidget>
-#include <QResizeEvent>
-#include <QList>
-#include <QMenu>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
-
-#include <klistwidgetsearchline.h>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_ktagsviewdecl.h"
-#include "mymoneytag.h"
+#include "kmymoneyviewbase.h"
+
+class QListWidgetItem;
+class KListWidgetSearchLine;
+class MyMoneyObject;
+class MyMoneyTag;
+
+template <typename T> class QList;
 
 /**
   * @author Alessandro Russo
   */
 
-/**
-  * This class represents an item in the tags list view.
-  */
-class KTagListItem : public QListWidgetItem
-{
-public:
-  /**
-    * Constructor to be used to construct a tag entry object.
-    *
-    * @param parent pointer to the QListWidget object this entry should be
-    *               added to.
-    * @param tag    const reference to MyMoneyTag for which
-    *               the QListWidget entry is constructed
-    */
-  KTagListItem(QListWidget *parent, const MyMoneyTag& tag);
-  ~KTagListItem();
-
-  const MyMoneyTag& tag() const {
-    return m_tag;
-  };
-
-private:
-  MyMoneyTag  m_tag;
-};
-
-class KTagsView : public QWidget, public Ui::KTagsViewDecl
+class KTagsViewPrivate;
+class KTagsView : public KMyMoneyViewBase
 {
   Q_OBJECT
 
 public:
-  KTagsView(QWidget *parent = 0);
-  ~KTagsView();
-  void showEvent(QShowEvent* event);
+  explicit KTagsView(QWidget *parent = nullptr);
+  ~KTagsView() override;
 
-  enum filterTypeE {
-    eAllTags = 0,
-    eReferencedTags, // used tags
-    eUnusedTags,     // unused tags
-    eOpenedTags,     // not closed tags
-    eClosedTags      // closed tags
-  };
+  void updateTagActions(const QList<MyMoneyTag>& tags);
+  void executeCustomAction(eView::Action action) override;
 
-public slots:
-  void slotSelectTagAndTransaction(const QString& tagId, const QString& accountId = QString(), const QString& transactionId = QString());
-  void slotLoadTags();
+public Q_SLOTS:
+  void slotSelectTagAndTransaction(const QString& tagId, const QString& accountId, const QString& transactionId);
+  void slotSelectTagAndTransaction(const QString& tagId);
   void slotStartRename(QListWidgetItem*);
   void slotHelp();
 
+  void refresh();
+
 protected:
+  void showEvent(QShowEvent* event) override;
   void loadTags();
   void selectedTags(QList<MyMoneyTag>& tagsList) const;
   void ensureTagVisible(const QString& id);
   void clearItemData();
 
-protected slots:
+protected Q_SLOTS:
   /**
     * This method loads the m_transactionList, clears
     * the m_TransactionPtrVector and rebuilds and sorts
@@ -126,7 +98,7 @@ protected slots:
     * This slot is called when the name of a tag is changed inside
     * the tag list view and only a single tag is selected.
     */
-  void slotRenameTag(QListWidgetItem *ta);
+  void slotRenameSingleTag(QListWidgetItem *ta);
 
   /**
     * Updates the tag data in m_tag from the information in the
@@ -136,68 +108,29 @@ protected slots:
 
   void slotSelectTransaction();
 
-  void slotTagNew();
-
-  void slotRenameButtonCliked();
-
   void slotChangeFilter(int index);
 
-private slots:
+Q_SIGNALS:
+  void transactionSelected(const QString& accountId, const QString& transactionId);
+
+private:
+  Q_DISABLE_COPY(KTagsView)
+  Q_DECLARE_PRIVATE(KTagsView)
+
+private Q_SLOTS:
   /**
     * This slot receives the signal from the listview control that an item was right-clicked,
     * If @p points to a real tag item, emits openContextMenu().
     *
     * @param p position of the pointer device
     */
-  void slotOpenContextMenu(const QPoint& p);
+  void slotShowTagsMenu(const QPoint& p);
 
-signals:
-  void transactionSelected(const QString& accountId, const QString& transactionId);
-  void openContextMenu(const MyMoneyObject& obj);
-  void selectObjects(const QList<MyMoneyTag>& tags);
+  void slotSelectTags(const QList<MyMoneyTag>& list);
 
-  /**
-    * This signal is emitted whenever the view is about to be shown.
-    */
-  void aboutToShow();
-
-private:
-  MyMoneyTag   m_tag;
-  QString      m_newName;
-
-  /**
-    * This member holds a list of all transactions
-    */
-  QList<QPair<MyMoneyTransaction, MyMoneySplit> > m_transactionList;
-
-
-  /**
-    * This member holds the state of the toggle switch used
-    * to suppress updates due to MyMoney engine data changes
-    */
-  bool m_needReload;
-
-  /**
-    * Search widget for the list
-    */
-  KListWidgetSearchLine*  m_searchWidget;
-
-  /**
-   * Semaphore to suppress loading during selection
-   */
-  bool m_inSelection;
-
-  /**
-   * This signals whether a tag can be edited
-   **/
-  bool m_allowEditing;
-
-  /**
-    * This holds the filter type
-    */
-  int m_tagFilterType;
-
-  AccountNamesFilterProxyModel *m_filterProxyModel;
+  void slotNewTag();
+  void slotRenameTag();
+  void slotDeleteTag();
 };
 
 #endif

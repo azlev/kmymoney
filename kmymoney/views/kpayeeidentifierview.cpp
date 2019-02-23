@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -21,14 +21,14 @@
 
 #include <algorithm>
 
+#include <QPointer>
+#include <QAbstractItemDelegate>
 #include <QStyledItemDelegate>
-#include <QDebug>
-#include <QTimer>
 
-#include "kmymoney.h"
-#include "payeeidentifier/payeeidentifierloader.h"
 #include "payeeidentifiercontainermodel.h"
 #include "payeeidentifierselectiondelegate.h"
+#include "widgets/payeeidentifier/ibanbic/ibanbicitemdelegate.h"
+#include "widgets/payeeidentifier/nationalaccount/nationalaccountdelegate.h"
 
 payeeIdentifierDelegate::payeeIdentifierDelegate(QObject* parent)
     : StyledItemDelegateForwarder(parent)
@@ -46,8 +46,13 @@ QAbstractItemDelegate* payeeIdentifierDelegate::getItemDelegate(const QModelInde
     return delegate;
   }
 
+  QAbstractItemDelegate* delegate = nullptr;
   // Use this->parent() as parent because "this" is const
-  QAbstractItemDelegate* delegate = payeeIdentifierLoader::instance()->createItemDelegate(type, this->parent());
+  if (type == payeeIdentifiers::ibanBic::staticPayeeIdentifierIid()) {
+    delegate = new ibanBicItemDelegate(this->parent());
+  } else if (type == payeeIdentifiers::nationalAccount::staticPayeeIdentifierIid()) {
+    delegate = new nationalAccountDelegate(this->parent());
+  }
 
   if (delegate == 0) {
     if (defaultDelegate == 0)
@@ -60,18 +65,24 @@ QAbstractItemDelegate* payeeIdentifierDelegate::getItemDelegate(const QModelInde
 }
 
 KPayeeIdentifierView::KPayeeIdentifierView(QWidget* parent)
-    : QWidget(parent)
+    : QWidget(parent),
+      ui(new Ui::KPayeeIdentifierView)
 {
-  ui = new Ui::KPayeeIdentifierView;
   ui->setupUi(this);
   ui->view->setItemDelegate(new payeeIdentifierDelegate(ui->view));
+}
+
+KPayeeIdentifierView::~KPayeeIdentifierView()
+{
+  delete ui;
 }
 
 void KPayeeIdentifierView::setSource(MyMoneyPayeeIdentifierContainer container)
 {
   if (ui->view->model() == 0) {
-    payeeIdentifierContainerModel* model = new payeeIdentifierContainerModel(ui->view);
-    connect(kmymoney, &KMyMoneyApp::fileLoaded, model, &payeeIdentifierContainerModel::closeSource);
+    // this model must be closed after each KMyMoneyApp::fileLoaded signal
+    // to limit includes, it is connected outside of this class
+    auto model = new payeeIdentifierContainerModel(ui->view);
     connect(model, &payeeIdentifierContainerModel::dataChanged, this, &KPayeeIdentifierView::dataChanged);
     connect(model, &payeeIdentifierContainerModel::rowsRemoved, this, &KPayeeIdentifierView::dataChanged);
     ui->view->setModel(model);
@@ -82,6 +93,13 @@ void KPayeeIdentifierView::setSource(MyMoneyPayeeIdentifierContainer container)
 
   // Open persistent editor for last row
   ui->view->openPersistentEditor(ui->view->model()->index(ui->view->model()->rowCount(QModelIndex()) - 1, 0));
+}
+
+void KPayeeIdentifierView::closeSource()
+{
+  auto model = ui->view->model();
+  if (model)
+    static_cast<payeeIdentifierContainerModel*>(model)->closeSource();
 }
 
 QList< payeeIdentifier > KPayeeIdentifierView::identifiers() const
@@ -108,7 +126,7 @@ void KPayeeIdentifierView::removeSelected()
 {
   QModelIndexList selectedRows = ui->view->selectionModel()->selectedRows();
   // To keep the items valid during remove the data must be removed from highest row
-  // to the lowes. Unfortunately QList has no reverse iterator.
+  // to the lowest. Unfortunately QList has no reverse iterator.
   std::sort(selectedRows.begin(), selectedRows.end(), QModelIndexRowComparison);
 
   QAbstractItemModel* model = ui->view->model();

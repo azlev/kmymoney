@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kmymoneysplittable.h  -  description
-                             -------------------
-    begin                : Thu Jan 10 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2008-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KMYMONEYSPLITTABLE_H
 #define KMYMONEYSPLITTABLE_H
@@ -27,38 +23,32 @@
 // QT Includes
 
 #include <QTableWidget>
-#include <QWidget>
-#include <QPointer>
-#include <QResizeEvent>
-#include <QEvent>
-#include <QMouseEvent>
-#include <QList>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-class QMenu;
-class QPushButton;
-class QFrame;
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneytransaction.h"
-#include "mymoneyaccount.h"
-
 class KMyMoneyCategory;
-class kMyMoneyLineEdit;
-class kMyMoneyEdit;
+class MyMoneyMoney;
+class MyMoneySplit;
+class MyMoneyTransaction;
+class MyMoneyAccount;
+
+template <class Key, class Value> class QMap;
 
 /**
   * @author Thomas Baumgart
   */
-class kMyMoneySplitTable : public QTableWidget
+class KMyMoneySplitTablePrivate;
+class KMyMoneySplitTable : public QTableWidget
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KMyMoneySplitTable)
 public:
-  explicit kMyMoneySplitTable(QWidget *parent = 0);
-  virtual ~kMyMoneySplitTable();
+  explicit KMyMoneySplitTable(QWidget *parent = nullptr);
+  ~KMyMoneySplitTable();
 
   /**
     * This method is used to load the widget with the information about
@@ -74,9 +64,7 @@ public:
   /**
     * This method is used to retrieve the transaction from the widget.
     */
-  const MyMoneyTransaction& transaction() const {
-    return m_transaction;
-  }
+  MyMoneyTransaction transaction() const;
 
   /**
     * Returns a list of MyMoneySplit objects. It contains all but the one
@@ -85,19 +73,19 @@ public:
     * @param t reference to transaction
     * @return list of splits
     */
-  const QList<MyMoneySplit> getSplits(const MyMoneyTransaction& t) const;
+  QList<MyMoneySplit> getSplits(const MyMoneyTransaction& t) const;
 
   void setup(const QMap<QString, MyMoneyMoney>& priceInfo, int precision);
 
   int currentRow() const;
 
 protected:
-  void mousePressEvent(QMouseEvent* e);
-  void mouseReleaseEvent(QMouseEvent* e);
-  void mouseDoubleClickEvent(QMouseEvent* e);
-  bool eventFilter(QObject *o, QEvent *e);
+  void mousePressEvent(QMouseEvent* e) override;
+  void mouseReleaseEvent(QMouseEvent* e) override;
+  void mouseDoubleClickEvent(QMouseEvent* e) override;
+  bool eventFilter(QObject *o, QEvent *e) override;
 
-  void resizeEvent(QResizeEvent*);
+  void resizeEvent(QResizeEvent*) override;
   KMyMoneyCategory* createEditWidgets(bool setFocus);
   void destroyEditWidgets();
   void destroyEditWidget(int r, int c);
@@ -111,7 +99,7 @@ protected:
     * @param next true if forward-tab, false if backward-tab was
     *             pressed by the user
     */
-  virtual bool focusNextPrevChild(bool next);
+  bool focusNextPrevChild(bool next) override;
   void addToTabOrder(QWidget* w);
 
   void updateTransactionTableSize();
@@ -133,7 +121,7 @@ protected:
 
   void endEdit(bool keyboardDriven, bool setFocusToNextRow = true);
 
-public slots:
+public Q_SLOTS:
   /** No descriptions */
   virtual void setRowCount(int r);
 
@@ -146,9 +134,10 @@ public slots:
   void slotCancelEdit();
   void slotDuplicateSplit();
 
-protected slots:
+protected Q_SLOTS:
   /// move the focus to the selected @p row.
-  void slotSetFocus(const QModelIndex& index, int button = Qt::LeftButton);
+  void slotSetFocus(const QModelIndex& index);
+  void slotSetFocus(const QModelIndex& index, int button);
 
   /**
     * Calling this slot refills the widget with the data
@@ -160,7 +149,7 @@ protected slots:
 
   void slotLoadEditWidgets();
 
-signals:
+Q_SIGNALS:
   /**
     * This signal is emitted whenever the widget goes into edit mode.
     */
@@ -208,64 +197,8 @@ signals:
   void objectCreation(bool state);
 
 private:
-  /// the currently selected row (will be printed as selected)
-  int                 m_currentRow;
-
-  /// the number of rows filled with data
-  int                 m_maxRows;
-
-  MyMoneyTransaction  m_transaction;
-  MyMoneyAccount      m_account;
-  MyMoneySplit        m_split;
-  MyMoneySplit        m_hiddenSplit;
-
-  /**
-    * This member keeps the precision for the values
-    */
-  int                 m_precision;
-
-  /**
-    * This member keeps a pointer to the context menu
-    */
-  QMenu*         m_contextMenu;
-
-  /// keeps the QAction of the delete entry in the context menu
-  QAction*       m_contextMenuDelete;
-
-  /// keeps the QAction of the duplicate entry in the context menu
-  QAction*       m_contextMenuDuplicate;
-
-  /**
-    * This member contains a pointer to the input widget for the category.
-    * The widget will be created and destroyed dynamically in createInputWidgets()
-    * and destroyInputWidgets().
-    */
-  QPointer<KMyMoneyCategory> m_editCategory;
-
-  /**
-    * This member contains a pointer to the input widget for the memo.
-    * The widget will be created and destroyed dynamically in createInputWidgets()
-    * and destroyInputWidgets().
-    */
-  QPointer<kMyMoneyLineEdit> m_editMemo;
-
-  /**
-    * This member contains a pointer to the input widget for the amount.
-    * The widget will be created and destroyed dynamically in createInputWidgets()
-    * and destroyInputWidgets().
-    */
-  QPointer<kMyMoneyEdit>     m_editAmount;
-
-  /**
-    * This member keeps the tab order for the above widgets
-    */
-  QWidgetList         m_tabOrderWidgets;
-
-  QPointer<QFrame>           m_registerButtonFrame;
-  QPointer<QPushButton>      m_registerEnterButton;
-  QPointer<QPushButton>      m_registerCancelButton;
-
-  QMap<QString, MyMoneyMoney>  m_priceInfo;
+  KMyMoneySplitTablePrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KMyMoneySplitTable)
 };
 
 #endif

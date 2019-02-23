@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kaccountselectdlg.h  -  description
-                             -------------------
-    begin                : Mon Feb 10 2003
-    copyright            : (C) 2000-2003 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2016-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KACCOUNTSELECTDLG_H
 #define KACCOUNTSELECTDLG_H
@@ -26,8 +22,7 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QWidget>
-#include <QString>
+#include <QDialog>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -35,28 +30,23 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <kmymoneyutils.h>
-#include "ui_kaccountselectdlgdecl.h"
-
 /**
   * @author Thomas Baumgart
   */
 
+class MyMoneyAccount;
+class MyMoneyInstitution;
 
-class KAccountSelectDlgDecl : public QDialog, public Ui::KAccountSelectDlgDecl
-{
-public:
-  KAccountSelectDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
+namespace eDialogs { enum Category : int; }
 
-class KAccountSelectDlg : public KAccountSelectDlgDecl
+class KAccountSelectDlgPrivate;
+class KAccountSelectDlg : public QDialog
 {
   Q_OBJECT
+  Q_DISABLE_COPY(KAccountSelectDlg)
+
 public:
-  explicit KAccountSelectDlg(const KMyMoneyUtils::categoryTypeE type, const QString& purpose = "General", QWidget *parent = 0);
+  explicit KAccountSelectDlg(const eDialogs::Category type, const QString& purpose, QWidget *parent = nullptr);
   ~KAccountSelectDlg();
 
   /**
@@ -93,7 +83,7 @@ public:
     *
     * @return QString containing the id of the selected account
     */
-  const QString& selectedAccount() const;
+  QString selectedAccount() const;
 
   /**
     * This method is used to set the mode of the dialog. Two modes
@@ -106,7 +96,7 @@ public:
   void setMode(const int mode);
 
   /**
-    * This method allows to control the visibilty of the abort button
+    * This method allows to control the visibility of the abort button
     * in this dialog according to the parameter @p visible.
     *
     * @param visible @p true shows the abort button, @p false hides it.
@@ -121,17 +111,17 @@ public:
     * @retval false Dialog was left using the 'Skip' button
     * @retval true Dialog was left using the 'Abort' button
     */
-  bool aborted() const {
-    return m_aborted;
-  };
+  bool aborted() const;
 
-public slots:
+  void hideQifEntry();
+
+public Q_SLOTS:
   /**
     * Reimplemented from QDialog
     */
-  int exec();
+  int exec() override;
 
-protected slots:
+protected Q_SLOTS:
   /**
     * This slot is used to fire up the new account wizard and preset it
     * with the values found in m_account. If an account was created using
@@ -140,26 +130,19 @@ protected slots:
   void slotCreateAccount();
 
   /**
-    * This slot is used to fire up the new institution dialog
-    */
-  void slotCreateInstitution();
-
-  /**
     * This slot is used to react on the abort button
     */
   void abort();
 
-  /**
-    * This is the slot which will be called if the engine data is changed.
-    */
-  void slotReloadWidget();
+Q_SIGNALS:
+  void createAccount(MyMoneyAccount& account);
+  void createCategory(MyMoneyAccount& account, const MyMoneyAccount& parent);
 
 private:
-  QString         m_purpose;
-  MyMoneyAccount  m_account;
-  int             m_mode;       // 0 - select or create, 1 - create only
-  KMyMoneyUtils::categoryTypeE   m_accountType;
-  bool            m_aborted;
+  KAccountSelectDlgPrivate * const d_ptr;
+  Q_DECLARE_PRIVATE(KAccountSelectDlg)
 };
 
 #endif
+
+// kate: space-indent on; indent-width 2; remove-trailing-space on; remove-trailing-space-save on;

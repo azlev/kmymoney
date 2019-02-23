@@ -1,13 +1,11 @@
 <!DOCTYPE kpartgui>
-<kpartgui version="42" name="kmymoney" >
+<kpartgui version="44" name="kmymoney" >
  <MenuBar>
   <Menu name="file" >
-   <Action append="open_merge" name="open_database" />
-   <Action append="save_merge" name="saveas_database" />
+   <DefineGroup name="open_db_group" append="open_merge"/>
+   <DefineGroup name="save_db_group" append="save_merge"/>
    <Menu append="save_merge" name="import" >
     <text>&amp;Import</text>
-    <Action name="file_import_qif" />
-    <Action name="file_import_gnc" />
     <Merge/>
     <MergeLocal name="import_merge"/>
     <Separator/>
@@ -15,7 +13,6 @@
    </Menu>
    <Menu append="save_merge" name="export" >
     <text>&amp;Export</text>
-    <Action name="file_export_qif" />
     <Merge/>
     <Separator/>
     <Action name="file_export_template" />
@@ -97,13 +94,12 @@
   <Merge/>
   <Menu name="kmmtools" >
    <Text>T&amp;ools</Text>
-   <Action name="tools_qif_editor" />
    <Action name="tools_currency_editor" />
    <Action name="tools_price_editor" />
    <Action name="tools_update_prices" />
    <Action name="tools_consistency_check" />
    <Action name="tools_performancetest" />
-   <Action name="tools_generate_sql" />
+   <DefineGroup name="tools_group" append="tools_group"/>
    <Separator/>
    <Action name="tools_plugin_list" />
    <Action name="debug_traces" />
@@ -111,7 +107,6 @@
   </Menu>
   <Menu name="settings" >
    <Action append="show_merge" name="settings_enable_messages" />
-   <Action append="show_merge" name="settings_language"/>
   </Menu>
   <Menu name="help" >
    <Action name="show_tip" />
@@ -140,10 +135,6 @@
   <Action name="account_online_new_credit_transfer" />
   <Separator/>
   <Action name="investment_new" />
-  <Action name="investment_edit" />
-  <Action name="investment_delete" />
-  <Action name="investment_online_price_update" />
-  <Action name="investment_manual_price_update" />
  </Menu>
  <Menu name="category_context_menu">
   <title>Category options</title>
@@ -172,15 +163,6 @@
   <Action name="tag_new" />
   <Action name="tag_rename" />
   <Action name="tag_delete" />
- </Menu>
- <Menu name="budget_context_menu">
-  <title>Budget options</title>
-   <Action name="budget_new" />
-   <Action name="budget_rename" />
-   <Action name="budget_change_year" />
-   <Action name="budget_delete" />
-   <Action name="budget_copy" />
-   <Action name="budget_forecast" />
  </Menu>
  <Menu name="investment_context_menu">
   <title>Investment options</title>
@@ -238,20 +220,6 @@
   <Action name="transaction_match" />
   <Action name="transaction_accept" />
  </Menu>
- <Menu name="currency_context_menu">
-  <title>Currency options</title>
-  <Action name="currency_new" />
-  <Action name="currency_rename" />
-  <Action name="currency_delete" />
-  <Action name="currency_setbase" />
- </Menu>
- <Menu name="price_context_menu">
-  <title>Price options</title>
-  <Action name="price_new" />
-  <Action name="price_edit" />
-  <Action name="price_update" />
-  <Action name="price_delete" />
- </Menu>
  <Menu name="onlinejob_context_menu">
    <title>Credit transfer options</title>
    <Action name="account_online_new_credit_transfer" />
@@ -276,7 +244,6 @@
   <Action name="account_open" />
   <Action name="account_edit" />
   <Action name="account_reconcile" />
-  <Action name="account_online_update_menu" />
   <Action name="account_online_new_credit_transfer" />
   <Action name="account_chart" />
   <Separator lineSeparator="true"/>

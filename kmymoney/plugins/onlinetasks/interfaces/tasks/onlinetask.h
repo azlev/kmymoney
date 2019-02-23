@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -19,13 +19,9 @@
 #ifndef ONLINETASK_H
 #define ONLINETASK_H
 
-#include <QtCore/QString>
-#include <QtCore/QDateTime>
-#include <QSqlDatabase>
+#include <QString>
 
-#include "mymoneyaccount.h"
-#include "onlinejobmessage.h"
-#include "storage/databasestoreableobject.h"
+#include <qobject.h>
 
 class onlineJob;
 
@@ -51,7 +47,7 @@ class onlineJob;
  *
  * \section onlineTaskMeta The onlineTask Meta System
  *
- * To prevent accidently using a super-class if sub-class should be used, the onlineTasks
+ * To prevent accidentally using a super-class if sub-class should be used, the onlineTasks
  * have a meta system. Each onlineTask has an iid which can be requested with a virtual
  * method or a static method.
  *
@@ -66,22 +62,24 @@ class onlineJob;
  *
  * Activate the meta system using ONLINETASK_META() in your classes public section.
  */
-#define ONLINETASK_META(onlineTaskClass, IID) \
+#define ONLINETASK_META_BASE(onlineTaskClass, IID, ATTRIBUTE) \
   /** @brief Returns the iid of onlineTask type (part of @ref onlineTaskMeta) */ \
   static const QString& name() { \
     static const QString _name = IID; \
     return _name; \
   } \
   /** @brief Returns the iid of onlineTask type (part of @ref onlineTaskMeta) */ \
-  virtual QString taskName() const { \
+  virtual QString taskName() const ATTRIBUTE { \
     return onlineTaskClass::name(); \
   } \
   friend class onlineJobAdministration
 
+#define ONLINETASK_META(onlineTaskClass, IID) ONLINETASK_META_BASE(onlineTaskClass, IID, override)
+
 /**
  * @brief Base class for tasks which can be proceeded by online banking plugins
  *
- * @notice This docu describes the inteded way of the onlineTask/Job system. The loading during runtime or plugin
+ * @notice This docu describes the intended way of the onlineTask/Job system. The loading during runtime or plugin
  * infrastructure is not realized yet (and needs further changes at the storage). The docu is just forward compatible.
  *
  * Everything an online plugin can do is represented as a task. But also imported data can be represented by an
@@ -106,11 +104,12 @@ class onlineJob;
  *
  * @see onlineJob
  */
-class onlineTask : public databaseStoreableObject
+class QDomDocument;
+class QDomElement;
+class onlineTask
 {
 public:
-  ONLINETASK_META(onlineTask, "org.kmymoney.onlineTask");
-
+  ONLINETASK_META_BASE(onlineTask, "org.kmymoney.onlineTask", /* no attribute here */);
   onlineTask();
   virtual ~onlineTask() {}
 
@@ -123,6 +122,9 @@ public:
    * @brief Human readable type-name
    */
   virtual QString jobTypeName() const = 0;
+
+  /** @see MyMoneyObject::writeXML() */
+  virtual void writeXML(QDomDocument &document, QDomElement &parent) const = 0;
 
 protected:
   onlineTask(const onlineTask& other);
@@ -138,9 +140,6 @@ protected:
   /** @see MyMoneyObject::hasReferenceTo() */
   virtual bool hasReferenceTo(const QString &id) const = 0;
 
-  /** @see MyMoneyObject::writeXML() */
-  virtual void writeXML(QDomDocument &document, QDomElement &parent) const = 0;
-
   /**
    * @brief Create a new instance of this task based on xml data
    *
@@ -150,13 +149,6 @@ protected:
    * @return A pointer to a new instance, caller takes ownership
    */
   virtual onlineTask* createFromXml(const QDomElement &element) const = 0;
-
-  /**
-   * @brief Create new instance of this task from a SQL database
-   *
-   * Equivalent to createFromXml()
-   */
-  virtual onlineTask* createFromSqlDatabase(QSqlDatabase connection, const QString& onlineJobId) const = 0;
 
   /**
    * @brief Account this job is related to

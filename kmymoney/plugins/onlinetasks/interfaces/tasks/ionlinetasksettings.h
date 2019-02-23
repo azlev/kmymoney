@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -19,7 +19,7 @@
 #ifndef IONLINETASKSETTINGS_H
 #define IONLINETASKSETTINGS_H
 
-#include <QtCore/QSharedPointer>
+#include <QSharedPointer>
 
 /**
  * @brief Account/plugin dependent settings for an onlineTask
@@ -29,8 +29,8 @@
  * once. But this amount could depend on the account and the user's
  * contract with the bank.
  *
- * Therefor onlineTasks can offer thier own set of configurations. There
- * is no predifined behavior, only subclass onlineTask::settings.
+ * Therefor onlineTasks can offer their own set of configurations. There
+ * is no predefined behavior, only subclass onlineTask::settings.
  * Of course onlinePlugins and widgets which support that task
  * need to know how to handle that specific settings.
  *

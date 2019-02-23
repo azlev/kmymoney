@@ -1,19 +1,20 @@
-/***************************************************************************
-                          registersearchline.h
-                             -------------------
-    begin                : Sun Jan 14 2006
-    copyright            : (C) 2006 by Thomas Baumgart
-    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2018  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef REGISTERSEARCHLINE_H
 #define REGISTERSEARCHLINE_H
@@ -21,17 +22,16 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QHBoxLayout>
-
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <klineedit.h>
+#include <KLineEdit>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <register.h>
+namespace KMyMoneyRegister { class Register; }
+namespace KMyMoneyRegister { class RegisterItem; }
 
 namespace KMyMoneyRegister
 {
@@ -54,7 +54,7 @@ public:
     * If @a reg is null then the widget will be disabled until a register
     * is set with setRegister().
     */
-  explicit RegisterSearchLine(QWidget* parent = 0, Register* reg = 0);
+  explicit RegisterSearchLine(QWidget* parent = nullptr, Register* reg = 0);
 
   /**
     * Destroys the object
@@ -69,16 +69,15 @@ public:
     */
   void setRegister(Register* reg);
 
-public slots:
+public Q_SLOTS:
   virtual void updateSearch(const QString& s = QString());
-  virtual void reset();
 
-protected slots:
+protected Q_SLOTS:
   void queueSearch(const QString& search);
   void activateSearch();
   void slotStatusChanged(int);
 
-private slots:
+private Q_SLOTS:
   void itemAdded(RegisterItem* item) const;
   void registerDestroyed();
 
@@ -104,7 +103,7 @@ public:
     * Creates a RegisterSearchLineWidget for @a reg with @a parent as the
     * parent and with @a name.
     */
-  explicit RegisterSearchLineWidget(Register* reg = 0, QWidget* parent = 0);
+  explicit RegisterSearchLineWidget(Register* reg = 0, QWidget* parent = nullptr);
 
   /**
     * Destroys the object
@@ -122,7 +121,7 @@ public:
     */
   virtual RegisterSearchLine* createSearchLine(Register* reg);
 
-protected slots:
+protected Q_SLOTS:
   /**
     * Creates the widgets inside of the widget.  This is called from the
     * constructor via a single shot timer so that it it guaranteed to run

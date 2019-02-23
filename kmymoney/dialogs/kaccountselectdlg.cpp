@@ -1,24 +1,20 @@
-/***************************************************************************
-                          kaccountselectdlg.cpp  -  description
-                             -------------------
-    begin                : Mon Feb 10 2003
-    copyright            : (C) 2000-2003 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2003-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2016-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kaccountselectdlg.h"
 
@@ -32,9 +28,6 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kconfig.h>
-#include <kmessagebox.h>
-#include <kguiitem.h>
 #include <KGuiItem>
 #include <KStandardGuiItem>
 #include <KLocalizedString>
@@ -42,120 +35,157 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyinstitution.h>
-#include <mymoneyfile.h>
-#include <kmymoneycategory.h>
+#include "ui_kaccountselectdlg.h"
+
+#include "mymoneyaccount.h"
+#include "mymoneyinstitution.h"
+#include "mymoneyfile.h"
+#include "kmymoneycategory.h"
 #include "kmymoneyaccountselector.h"
+#include "knewaccountdlg.h"
+#include "models.h"
+#include "accountsmodel.h"
 
-#include <../kmymoney.h>
+#include "dialogenums.h"
+#include "icons/icons.h"
+#include "mymoneyenums.h"
+#include "modelenums.h"
 
-KAccountSelectDlg::KAccountSelectDlg(const KMyMoneyUtils::categoryTypeE accountType, const QString& purpose, QWidget *parent)
-    : KAccountSelectDlgDecl(parent),
-    m_purpose(purpose),
-    m_accountType(accountType),
-    m_aborted(false)
+using namespace Icons;
+
+class KAccountSelectDlgPrivate
 {
+  Q_DISABLE_COPY(KAccountSelectDlgPrivate)
+
+public:
+  KAccountSelectDlgPrivate() :
+    ui(new Ui::KAccountSelectDlg),
+    m_mode(0),
+    m_accountType(eDialogs::Category::none),
+    m_aborted(false)
+  {
+  }
+
+  ~KAccountSelectDlgPrivate()
+  {
+    delete ui;
+  }
+
+  Ui::KAccountSelectDlg *ui;
+  QString                m_purpose;
+  MyMoneyAccount         m_account;
+  int                    m_mode;       // 0 - select or create, 1 - create only
+  eDialogs::Category     m_accountType;
+  bool                   m_aborted;
+};
+
+KAccountSelectDlg::KAccountSelectDlg(const eDialogs::Category accountType, const QString& purpose, QWidget *parent) :
+  QDialog(parent),
+  d_ptr(new KAccountSelectDlgPrivate)
+{
+  Q_D(KAccountSelectDlg);
+  d->ui->setupUi(this);
+  d->m_purpose = purpose;
+  d->m_accountType = accountType;
   // Hide the abort button. It needs to be shown on request by the caller
   // using showAbortButton()
-  m_kButtonAbort->hide();
-
-  slotReloadWidget();
+  d->ui->m_kButtonAbort->hide();
 
   KGuiItem skipButtonItem(i18n("&Skip"),
-                          QIcon::fromTheme("media-skip-forward"),
+                          Icons::get(Icon::MediaSkipForward),
                           i18n("Skip this transaction"),
                           i18n("Use this to skip importing this transaction and proceed with the next one."));
-  KGuiItem::assign(m_qbuttonCancel, skipButtonItem);
+  KGuiItem::assign(d->ui->m_qbuttonCancel, skipButtonItem);
 
   KGuiItem createButtenItem(i18n("&Create..."),
-                            QIcon::fromTheme("document-new"),
+                            Icons::get(Icon::DocumentNew),
                             i18n("Create a new account/category"),
                             i18n("Use this to add a new account/category to the file"));
-  KGuiItem::assign(m_createButton, createButtenItem);
-  KGuiItem::assign(m_qbuttonOk, KStandardGuiItem::ok());
+  KGuiItem::assign(d->ui->m_createButton, createButtenItem);
+  KGuiItem::assign(d->ui->m_qbuttonOk, KStandardGuiItem::ok());
 
   KGuiItem abortButtenItem(i18n("&Abort"),
-                           QIcon::fromTheme("dialog-cancel"),
+                           Icons::get(Icon::DialogCancel),
                            i18n("Abort the import operation and dismiss all changes"),
                            i18n("Use this to abort the import. Your financial data will be in the state before you started the QIF import."));
-  KGuiItem::assign(m_kButtonAbort, abortButtenItem);
+  KGuiItem::assign(d->ui->m_kButtonAbort, abortButtenItem);
 
+  QVector<eMyMoney::Account::Type> accountTypes;
+  if (d->m_accountType & eDialogs::Category::asset)
+    accountTypes.append(eMyMoney::Account::Type::Asset);
+  if (d->m_accountType & eDialogs::Category::liability)
+    accountTypes.append(eMyMoney::Account::Type::Liability);
+  if (d->m_accountType & eDialogs::Category::income)
+    accountTypes.append(eMyMoney::Account::Type::Income);
+  if (d->m_accountType & eDialogs::Category::expense)
+    accountTypes.append(eMyMoney::Account::Type::Expense);
+  if (d->m_accountType & eDialogs::Category::equity)
+    accountTypes.append(eMyMoney::Account::Type::Equity);
+  if (d->m_accountType & eDialogs::Category::checking)
+    accountTypes.append(eMyMoney::Account::Type::Checkings);
+  if (d->m_accountType & eDialogs::Category::savings)
+    accountTypes.append(eMyMoney::Account::Type::Savings);
+  if (d->m_accountType & eDialogs::Category::investment)
+    accountTypes.append(eMyMoney::Account::Type::Investment);
+  if (d->m_accountType & eDialogs::Category::creditCard)
+    accountTypes.append(eMyMoney::Account::Type::CreditCard);
 
-  connect(MyMoneyFile::instance(), SIGNAL(dataChanged()), this, SLOT(slotReloadWidget()));
+  auto filterProxyModel = new AccountNamesFilterProxyModel(this);
+  filterProxyModel->setHideEquityAccounts(true);
+  filterProxyModel->addAccountGroup(accountTypes);
 
-  connect(m_createButton, SIGNAL(clicked()), this, SLOT(slotCreateAccount()));
-  connect(m_qbuttonOk, SIGNAL(clicked()), this, SLOT(accept()));
-  connect(m_qbuttonCancel, SIGNAL(clicked()), this, SLOT(reject()));
-  connect(m_kButtonAbort, SIGNAL(clicked()), this, SLOT(abort()));
+  auto model = Models::instance()->accountsModel();
+  filterProxyModel->setSourceModel(model);
+  filterProxyModel->setSourceColumns(model->getColumns());
+  filterProxyModel->sort((int)eAccountsModel::Column::Account);
+
+  d->ui->m_accountSelector->setModel(filterProxyModel);
+
+  connect(d->ui->m_createButton,  &QAbstractButton::clicked, this, &KAccountSelectDlg::slotCreateAccount);
+  connect(d->ui->m_qbuttonOk,     &QAbstractButton::clicked, this, &QDialog::accept);
+  connect(d->ui->m_qbuttonCancel, &QAbstractButton::clicked, this, &QDialog::reject);
+  connect(d->ui->m_kButtonAbort,  &QAbstractButton::clicked, this, &KAccountSelectDlg::abort);
 }
 
 KAccountSelectDlg::~KAccountSelectDlg()
 {
-}
-
-void KAccountSelectDlg::slotReloadWidget()
-{
-  AccountSet set;
-  if (m_accountType & KMyMoneyUtils::asset)
-    set.addAccountGroup(MyMoneyAccount::Asset);
-  if (m_accountType & KMyMoneyUtils::liability)
-    set.addAccountGroup(MyMoneyAccount::Liability);
-  if (m_accountType & KMyMoneyUtils::income)
-    set.addAccountGroup(MyMoneyAccount::Income);
-  if (m_accountType & KMyMoneyUtils::expense)
-    set.addAccountGroup(MyMoneyAccount::Expense);
-  if (m_accountType & KMyMoneyUtils::equity)
-    set.addAccountGroup(MyMoneyAccount::Equity);
-  if (m_accountType & KMyMoneyUtils::checking)
-    set.addAccountType(MyMoneyAccount::Checkings);
-  if (m_accountType & KMyMoneyUtils::savings)
-    set.addAccountType(MyMoneyAccount::Savings);
-  if (m_accountType & KMyMoneyUtils::investment)
-    set.addAccountType(MyMoneyAccount::Investment);
-  if (m_accountType & KMyMoneyUtils::creditCard)
-    set.addAccountType(MyMoneyAccount::CreditCard);
-
-  set.load(m_accountSelector->selector());
+  Q_D(KAccountSelectDlg);
+  delete d;
 }
 
 void KAccountSelectDlg::setDescription(const QString& msg)
 {
-  m_descLabel->setText(msg);
+  Q_D(KAccountSelectDlg);
+  d->ui->m_descLabel->setText(msg);
 }
 
 void KAccountSelectDlg::setHeader(const QString& msg)
 {
-  m_headerLabel->setText(msg);
+  Q_D(KAccountSelectDlg);
+  d->ui->m_headerLabel->setText(msg);
 }
 
 void KAccountSelectDlg::setAccount(const MyMoneyAccount& account, const QString& id)
 {
-  m_account = account;
-  m_accountSelector->setSelectedItem(id);
-}
-
-void KAccountSelectDlg::slotCreateInstitution()
-{
-  kmymoney->slotInstitutionNew();
+  Q_D(KAccountSelectDlg);
+  d->m_account = account;
+  d->ui->m_accountSelector->setSelected(id);
 }
 
 void KAccountSelectDlg::slotCreateAccount()
 {
-  if (!(m_accountType & (KMyMoneyUtils::expense | KMyMoneyUtils::income))) {
-    kmymoney->slotAccountNew(m_account);
-    if (!m_account.id().isEmpty()) {
-      slotReloadWidget();
-      m_accountSelector->setSelectedItem(m_account.id());
+  Q_D(KAccountSelectDlg);
+  if (!((int)d->m_accountType & ((int)eDialogs::Category::expense | (int)eDialogs::Category::income))) {
+    emit createAccount(d->m_account);
+    if (!d->m_account.id().isEmpty()) {
       accept();
     }
   } else {
-    if (m_account.accountType() == MyMoneyAccount::Expense)
-      kmymoney->createCategory(m_account, MyMoneyFile::instance()->expense());
+    if (d->m_account.accountType() == eMyMoney::Account::Type::Expense)
+      KNewAccountDlg::newCategory(d->m_account, MyMoneyFile::instance()->expense());
     else
-      kmymoney->createCategory(m_account, MyMoneyFile::instance()->income());
-    if (!m_account.id().isEmpty()) {
-      slotReloadWidget();
-      m_accountSelector->setSelectedItem(m_account.id());
+      KNewAccountDlg::newCategory(d->m_account, MyMoneyFile::instance()->income());
+    if (!d->m_account.id().isEmpty()) {
       accept();
     }
   }
@@ -163,36 +193,64 @@ void KAccountSelectDlg::slotCreateAccount()
 
 void KAccountSelectDlg::abort()
 {
-  m_aborted = true;
+  Q_D(KAccountSelectDlg);
+  d->m_aborted = true;
   reject();
 }
 
 void KAccountSelectDlg::setMode(const int mode)
 {
-  m_mode = mode ? 1 : 0;
+  Q_D(KAccountSelectDlg);
+  d->m_mode = mode ? 1 : 0;
 }
 
 void KAccountSelectDlg::showAbortButton(const bool visible)
 {
-  m_kButtonAbort->setVisible(visible);
+  Q_D(KAccountSelectDlg);
+  d->ui->m_kButtonAbort->setVisible(visible);
+}
+
+bool KAccountSelectDlg::aborted() const
+{
+  Q_D(const KAccountSelectDlg);
+  return d->m_aborted;
+}
+
+void KAccountSelectDlg::hideQifEntry()
+{
+  Q_D(KAccountSelectDlg);
+  d->ui->m_qifEntry->hide();
 }
 
 int KAccountSelectDlg::exec()
 {
+  Q_D(KAccountSelectDlg);
   int rc = Rejected;
 
-  if (m_mode == 1) {
+  if (d->m_mode == 1) {
     slotCreateAccount();
     rc = result();
   }
   if (rc != Accepted) {
-    m_createButton->setFocus();
-    rc = KAccountSelectDlgDecl::exec();
+    d->ui->m_createButton->setFocus();
+    rc = QDialog::exec();
   }
   return rc;
 }
 
-const QString& KAccountSelectDlg::selectedAccount() const
+QString KAccountSelectDlg::selectedAccount() const
 {
-  return m_accountSelector->selectedItem();
+  Q_D(const KAccountSelectDlg);
+
+  // in case an account was created before, it might not be in the
+  // account model (yet) due to the delayed update (an enclosing
+  // MyMoneyFileTransaction has not been committed). Therefor, we
+  // use the id of m_account which carries the id of the newly
+  // created account. If only an account was selected, the object
+  // m_account is empty.
+  if (d->m_account.id().isEmpty())
+    return d->ui->m_accountSelector->getSelected();
+  return d->m_account.id();
 }
+
+// kate: space-indent on; indent-width 2; remove-trailing-space on; remove-trailing-space-save on;

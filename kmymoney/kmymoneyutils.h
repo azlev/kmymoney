@@ -26,55 +26,53 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QColor>
-#include <QFont>
-#include <QPixmap>
 #include <QStandardPaths>
+#include <QMap>
+#include <QUrl>
+#include <QDebug>
 
 // ----------------------------------------------------------------------------
 // KDE Headers
 
-#include <kguiitem.h>
-class KXmlGuiWindow;
-
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include <mymoneysecurity.h>
-#include "mymoneyschedule.h"
-#include <mymoneytransaction.h>
+class QIcon;
 
 /**
   * @author Thomas Baumgart
   */
 
 static QString m_lastNumberUsed;
+
+class QPixmap;
 class QWizard;
+class QWidget;
+
+class KGuiItem;
+class KXmlGuiWindow;
+
+class MyMoneyMoney;
+class MyMoneyAccount;
+class MyMoneySecurity;
+class MyMoneySchedule;
+class MyMoneySplit;
+class MyMoneyTransaction;
+class MyMoneyStatement;
+class MyMoneyInstitution;
+class MyMoneyForecast;
+
+namespace eMyMoney { namespace Schedule { enum class Occurrence;
+                                          enum class PaymentType;
+                                          enum class WeekendOption;
+                                          enum class Type; }
+                     namespace Split { enum class State;
+                                       enum class InvestmentTransactionType; }
+                   }
+
 class KMyMoneyUtils
 {
 public:
-  /**
-    * This enum is used to describe the bits of an account type filter mask.
-    * Each bit is used to define a specific account class. Multiple classes
-    * can be specified by OR'ing multiple entries. The special entry @p last
-    * marks the left most bit in the mask and is used by scanners of this
-    * bitmask to determine the end of processing.
-    */
-  enum categoryTypeE {
-    none =       0x000,         ///< no account class selected
-    liability =  0x001,         ///< liability accounts selected
-    asset =      0x002,         ///< asset accounts selected
-    expense =    0x004,         ///< expense accounts selected
-    income =     0x008,         ///< income accounts selected
-    equity =     0x010,         ///< equity accounts selected
-    checking =   0x020,         ///< checking accounts selected
-    savings =    0x040,         ///< savings accounts selected
-    investment = 0x080,         ///< investment accounts selected
-    creditCard = 0x100,         ///< credit card accounts selected
-    last =       0x200          ///< the leftmost bit in the mask
-  };
-
   enum transactionTypeE {
     /**
       * Unknown transaction type (e.g. used for a transaction with only
@@ -117,68 +115,10 @@ public:
     InvestmentTransaction
   };
 
-  enum EnterScheduleResultCodeE {
-    Cancel = 0,    // cancel the operation
-    Enter,         // enter the schedule
-    Skip,          // skip the schedule
-    Ignore         // ignore the schedule
-  };
-
-  enum CanCloseAccountCodeE {
-    AccountCanClose = 0,    // can close the account
-    AccountBalanceNonZero,         // balance is non zero
-    AccountChildrenOpen,          // account has open children account
-    AccountScheduleReference         // account is referenced in a schedule
-  };
-
   static const int maxHomePageItems = 5;
 
   KMyMoneyUtils();
   ~KMyMoneyUtils();
-
-  /**
-    * This method is used to convert the internal representation of
-    * an account type into a human readable format
-    *
-    * @param accountType numerical representation of the account type.
-    *                    For possible values, see MyMoneyAccount::accountTypeE
-    * @return QString representing the human readable form translated according to the language cataglogue
-    *
-    * @sa MyMoneyAccount::accountTypeToString()
-    */
-  static const QString accountTypeToString(const MyMoneyAccount::accountTypeE accountType);
-
-  /**
-    * This method is used to convert an account type from its
-    * string form to the internal used numeric value.
-    *
-    * @param type reference to a QString containing the string to convert
-    * @return accountTypeE containing the internal used numeric value. For possible
-    *         values see MyMoneyAccount::accountTypeE
-    */
-  static MyMoneyAccount::accountTypeE stringToAccountType(const QString& type);
-
-  /**
-    * This method is used to convert a security type from its
-    * string form to the internal used numeric value.
-    *
-    * @param txt reference to a QString containing the string to convert
-    * @return eSECURITYTYPE containing the internal used numeric value. For possible
-    *         values see MyMoneySecurity::eSECURITYTYPE
-    */
-  static MyMoneySecurity::eSECURITYTYPE stringToSecurity(const QString& txt);
-
-  /**
-    * This method is used to convert the internal representation of
-    * an security type into a human readable format
-    *
-    * @param securityType enumerated representation of the security type.
-    *                     For possible values, see MyMoneySecurity::eSECURITYTYPE
-    * @return QString representing the human readable form translated according to the language cataglogue
-    *
-    * @sa MyMoneySecurity::securityTypeToString()
-    */
-  static const QString securityTypeToString(const MyMoneySecurity::eSECURITYTYPE securityType);
 
   /**
     * This method is used to convert the occurrence type from its
@@ -187,13 +127,13 @@ public:
     * @param occurrence numerical representation of the MyMoneySchedule
     *                  occurrence type
     *
-    * @return QString representing the human readable format translated according to the language cataglogue
+    * @return QString representing the human readable format translated according to the language catalog
     *
     * @sa MyMoneySchedule::occurrenceToString()
     *
     * @deprecated Use i18n(MyMoneySchedule::occurrenceToString(occurrence)) instead
     */
-  static const QString occurrenceToString(const MyMoneySchedule::occurrenceE occurrence);
+  static const QString occurrenceToString(const eMyMoney::Schedule::Occurrence occurrence);
 
   /**
     * This method is used to convert the payment type from its
@@ -202,11 +142,11 @@ public:
     * @param paymentType numerical representation of the MyMoneySchedule
     *                  payment type
     *
-    * @return QString representing the human readable format translated according to the language cataglogue
+    * @return QString representing the human readable format translated according to the language catalog
     *
     * @sa MyMoneySchedule::paymentMethodToString()
     */
-  static const QString paymentMethodToString(MyMoneySchedule::paymentTypeE paymentType);
+  static const QString paymentMethodToString(eMyMoney::Schedule::PaymentType paymentType);
 
   /**
     * This method is used to convert the schedule weekend option from its
@@ -215,11 +155,11 @@ public:
     * @param weekendOption numerical representation of the MyMoneySchedule
     *                  weekend option
     *
-    * @return QString representing the human readable format translated according to the language cataglogue
+    * @return QString representing the human readable format translated according to the language catalog
     *
     * @sa MyMoneySchedule::weekendOptionToString()
     */
-  static const QString weekendOptionToString(MyMoneySchedule::weekendOptionE weekendOption);
+  static const QString weekendOptionToString(eMyMoney::Schedule::WeekendOption weekendOption);
 
   /**
     * This method is used to convert the schedule type from its
@@ -228,11 +168,11 @@ public:
     * @param type numerical representation of the MyMoneySchedule
     *                  schedule type
     *
-    * @return QString representing the human readable format translated according to the language cataglogue
+    * @return QString representing the human readable format translated according to the language catalog
     *
     * @sa MyMoneySchedule::scheduleTypeToString()
     */
-  static const QString scheduleTypeToString(MyMoneySchedule::typeE type);
+  static const QString scheduleTypeToString(eMyMoney::Schedule::Type type);
 
   /**
     * This method is used to convert a numeric index of an item
@@ -361,15 +301,20 @@ public:
   static void calculateAutoLoan(const MyMoneySchedule& schedule, MyMoneyTransaction& transaction, const QMap<QString, MyMoneyMoney>& balances);
 
   /**
-    * Return next check number for account @a acc.
+    * Returns the next check number for account @a acc. No check is performed, if the
+    * number is already in use.
     */
   static QString nextCheckNumber(const MyMoneyAccount& acc);
 
-  static void updateLastNumberUsed(const MyMoneyAccount& acc, const QString& number);
+  /**
+    * Returns the next check free number for account @a acc.
+    */
+  static QString nextFreeCheckNumber(const MyMoneyAccount& acc);
 
-  static void setLastNumberUsed(const QString& num);
 
-  static QString lastNumberUsed();
+  // static void setLastNumberUsed(const QString& num);
+
+  // static QString lastNumberUsed();
 
   /**
     * Returns previous number if offset is -1 or
@@ -388,7 +333,7 @@ public:
     * Returns the text representing the reconcile flag. If @a text is @p true
     * then the full text will be returned otherwise a short form (usually one character).
     */
-  static QString reconcileStateToString(MyMoneySplit::reconcileFlagE flag, bool text = false);
+  static QString reconcileStateToString(eMyMoney::Split::State flag, bool text = false);
 
   /**
    * Returns the transaction for @a schedule. In case of a loan payment the
@@ -414,14 +359,42 @@ public:
     */
   static void updateWizardButtons(QWizard *);
 
+  static void dissectTransaction(const MyMoneyTransaction& transaction, const MyMoneySplit& split, MyMoneySplit& assetAccountSplit, QList<MyMoneySplit>& feeSplits, QList<MyMoneySplit>& interestSplits, MyMoneySecurity& security, MyMoneySecurity& currency, eMyMoney::Split::InvestmentTransactionType& transactionType);
+
+  static void processPriceList(const MyMoneyStatement& st);
+
   /**
-    * This method overlays an icon over another one, to get a composite one
-    * eg. an icon to add accounts
+    * This method deletes security and associated price list but asks beforehand.
     */
-  static QPixmap overlayIcon(const QString iconName, const QString overlayName, const Qt::Corner corner = Qt::BottomRightCorner, int size = 0);
+  static void deleteSecurity(const MyMoneySecurity &security, QWidget *parent = nullptr);
 
-  static void dissectTransaction(const MyMoneyTransaction& transaction, const MyMoneySplit& split, MyMoneySplit& assetAccountSplit, QList<MyMoneySplit>& feeSplits, QList<MyMoneySplit>& interestSplits, MyMoneySecurity& security, MyMoneySecurity& currency, MyMoneySplit::investTransactionTypeE& transactionType);
+  /**
+   * Check whether the url links to an existing file or not
+   * @returns whether the file exists or not
+   */
+  static bool fileExists(const QUrl &url);
 
+  static QString downloadFile(const QUrl &url);
+
+  static bool newPayee(const QString& newnameBase, QString& id);
+
+  static void newTag(const QString& newnameBase, QString& id);
+
+  /**
+    * Creates a new institution entry in the MyMoneyFile engine
+    *
+    * @param institution MyMoneyInstitution object containing the data of
+    *                    the institution to be created.
+    */
+  static void newInstitution(MyMoneyInstitution& institution);
+
+  static QDebug debug();
+
+  static MyMoneyForecast forecast();
+
+  static bool canUpdateAllAccounts();
+
+  static void showStatementImportResult(const QStringList& resultMessages, uint statementCount);
 };
 
 #endif

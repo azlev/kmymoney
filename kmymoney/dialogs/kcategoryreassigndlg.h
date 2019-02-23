@@ -1,18 +1,20 @@
-/***************************************************************************
-                          kcategoryreassigndlg.cpp
-                             -------------------
-    copyright            : (C) 2007 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
-***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2008  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KCATEGORYREASSIGNDLG_H
 #define KCATEGORYREASSIGNDLG_H
@@ -20,36 +22,29 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <QDialog>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyaccount.h>
-#include "ui_kcategoryreassigndlgdecl.h"
+class MyMoneyAccount;
+namespace Ui { class KCategoryReassignDlg; }
 
 /**
  *  Implementation of the dialog that lets the user select a payee in order
  *  to re-assign transactions (for instance, if payees are deleted).
  */
 
-class KCategoryReassignDlgDecl : public QDialog, public Ui::KCategoryReassignDlgDecl
-{
-public:
-  KCategoryReassignDlgDecl(QWidget *parent) : QDialog(parent) {
-    setupUi(this);
-  }
-};
-
-class KCategoryReassignDlg : public KCategoryReassignDlgDecl
+class KCategoryReassignDlg : public QDialog
 {
   Q_OBJECT
-public:
-  /** Default constructor */
-  KCategoryReassignDlg(QWidget* parent = 0);
+  Q_DISABLE_COPY(KCategoryReassignDlg)
 
-  /** Destructor */
+public:
+  explicit KCategoryReassignDlg(QWidget* parent = nullptr);
   ~KCategoryReassignDlg();
 
   /**
@@ -65,8 +60,10 @@ public:
   QString show(const MyMoneyAccount& category);
 
 protected:
-  void accept();
+  void accept() final override;
 
+private:
+  Ui::KCategoryReassignDlg *ui;
 };
 
 #endif // KCATEGORYREASSIGNDLG_H

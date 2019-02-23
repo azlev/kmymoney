@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -41,23 +41,26 @@
 class onlineJobPluginMockup : public KMyMoneyPlugin::OnlinePluginExtended
 {
   Q_OBJECT
-  Q_PLUGIN_METADATA(IID "org.kmymoney.plugins.onlineJobPluginMockup" FILE "kmm_onlinejobpluginmockup.json")
+  Q_INTERFACES(KMyMoneyPlugin::OnlinePluginExtended
+               KMyMoneyPlugin::OnlinePlugin)
 
 public:
+  explicit onlineJobPluginMockup(QObject *parent, const QVariantList &args);
+  ~onlineJobPluginMockup() override;
 
-  onlineJobPluginMockup();
+  void protocols(QStringList& protocolList) const override;
+  QWidget* accountConfigTab(const MyMoneyAccount& account, QString& tabName) override;
 
-  void protocols(QStringList& protocolList) const;
-  QWidget* accountConfigTab(const MyMoneyAccount& account, QString& tabName);
+  MyMoneyKeyValueContainer onlineBankingSettings(const MyMoneyKeyValueContainer& current) override;
+  bool mapAccount(const MyMoneyAccount& acc, MyMoneyKeyValueContainer& onlineBankingSettings) override;
 
-  MyMoneyKeyValueContainer onlineBankingSettings(const MyMoneyKeyValueContainer& current);
-  bool mapAccount(const MyMoneyAccount& acc, MyMoneyKeyValueContainer& onlineBankingSettings);
+  bool updateAccount(const MyMoneyAccount& acc, bool moreAccounts = false) override;
 
-  bool updateAccount(const MyMoneyAccount& acc, bool moreAccounts = false);
-
-  QStringList availableJobs(QString accountId);
-  IonlineTaskSettings::ptr settings(QString accountId, QString taskName);
-  void sendOnlineJob(QList< onlineJob >& jobs);
+  QStringList availableJobs(QString accountId) override;
+  IonlineTaskSettings::ptr settings(QString accountId, QString taskName) override;
+  void sendOnlineJob(QList< onlineJob >& jobs) override;
+  void plug() override {}
+  void unplug() override {}
 };
 
 #endif // ONLINEJOBPLUGINMOCKUP_H

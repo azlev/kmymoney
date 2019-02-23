@@ -1,50 +1,58 @@
-/***************************************************************************
-                          mymoneyforecast.h
-                             -------------------
-    begin                : Wed May 30 2007
-    copyright            : (C) 2007 by Alvaro Soliverez
-    email                : asoliverez@gmail.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2010  Alvaro Soliverez <asoliverez@gmail.com>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYFORECAST_H
 #define MYMONEYFORECAST_H
 
+#include "kmm_mymoney_export.h"
+
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QMap>
-#include <QSet>
-#include <QList>
-#include <QString>
+#include <QMetaType>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include <mymoneyobject.h>
-#include <mymoneyaccount.h>
-#include <mymoneymoney.h>
-#include "mymoneyschedule.h"
-#include <kmm_mymoney_export.h>
-#include <mymoneyunittestable.h>
-#include "mymoneybudget.h"
+#include "mymoneyunittestable.h"
+
+class QDate;
+
+class MyMoneyMoney;
+class MyMoneyAccount;
+class MyMoneyBudget;
+class MyMoneySchedule;
+class MyMoneyTransaction;
+
+template <class T> class QList;
+template <class T1, class T2> class QMap;
 
 /**
   *
   *
   * @author Alvaro Soliverez <asoliverez@gmail.com>
   */
-
+class MyMoneyForecastPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyForecast
 {
+  Q_DECLARE_PRIVATE(MyMoneyForecast)
+  MyMoneyForecastPrivate * d_ptr;
+
   KMM_MYMONEY_UNIT_TESTABLE
 
 public:
@@ -61,7 +69,11 @@ public:
     * - includeScheduledTransactions = true
     */
   MyMoneyForecast();
-  ~MyMoneyForecast();
+  MyMoneyForecast(const MyMoneyForecast & other);
+  MyMoneyForecast(MyMoneyForecast && other);
+  MyMoneyForecast & operator=(MyMoneyForecast other);
+  friend void swap(MyMoneyForecast& first, MyMoneyForecast& second);
+  virtual ~MyMoneyForecast();
 
   /**
    * calculate forecast based on historic transactions
@@ -78,7 +90,7 @@ public:
    * Collects and processes all transactions in the past for the
    * same period of forecast and calculates the balance trend
    */
-  static MyMoneyMoney calculateAccountTrend(const MyMoneyAccount& acc, int forecastDays);
+  static MyMoneyMoney calculateAccountTrend(const MyMoneyAccount& acc, qint64 forecastDays);
 
   /**
    * Returns the forecast balance trend for account @a acc for day @p QDate
@@ -90,7 +102,7 @@ public:
    * offset is days from current date, inside forecast days.
    * Returns 0 if offset not in range of forecast days.
    */
-  MyMoneyMoney forecastBalance(const MyMoneyAccount& acc, int offset);
+  MyMoneyMoney forecastBalance(const MyMoneyAccount& acc, qint64 offset);
 
   /**
    * Returns true if an account @a acc is an account to be forecast
@@ -101,14 +113,14 @@ public:
    * returns the number of days when a given account is forecast to be below minimum balance
    * returns -1 if it will not be below minimum balance in the forecast period
    */
-  int daysToMinimumBalance(const MyMoneyAccount& acc);
+  qint64 daysToMinimumBalance(const MyMoneyAccount& acc);
 
   /**
    * returns the number of days when a given account is forecast to be below zero if it is an asset accounts
    * or above zero if it is a liability account
    * returns -1 if it will not happen in the forecast period
    */
-  int daysToZeroBalance(const MyMoneyAccount& acc);
+  qint64 daysToZeroBalance(const MyMoneyAccount& acc);
 
   /**
    * amount of variation of a given account in one cycle
@@ -143,113 +155,41 @@ public:
   /**
    * number of days to go back in history to calculate forecast
    */
-  int historyDays() const {
-    return (m_historyStartDate.daysTo(m_historyEndDate) + 1);
-  }
+  qint64 historyDays() const;
 
-  void setAccountsCycle(int accountsCycle)   {
-    m_accountsCycle = accountsCycle;
-  }
-  void setForecastCycles(int forecastCycles)   {
-    m_forecastCycles = forecastCycles;
-  }
-  void setForecastDays(int forecastDays)   {
-    m_forecastDays = forecastDays;
-  }
-  void setBeginForecastDate(const QDate &beginForecastDate) {
-    m_beginForecastDate = beginForecastDate;
-  }
-  void setBeginForecastDay(int beginDay)   {
-    m_beginForecastDay = beginDay;
-  }
-  void setForecastMethod(int forecastMethod) {
-    m_forecastMethod = forecastMethod;
-  }
-  void setHistoryStartDate(const QDate &historyStartDate) {
-    m_historyStartDate = historyStartDate;
-  }
-  void setHistoryEndDate(const QDate &historyEndDate) {
-    m_historyEndDate = historyEndDate;
-  }
-  void setHistoryStartDate(int daysToStartDate) {
-    setHistoryStartDate(QDate::currentDate().addDays(-daysToStartDate));
-  }
-  void setHistoryEndDate(int daysToEndDate) {
-    setHistoryEndDate(QDate::currentDate().addDays(-daysToEndDate));
-  }
-  void setForecastStartDate(const QDate &_startDate) {
-    m_forecastStartDate = _startDate;
-  }
-  void setForecastEndDate(const QDate &_endDate) {
-    m_forecastEndDate = _endDate;
-  }
-  void setSkipOpeningDate(bool _skip) {
-    m_skipOpeningDate = _skip;
-  }
-  void setHistoryMethod(int historyMethod) {
-    m_historyMethod = historyMethod;
-  }
-  void setIncludeUnusedAccounts(bool _bool) {
-    m_includeUnusedAccounts = _bool;
-  }
-  void setForecastDone(bool _bool) {
-    m_forecastDone = _bool;
-  }
-  void setIncludeFutureTransactions(bool _bool) {
-    m_includeFutureTransactions = _bool;
-  }
-  void setIncludeScheduledTransactions(bool _bool) {
-    m_includeScheduledTransactions = _bool;
-  }
-
-  int accountsCycle() const   {
-    return m_accountsCycle;
-  }
-  int forecastCycles() const   {
-    return m_forecastCycles;
-  }
-  int forecastDays() const {
-    return m_forecastDays;
-  }
-  const QDate& beginForecastDate() const   {
-    return m_beginForecastDate;
-  }
-  int beginForecastDay() const   {
-    return m_beginForecastDay;
-  }
-  int forecastMethod() const   {
-    return m_forecastMethod;
-  }
-  const QDate& historyStartDate() const {
-    return m_historyStartDate;
-  }
-  const QDate& historyEndDate() const {
-    return m_historyEndDate;
-  }
-  const QDate& forecastStartDate() const {
-    return m_forecastStartDate;
-  }
-  const QDate& forecastEndDate() const {
-    return m_forecastEndDate;
-  }
-  bool skipOpeningDate() const {
-    return m_skipOpeningDate;
-  }
-  int historyMethod() const   {
-    return m_historyMethod;
-  }
-  bool isIncludingUnusedAccounts() const {
-    return m_includeUnusedAccounts;
-  }
-  bool isForecastDone() const {
-    return m_forecastDone;
-  }
-  bool isIncludingFutureTransactions() const {
-    return m_includeFutureTransactions;
-  }
-  bool isIncludingScheduledTransactions() const {
-    return m_includeScheduledTransactions;
-  }
+  void setAccountsCycle(qint64 accountsCycle);
+  void setForecastCycles(qint64 forecastCycles);
+  void setForecastDays(qint64 forecastDays);
+  void setBeginForecastDate(const QDate &beginForecastDate);
+  void setBeginForecastDay(qint64 beginDay);
+  void setForecastMethod(qint64 forecastMethod);
+  void setHistoryStartDate(const QDate &historyStartDate);
+  void setHistoryEndDate(const QDate &historyEndDate);
+  void setHistoryStartDate(qint64 daysToStartDate);
+  void setHistoryEndDate(qint64 daysToEndDate);
+  void setForecastStartDate(const QDate &_startDate);
+  void setForecastEndDate(const QDate &_endDate);
+  void setSkipOpeningDate(bool _skip);
+  void setHistoryMethod(int historyMethod);
+  void setIncludeUnusedAccounts(bool _bool);
+  void setForecastDone(bool _bool);
+  void setIncludeFutureTransactions(bool _bool);
+  void setIncludeScheduledTransactions(bool _bool);
+  qint64 accountsCycle() const;
+  qint64 forecastCycles() const;
+  qint64 forecastDays() const;
+  QDate beginForecastDate() const;
+  qint64 beginForecastDay() const;
+  QDate historyStartDate() const;
+  QDate historyEndDate() const;
+  QDate forecastStartDate() const;
+  QDate forecastEndDate() const;
+  bool skipOpeningDate() const;
+  int historyMethod() const;
+  bool isIncludingUnusedAccounts() const;
+  bool isForecastDone() const;
+  bool isIncludingFutureTransactions() const;
+  bool isIncludingScheduledTransactions() const;
 
   /**
     * This method modifies a scheduled loan transaction such that all
@@ -263,227 +203,10 @@ public:
     */
   static void calculateAutoLoan(const MyMoneySchedule& schedule, MyMoneyTransaction& transaction, const QMap<QString, MyMoneyMoney>& balances);
 
-private:
-
-  enum EForecastMethod {eScheduled = 0, eHistoric = 1 };
-
-  /**
-   * daily balances of an account
-   */
-  typedef QMap<QDate, MyMoneyMoney> dailyBalances;
-
-  /**
-   * map of trends of an account
-   */
-  typedef QMap<int, MyMoneyMoney> trendBalances;
-
   /**
    * Returns the list of accounts to be forecast. Only Asset and Liability are returned.
    */
   static QList<MyMoneyAccount> forecastAccountList();
-
-  /**
-   * Returns the list of accounts to create a budget. Only Income and Expenses are returned.
-   */
-  QList<MyMoneyAccount> budgetAccountList();
-
-  /**
-   * calculate daily forecast balance based on historic transactions
-   */
-  void calculateHistoricDailyBalances();
-
-  /**
-   * calculate monthly budget balance based on historic transactions
-   */
-  void calculateHistoricMonthlyBalances();
-
-  /**
-   * calculate monthly budget balance based on historic transactions
-   */
-  void calculateScheduledMonthlyBalances();
-
-  /**
-   * calculate forecast based on future and scheduled transactions
-   */
-  void doFutureScheduledForecast();
-
-  /**
-   * add future transactions to forecast
-   */
-  void addFutureTransactions();
-
-  /**
-   * add scheduled transactions to forecast
-   */
-  void addScheduledTransactions();
-
-  /**
-   * calculate daily forecast balance based on future and scheduled transactions
-   */
-  void calculateScheduledDailyBalances();
-
-  /**
-   * set the starting balance for an accounts
-   */
-  void setStartingBalance(const MyMoneyAccount& acc);
-
-  /**
-   * Returns the day moving average for the account @a acc based on the daily balances of a given number of @p forecastTerms
-   * It returns the moving average for a given @p trendDay of the forecastTerm
-   * With a term of 1 month and 3 terms, it calculates the trend taking the transactions occurred
-   * at that day and the day before,for the last 3 months
-   */
-  MyMoneyMoney accountMovingAverage(const MyMoneyAccount& acc, const int trendDay, const int forecastTerms);
-
-  /**
-   * Returns the weighted moving average for a given @p trendDay
-   */
-  MyMoneyMoney accountWeightedMovingAverage(const MyMoneyAccount& acc, const int trendDay, const int totalWeight);
-
-  /**
-   * Returns the linear regression for a given @p trendDay
-   */
-  MyMoneyMoney accountLinearRegression(const MyMoneyAccount &acc, const int trendDay, const int totalWeight, const MyMoneyMoney& meanTerms);
-
-  /**
-   * calculate daily forecast trend based on historic transactions
-   */
-  void calculateAccountTrendList();
-
-  /**
-   * set the internal list of accounts to be forecast
-   */
-  void setForecastAccountList();
-
-  /**
-   * set the internal list of accounts to create a budget
-   */
-  void setBudgetAccountList();
-
-  /**
-   * get past transactions for the accounts to be forecast
-   */
-  void pastTransactions();
-
-  /**
-   * calculate the day to start forecast and sets the begin date
-   * The quantity of forecast days will be counted from this date
-   * Depends on the values of begin day and accounts cycle
-   * The rules to calculate begin day are as follows:
-   * - if beginDay is 0, begin date is current date
-   * - if the day of the month set by beginDay has not passed, that will be used
-   * - if adding an account cycle to beginDay, will not go past the beginDay of next month,
-   *   that date will be used, otherwise it will add account cycle to beginDay until it is past current date
-   * It returns the total amount of Forecast Days from current date.
-   */
-  int calculateBeginForecastDay();
-
-  /**
-   * remove accounts from the list if the accounts has no transactions in the forecast timeframe.
-   * Used for scheduled-forecast method.
-   */
-  void purgeForecastAccountsList(QMap<QString, dailyBalances>& accountList);
-
-  /**
-   * daily forecast balance of accounts
-   */
-  QMap<QString, dailyBalances> m_accountList;
-
-  /**
-   * daily past balance of accounts
-   */
-  QMap<QString, dailyBalances> m_accountListPast;
-
-  /**
-   * daily forecast trends of accounts
-   */
-  QMap<QString, trendBalances> m_accountTrendList;
-
-  /**
-   * list of forecast account ids.
-   */
-  QSet<QString> m_forecastAccounts;
-
-  /**
-   * cycle of accounts in days
-   */
-  int m_accountsCycle;
-
-  /**
-   * number of cycles to use in forecast
-   */
-  int m_forecastCycles;
-
-  /**
-   * number of days to forecast
-   */
-  int m_forecastDays;
-
-  /**
-   * date to start forecast
-   */
-  QDate m_beginForecastDate;
-
-  /**
-   * day to start forecast
-   */
-  int m_beginForecastDay;
-
-  /**
-   * forecast method
-   */
-  int m_forecastMethod;
-
-  /**
-   * history method
-   */
-  int m_historyMethod;
-
-  /**
-   * start date of history
-   */
-  QDate m_historyStartDate;
-
-  /**
-   * end date of history
-   */
-  QDate m_historyEndDate;
-
-  /**
-   * start date of forecast
-   */
-  QDate m_forecastStartDate;
-
-  /**
-   * end date of forecast
-   */
-  QDate m_forecastEndDate;
-
-  /**
-   * skip opening date when fetching transactions of an account
-   */
-  bool m_skipOpeningDate;
-
-  /**
-   * include accounts with no transactions in the forecast timeframe. default is false.
-   */
-  bool m_includeUnusedAccounts;
-
-  /**
-   * forecast already done
-   */
-  bool m_forecastDone;
-
-  /**
-   * include future transactions when doing a scheduled-based forecast
-   */
-  bool m_includeFutureTransactions;
-
-  /**
-   * include scheduled transactions when doing a scheduled-based forecast
-   */
-  bool m_includeScheduledTransactions;
-
 };
 
 /**

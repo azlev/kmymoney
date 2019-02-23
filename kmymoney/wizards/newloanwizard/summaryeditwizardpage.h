@@ -22,7 +22,6 @@
 // QT Includes
 
 #include <QWizardPage>
-#include <QDate>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -30,31 +29,28 @@
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_summaryeditwizardpagedecl.h"
+namespace Ui { class SummaryEditWizardPage; }
 
 /**
  * This class implements the Summary Edit page of the
  * @ref KNewLoanWizard.
  */
-class SummaryEditWizardPageDecl : public QWizardPage, public Ui::SummaryEditWizardPageDecl
-{
-public:
-  SummaryEditWizardPageDecl(QWidget *parent) : QWizardPage(parent) {
-    setupUi(this);
-  }
-};
 
-class SummaryEditWizardPage : public SummaryEditWizardPageDecl
+class SummaryEditWizardPage : public QWizardPage
 {
   Q_OBJECT
 public:
-  explicit SummaryEditWizardPage(QWidget *parent = 0);
+  explicit SummaryEditWizardPage(QWidget *parent = nullptr);
+  ~SummaryEditWizardPage() override;
 
   /**
    * Overload the initializePage function to set widgets based on
    * the inputs from previous pages.
    */
-  void initializePage();
+  void initializePage() final override;
+
+private:
+  Ui::SummaryEditWizardPage *ui;
 };
 
 #endif

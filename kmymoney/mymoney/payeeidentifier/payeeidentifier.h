@@ -1,11 +1,10 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
- * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
+ * Copyright 2014-2015  Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,17 +18,26 @@
 #ifndef PAYEEIDENTIFIER_H
 #define PAYEEIDENTIFIER_H
 
-#include <QtXml/QDomElement>
+#define KMM_STRINGIFY(x) #x
+#define KMM_TOSTRING(x) KMM_STRINGIFY(x)
+
+#include <stdexcept>
+
+#include <QMetaType>
+#include <QString>
+#include <qglobal.h>
 
 /** @todo fix include path after upgrade to cmake 3 */
 #include "payeeidentifier/kmm_payeeidentifier_export.h"
-#include "mymoneyexception.h"
 
-// Q_DECLARE_METATYPE requries this include
-#include "payeeidentifierdata.h"
+#define PAYEEIDENTIFIERBADCASTEXCEPTION payeeIdentifier::badCast("Casted payeeIdentifier with wrong type " __FILE__ ":" KMM_TOSTRING(__LINE__))
+#define PAYEEIDENTIFIEREMPTYEXCEPTION payeeIdentifier::empty("Requested payeeIdentifierData of empty payeeIdentifier " __FILE__ ":" KMM_TOSTRING(__LINE__))
 
-class MyMoneyPayeeIdentifierContainer;
+// Q_DECLARE_METATYPE requires this include
 
+class QDomDocument;
+class QDomElement;
+class payeeIdentifierData;
 class KMM_PAYEEIDENTIFIER_EXPORT payeeIdentifier
 {
 public:
@@ -44,7 +52,7 @@ public:
   payeeIdentifier(const payeeIdentifier& other);
   ~payeeIdentifier();
   payeeIdentifier& operator=(const payeeIdentifier& other);
-  bool operator==(const payeeIdentifier& other);
+  bool operator==(const payeeIdentifier& other) const;
 
   /** @brief Check if any data is associated */
   bool isNull() const {
@@ -101,44 +109,35 @@ public:
   QString iid() const;
 
   /**
-   * @brief Base for exceptions thrown by payeeIdentifier
-   *
-   * @internal Using MyMoneyException instead is not possible because
-   * it would lead to cyclic inter-target dependenies. We could create a new
-   * shared library which includes MyMoneyException only, but this could be over-
-   * powered.
-   */
-  class exception
-    {};
-
-  /**
    * @brief Thrown if a cast of a payeeIdentifier fails
    *
    * This is inspired by std::bad_cast
-   * @todo inherit from MyMoneyException
    */
-  class badCast : public exception
+  #if defined(Q_OS_WIN)
+  class badCast final : public std::runtime_error
+
+  #else
+  class KMM_PAYEEIDENTIFIER_EXPORT badCast final : public std::runtime_error
+
+  #endif
   {
   public:
-    badCast(const QString& file = "", const long unsigned int& line = 0)
-    //: MyMoneyException("Casted payeeIdentifier with wrong type", file, line)
-    {
-      Q_UNUSED(file); Q_UNUSED(line);
-    }
+    explicit badCast(const char *exceptionMessage) : std::runtime_error(exceptionMessage) {}
   };
 
   /**
    * @brief Thrown if one tried to access the data of a null payeeIdentifier
-   * @todo inherit from MyMoneyException
    */
-  class empty : public exception
+  #if defined(Q_OS_WIN)
+  class empty final : public std::runtime_error
+
+  #else
+  class KMM_PAYEEIDENTIFIER_EXPORT empty final : public std::runtime_error
+
+  #endif
   {
   public:
-    empty(const QString& file = "", const long unsigned int& line = 0)
-    //: MyMoneyException("Requested payeeIdentifierData of empty payeeIdentifier", file, line)
-    {
-      Q_UNUSED(file); Q_UNUSED(line);
-    }
+    explicit empty(const char *exceptionMessage) : std::runtime_error(exceptionMessage) {}
   };
 
 private:
@@ -159,7 +158,7 @@ T* payeeIdentifier::data()
 {
   T *const ident = dynamic_cast<T*>(operator->());
   if (ident == 0)
-    throw badCast(__FILE__, __LINE__);
+    throw PAYEEIDENTIFIERBADCASTEXCEPTION;
   return ident;
 }
 
@@ -168,7 +167,7 @@ const T* payeeIdentifier::data() const
 {
   const T *const ident = dynamic_cast<const T*>(operator->());
   if (ident == 0)
-    throw badCast(__FILE__, __LINE__);
+    throw PAYEEIDENTIFIERBADCASTEXCEPTION;
   return ident;
 }
 

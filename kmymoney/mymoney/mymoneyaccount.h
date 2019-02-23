@@ -1,19 +1,24 @@
-
-/***************************************************************************
-                          mymoneyaccount.h
-                          -------------------
-    copyright            : (C) 2002 by Thomas Baumgart <ipwizard@users.sourceforge.net>
-
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2000-2002  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001       Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2002-2003  Kevin Tambascio <ktambascio@users.sourceforge.net>
+ * Copyright 2006-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2006       Ace Jones <acejones@users.sourceforge.net>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef MYMONEYACCOUNT_H
 #define MYMONEYACCOUNT_H
@@ -21,30 +26,26 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QString>
-#include <QDateTime>
-#include <QStringList>
-#include <QPixmap>
 #include <QMetaType>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "mymoneymoney.h"
-#include "mymoneyobject.h"
 #include "mymoneykeyvaluecontainer.h"
-#include "mymoneysecurity.h"
+#include "mymoneyobject.h"
 #include "kmm_mymoney_export.h"
 #include "mymoneyunittestable.h"
-#include "mymoneyutils.h"
 
-#include "payeeidentifier/payeeidentifier.h"
-#include "payeeidentifier/ibanandbic/ibanbic.h"
-#include "mymoneypayeeidentifiercontainer.h"
-
-class MyMoneyTransaction;
+class QString;
+class QDate;
+class QPixmap;
+class MyMoneySecurity;
+class MyMoneyMoney;
 class MyMoneySplit;
-class MyMoneyObjectContainer;
+class payeeIdentifier;
+namespace eMyMoney { namespace Account { enum class Type; } }
+namespace eMyMoney { namespace Account { enum class Standard; } }
+template <class T> class payeeIdentifierTyped;
 
 /**
   * A representation of an account.
@@ -54,7 +55,7 @@ class MyMoneyObjectContainer;
   *
   * Currently, the following account types are known:
   *
-  * @li  UnknownAccountType
+  * @li  Unknown
   * @li  Checkings
   * @li  Savings
   * @li  Cash
@@ -77,46 +78,23 @@ class MyMoneyObjectContainer;
   *
   * @author Michael Edwardes 2000-2001
   * @author Thomas Baumgart 2002
+  * @author Łukasz Wojniłowicz 2017
   *
 **/
+
+class MyMoneyAccountPrivate;
 class KMM_MYMONEY_EXPORT MyMoneyAccount : public MyMoneyObject, public MyMoneyKeyValueContainer /*, public MyMoneyPayeeIdentifierContainer */
 {
-  friend class MyMoneyObjectContainer;
+  Q_DECLARE_PRIVATE_D(MyMoneyObject::d_ptr, MyMoneyAccount)
+
   KMM_MYMONEY_UNIT_TESTABLE
 
 public:
-
-  /**
-    * Account types currently supported.
-    */
-  typedef enum _accountTypeE {
-    UnknownAccountType = 0, /**< For error handling */
-    Checkings,            /**< Standard checking account */
-    Savings,              /**< Typical savings account */
-    Cash,                 /**< Denotes a shoe-box or pillowcase stuffed
-                               with cash */
-    CreditCard,           /**< Credit card accounts */
-    Loan,                 /**< Loan and mortgage accounts (liability) */
-    CertificateDep,       /**< Certificates of Deposit */
-    Investment,           /**< Investment account */
-    MoneyMarket,          /**< Money Market Account */
-    Asset,                /**< Denotes a generic asset account.*/
-    Liability,            /**< Denotes a generic liability account.*/
-    Currency,             /**< Denotes a currency trading account. */
-    Income,               /**< Denotes an income account */
-    Expense,              /**< Denotes an expense account */
-    AssetLoan,            /**< Denotes a loan (asset of the owner of this object) */
-    Stock,                /**< Denotes an security account as sub-account for an investment */
-    Equity,               /**< Denotes an equity account e.g. opening/closeing balance */
-
-    /* insert new account types above this line */
-    MaxAccountTypes       /**< Denotes the number of different account types */
-  } accountTypeE;
-
   /**
     * This is the constructor for a new empty account
     */
   MyMoneyAccount();
+  explicit MyMoneyAccount(const QString &id);
 
   /**
     * This is the constructor for a new account known to the current file
@@ -126,16 +104,13 @@ public:
     * @param id id assigned to the account
     * @param right account definition
     */
-  MyMoneyAccount(const QString& id, const MyMoneyAccount& right);
+  MyMoneyAccount(const QString& id,
+                 const MyMoneyAccount& other);
 
-  /**
-    * This is the constructor for an account that is described by a
-    * QDomElement (e.g. from a file).
-    *
-    * @param el const reference to the QDomElement from which to
-    *           create the object
-    */
-  MyMoneyAccount(const QDomElement& el);
+  MyMoneyAccount(const MyMoneyAccount & other);
+  MyMoneyAccount(MyMoneyAccount && other);
+  MyMoneyAccount & operator=(MyMoneyAccount other);
+  friend void swap(MyMoneyAccount& first, MyMoneyAccount& second);
 
   /**
     * This is the destructor for any MyMoneyAccount object
@@ -178,7 +153,7 @@ public:
     *
     * @return accountTypeE of major account type
     */
-  MyMoneyAccount::accountTypeE accountGroup() const;
+  eMyMoney::Account::Type accountGroup() const;
 
   /**
     * This method returns the id of the MyMoneyInstitution object this account
@@ -187,88 +162,130 @@ public:
     *         an internal account
     * @see setInstitution
     */
-  const QString& institutionId() const {
-    return m_institution;
-  }
+  QString institutionId() const;
+
+  /**
+    * This method is used to set the id of the institution this account
+    * belongs to.
+    *
+    * @param id id of the institution this account belongs to
+    * @see institution
+    */
+  void setInstitutionId(const QString& id);
 
   /**
     * This method returns the name of the account
     * @return name of account
     * @see setName()
     */
-  const QString& name() const {
-    return m_name;
-  }
+  QString name() const;
+
+  /**
+    * This method is used to set the name of the account
+    * @param name name of the account
+    * @see name
+    */
+  void setName(const QString& name);
 
   /**
     * This method returns the number of the account at the institution
     * @return number of account at the institution
     * @see setNumber
     */
-  const QString& number() const {
-    return m_number;
-  }
+  QString number() const;
+
+  /**
+    * This method is used to set the number of the account at the institution
+    * @param number number of the account
+    * @see number
+    */
+  void setNumber(const QString& number);
 
   /**
     * This method returns the descriptive text of the account.
     * @return description of account
     * @see setDescription
     */
-  const QString& description() const {
-    return m_description;
-  }
+  QString description() const;
+
+  /**
+    * This method is used to set the descriptive text of the account
+    *
+    * @param desc text that serves as description
+    * @see setDescription
+    */
+  void setDescription(const QString& desc);
 
   /**
     * This method returns the opening date of this account
     * @return date of opening of this account as const QDate value
     * @see setOpeningDate()
     */
-  const QDate& openingDate() const {
-    return m_openingDate;
-  }
+  QDate openingDate() const;
+
+  /**
+    * This method is used to set the opening date information of an
+    * account.
+    *
+    * @param date QDate of opening date
+    * @see openingDate
+    */
+  void setOpeningDate(const QDate& date);
 
   /**
     * This method returns the date of the last reconciliation of this account
     * @return date of last reconciliation as const QDate value
     * @see setLastReconciliationDate
     */
-  const QDate& lastReconciliationDate() const {
-    return m_lastReconciliationDate;
-  }
+  QDate lastReconciliationDate() const;
+
+  /**
+    * This method is used to set the date of the last reconciliation
+    * of an account.
+    * @param date QDate of last reconciliation
+    * @see lastReconciliationDate
+    */
+  void setLastReconciliationDate(const QDate& date);
 
   /**
     * This method returns the date the account was last modified
     * @return date of last modification as const QDate value
     * @see setLastModified
     */
-  const QDate& lastModified() const {
-    return m_lastModified;
-  }
+  QDate lastModified() const;
+
+  /**
+    * This method is used to modify the date of the last
+    * modification access.
+    * @param date date of last modification
+    * @see lastModified
+    */
+  void setLastModified(const QDate& date);
 
   /**
     * This method is used to return the ID of the parent account
     * @return QString with the ID of the parent of this account
     */
-  const QString& parentAccountId() const {
-    return m_parentAccount;
-  };
+  QString parentAccountId() const;
+
+  /**
+    * This method is used to set a new parent account id
+    * @param parent QString reference to new parent account
+    */
+  void setParentAccountId(const QString& parent);
 
   /**
     * This method returns the list of the account id's of
     * subordinate accounts
     * @return QStringList account ids
     */
-  const QStringList& accountList() const {
-    return m_accountList;
-  };
+  QStringList accountList() const;
 
   /**
     * This method returns the number of entries in the m_accountList
     * @return number of entries in the accountList
     */
-  int accountCount() const {
-    return m_accountList.count();
-  };
+  int accountCount() const;
 
   /**
     * This method is used to add an account id as sub-ordinate account
@@ -290,34 +307,6 @@ public:
   void removeAccountIds();
 
   /**
-    * This method is used to modify the date of the last
-    * modification access.
-    * @param date date of last modification
-    * @see lastModified
-    */
-  void setLastModified(const QDate& date);
-
-  /**
-    * This method is used to set the name of the account
-    * @param name name of the account
-    * @see name
-    */
-  void setName(const QString& name);
-
-  /**
-    * This method is used to set the number of the account at the institution
-    * @param number number of the account
-    * @see number
-    */
-  void setNumber(const QString& number);
-
-  /**
-   * This method allows to control if a cost center assignment is required
-   * for this account. It is if @a required is @c true (the default).
-   */
-  void setCostCenterRequired(bool required = true);
-
-  /**
    * Return the stored account identifiers
    *
    * @internal This method is temporary until MyMoneyAccount is a MyMoneyPayeeIdentifierContainer. But before this
@@ -326,71 +315,21 @@ public:
   QList< payeeIdentifier > payeeIdentifiers() const;
 
   /**
-   * @see MyMoneyPayeeIdentifierContainer::payeeIdentifiersByType()
-   */
-  template< class type >
-  QList< ::payeeIdentifierTyped<type> > payeeIdentifiersByType() const;
+    * This method is used to update m_lastModified to the current date
+    */
+  void touch();
 
   /**
-    * This method is used to set the descriptive text of the account
-    *
-    * @param desc text that serves as description
-    * @see setDescription
+    * This method returns the type of the account.
     */
-  void setDescription(const QString& desc);
-
-  /**
-    * This method is used to set the id of the institution this account
-    * belongs to.
-    *
-    * @param id id of the institution this account belongs to
-    * @see institution
-    */
-  void setInstitutionId(const QString& id);
-
-  /**
-    * This method is used to set the opening date information of an
-    * account.
-    *
-    * @param date QDate of opening date
-    * @see openingDate
-    */
-  void setOpeningDate(const QDate& date);
-
-  /**
-    * This method is used to set the date of the last reconciliation
-    * of an account.
-    * @param date QDate of last reconciliation
-    * @see lastReconciliationDate
-    */
-  void setLastReconciliationDate(const QDate& date);
+  eMyMoney::Account::Type accountType() const;
 
   /**
     * This method is used to change the account type
     *
     * @param type account type
     */
-  void setAccountType(const accountTypeE type);
-
-  /**
-    * This method is used to set a new parent account id
-    * @param parent QString reference to new parent account
-    */
-  void setParentAccountId(const QString& parent);
-
-  /**
-    * This method is used to update m_lastModified to the current date
-    */
-  void touch() {
-    setLastModified(QDate::currentDate());
-  }
-
-  /**
-    * This method returns the type of the account.
-    */
-  accountTypeE accountType() const {
-    return m_accountType;
-  }
+  void setAccountType(const eMyMoney::Account::Type type);
 
   /**
     * This method retrieves the id of the currency used with this account.
@@ -398,9 +337,30 @@ public:
     *
     * @return id of currency
     */
-  const QString& currencyId() const {
-    return m_currencyId;
-  };
+  QString currencyId() const;
+
+  /** There are three different currencies in play with a single Account:
+  *   - The underlying currency: What currency the account itself is denominated in
+  *   - The deep currency: The underlying currency's own underlying currency.  This
+  *      is only a factor if the underlying currency of this account IS NOT a
+  *      currency itself, but is some other kind of security.  In that case, the
+  *      underlying security has its own currency.  The deep currency is the
+  *      currency of the underlying security.  On the other hand, if the account
+  *      has a currency itself, then the deep currency == the underlying currency,
+  *      and this function will return 1.0.
+  *   - The base currency: The base currency of the user's overall file
+  *
+  * @return id of deep currency
+  */
+  QString tradingCurrencyId() const;
+
+  /**
+    * Determine if this account's deep currency is different from the file's
+    * base currency
+    *
+    * @return bool True if this account is in a foreign currency
+    */
+  bool isForeignCurrency() const;
 
   /**
     * This method sets the id of the currency used with this account.
@@ -408,8 +368,6 @@ public:
     * @param id ID of currency to be associated with this account.
     */
   void setCurrencyId(const QString& id);
-
-  void writeXML(QDomDocument& document, QDomElement& parent) const;
 
   /**
     * This method checks if a reference to the given object exists. It returns,
@@ -420,20 +378,18 @@ public:
     * @retval true This object references object with id @p id.
     * @retval false This object does not reference the object with id @p id.
     */
-  virtual bool hasReferenceTo(const QString& id) const;
+  bool hasReferenceTo(const QString& id) const override;
 
   /**
     * This member returns the balance of this account based on
     * all transactions stored in the journal.
     */
-  const MyMoneyMoney& balance() const {
-    return m_balance;
-  }
+  MyMoneyMoney balance() const;
 
   /**
     * This method adjusts the balance of this account
     * according to the difference contained in the split @p s.
-    * If the s.action() is MyMoneySplit::ActionSplitShares then
+    * If the s.action() is MyMoneySplit::actionName(eMyMoney::Split::Action::SplitShares) then
     * the balance will be adjusted accordingly.
     *
     * @param s const reference to MyMoneySplit object containing the
@@ -450,9 +406,7 @@ public:
     * @param val const reference to MyMoneyMoney object containing the
     *             value to be assigned to the balance
     */
-  void setBalance(const MyMoneyMoney& val) {
-    m_balance = val;
-  }
+  void setBalance(const MyMoneyMoney& val);
 
   /**
     * This method sets the kvp's for online banking with this account
@@ -466,7 +420,7 @@ public:
     *
     * @return The container of kvp's needed when connecting to this account
     */
-  const MyMoneyKeyValueContainer& onlineBankingSettings() const;
+  MyMoneyKeyValueContainer onlineBankingSettings() const;
 
   /**
     * This method sets the closed flag for the account. This is just
@@ -570,9 +524,21 @@ public:
   bool isLiquidAsset() const;
 
   /**
+   * Returns whether this account is a liquid liability
+   *
+   */
+  bool isLiquidLiability() const;
+
+  /**
    * This method returns true if a costcenter assignment is required for this account
    */
   bool isCostCenterRequired() const;
+
+  /**
+   * This method allows to control if a cost center assignment is required
+   * for this account. It is if @a required is @c true (the default).
+   */
+  void setCostCenterRequired(bool required = true);
 
   /**
    * This method returns a name that has a brokerage suffix of
@@ -587,17 +553,17 @@ public:
    * @param size is a hint for the size of the icon
    * @return a pixmap using DesktopIcon for the account type
    */
-  QPixmap accountPixmap(bool reconcileFlag = false, int size = 0) const;
+  QPixmap accountPixmap(const bool reconcileFlag = false, const int size = 64) const;
 
   /**
    * This method is used to convert the internal representation of
    * an account type into a human readable format
    *
    * @param accountType numerical representation of the account type.
-   *                    For possible values, see MyMoneyAccount::accountTypeE
+   *                    For possible values, see eMyMoney::Account::Type
    * @return QString representing the human readable form
    */
-  static QString accountTypeToString(const MyMoneyAccount::accountTypeE accountType);
+  static QString accountTypeToString(const eMyMoney::Account::Type accountType);
 
   /**
     * keeps a history record of a reconciliation for this account on @a date
@@ -614,182 +580,42 @@ public:
     *
     * @sa addReconciliation()
     */
-  const QMap<QDate, MyMoneyMoney>& reconciliationHistory();
+  QMap<QDate, MyMoneyMoney> reconciliationHistory();
+
+  /**
+    * @return @c true if account has an online mapping, @c false otherwise
+    */
+  bool hasOnlineMapping() const;
+
+  static QString stdAccName(eMyMoney::Account::Standard stdAccID);
 
   QDataStream &operator<<(const MyMoneyAccount &);
   QDataStream &operator>>(MyMoneyAccount &);
-
-private:
-  /**
-    * This member variable identifies the type of account
-    */
-  accountTypeE m_accountType;
-
-  /**
-    * This member variable keeps the ID of the MyMoneyInstitution object
-    * that this object belongs to.
-    */
-  QString m_institution;
-
-  /**
-    * This member variable keeps the name of the account
-    * It is solely for documentation purposes and it's contents is not
-    * used otherwise by the mymoney-engine.
-    */
-  QString m_name;
-
-  /**
-    * This member variable keeps the account number at the institution
-    * It is solely for documentation purposes and it's contents is not
-    * used otherwise by the mymoney-engine.
-    */
-  QString m_number;
-
-  /**
-    * This member variable is a description of the account.
-    * It is solely for documentation purposes and it's contents is not
-    * used otherwise by the mymoney-engine.
-    */
-  QString m_description;
-
-  /**
-    * This member variable keeps the date when the account
-    * was last modified.
-    */
-  QDate m_lastModified;
-
-  /**
-    * This member variable keeps the date when the
-    * account was created as an object in a MyMoneyFile
-    */
-  QDate m_openingDate;
-
-  /**
-    * This member variable keeps the date of the last
-    * reconciliation of this account
-    */
-  QDate m_lastReconciliationDate;
-
-  /**
-    * This member holds the ID's of all sub-ordinate accounts
-    */
-  QStringList m_accountList;
-
-  /**
-    * This member contains the ID of the parent account
-    */
-  QString m_parentAccount;
-
-  /**
-    * This member contains the ID of the currency associated with this account
-    */
-  QString m_currencyId;
-
-  /**
-    * This member holds the balance of all transactions stored in the journal
-    * for this account.
-    */
-  MyMoneyMoney    m_balance;
-
-  /**
-    * This member variable keeps the set of kvp's needed to establish
-    * online banking sessions to this account.
-    */
-  MyMoneyKeyValueContainer m_onlineBankingSettings;
-
-  /**
-    * This member keeps the fraction for the account. It is filled by MyMoneyFile
-    * when set to -1. See also @sa fraction(const MyMoneySecurity&).
-    */
-  int             m_fraction;
-
-  /**
-    * This member keeps the reconciliation history
-    */
-  QMap<QDate, MyMoneyMoney> m_reconciliationHistory;
 };
 
-/**
-  * This class is a convenience class to access data for loan accounts.
-  * It does contain the same member variables as a MyMoneyAccount object,
-  * but serves a set of getter/setter methods to ease the access to
-  * laon relevant data stored in the key value container of the MyMoneyAccount
-  * object.
-  */
-class KMM_MYMONEY_EXPORT MyMoneyAccountLoan : public MyMoneyAccount
+inline void swap(MyMoneyAccount& first, MyMoneyAccount& second) // krazy:exclude=inline
 {
-public:
-  enum interestDueE {
-    paymentDue = 0,
-    paymentReceived
-  };
-
-  enum interestChangeUnitE {
-    changeDaily = 0,
-    changeWeekly,
-    changeMonthly,
-    changeYearly
-  };
-
-  MyMoneyAccountLoan() {}
-  MyMoneyAccountLoan(const MyMoneyAccount&);
-  ~MyMoneyAccountLoan() {}
-
-  const MyMoneyMoney loanAmount() const;
-  void setLoanAmount(const MyMoneyMoney& amount);
-  const MyMoneyMoney interestRate(const QDate& date) const;
-  void setInterestRate(const QDate& date, const MyMoneyMoney& rate);
-  interestDueE interestCalculation() const;
-  void setInterestCalculation(const interestDueE onReception);
-  const QDate nextInterestChange() const;
-  void setNextInterestChange(const QDate& date);
-  const QString schedule() const;
-  void setSchedule(const QString& sched);
-  bool fixedInterestRate() const;
-  void setFixedInterestRate(const bool fixed);
-  const MyMoneyMoney finalPayment() const;
-  void setFinalPayment(const MyMoneyMoney& finalPayment);
-  unsigned int term() const;
-  void setTerm(const unsigned int payments);
-  int interestChangeFrequency(int* unit = 0) const;
-  void setInterestChangeFrequency(const int amount, const int unit);
-  const MyMoneyMoney periodicPayment() const;
-  void setPeriodicPayment(const MyMoneyMoney& payment);
-  int interestCompounding() const;
-  void setInterestCompounding(int frequency);
-  const QString payee() const;
-  void setPayee(const QString& payee);
-  const QString interestAccountId() const;
-  void setInterestAccountId(const QString& id);
-
-  /**
-    * This method checks if a reference to the given object exists. It returns,
-    * a @p true if the object is referencing the one requested by the
-    * parameter @p id. If it does not, this method returns @p false.
-    *
-    * @param id id of the object to be checked for references
-    * @retval true This object references object with id @p id.
-    * @retval false This object does not reference the object with id @p id.
-    */
-  virtual bool hasReferenceTo(const QString& id) const;
-
-};
-
-template< class type >
-QList< payeeIdentifierTyped<type> > MyMoneyAccount::payeeIdentifiersByType() const
-{
-  QList< payeeIdentifierTyped<type> > typedList;
-  return typedList;
+  using std::swap;
+  swap(first.MyMoneyObject::d_ptr, second.MyMoneyObject::d_ptr);
+  swap(first.MyMoneyKeyValueContainer::d_ptr, second.MyMoneyKeyValueContainer::d_ptr);
 }
 
-template<>
-QList< payeeIdentifierTyped< ::payeeIdentifiers::ibanBic> > MyMoneyAccount::payeeIdentifiersByType() const;
+inline MyMoneyAccount::MyMoneyAccount(MyMoneyAccount && other) : MyMoneyAccount() // krazy:exclude=inline
+{
+  swap(*this, other);
+}
+
+inline MyMoneyAccount & MyMoneyAccount::operator=(MyMoneyAccount other) // krazy:exclude=inline
+{
+  swap(*this, other);
+  return *this;
+}
 
 /**
  * Make it possible to hold @ref MyMoneyAccount objects,
  * @ref accountTypeE and @ref amountTypeE inside @ref QVariant objects.
  */
 Q_DECLARE_METATYPE(MyMoneyAccount)
-Q_DECLARE_METATYPE(MyMoneyAccount::accountTypeE)
+Q_DECLARE_METATYPE(eMyMoney::Account::Type)
 
 #endif

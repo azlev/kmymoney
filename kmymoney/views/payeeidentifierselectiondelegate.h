@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -27,11 +27,11 @@ class payeeIdentifierSelectionDelegate : public QStyledItemDelegate
   Q_OBJECT
 
 public:
-  payeeIdentifierSelectionDelegate(QObject* parent = 0);
-  virtual QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const;
-  virtual void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const;
-  virtual void updateEditorGeometry(QWidget* editor, const QStyleOptionViewItem& option, const QModelIndex& index) const;
-  virtual QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const;
+  explicit payeeIdentifierSelectionDelegate(QObject* parent = 0);
+  QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const final override;
+  void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const final override;
+  void updateEditorGeometry(QWidget* editor, const QStyleOptionViewItem& option, const QModelIndex& index) const final override;
+  QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const final override;
 };
 
 class payeeIdentifierTypeSelectionWidget : public QComboBox
@@ -40,10 +40,10 @@ class payeeIdentifierTypeSelectionWidget : public QComboBox
 public:
   explicit payeeIdentifierTypeSelectionWidget(QWidget* parent = 0);
 
-signals:
+Q_SIGNALS:
   void commitData(QWidget* editor);
 
-private slots:
+private Q_SLOTS:
   void itemSelected(int index);
 };
 

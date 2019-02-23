@@ -20,14 +20,13 @@
 #define ONLINEPLUGINEXTENDED_H
 
 #include "kmymoneyplugin.h"
-#include <QtCore/QObject>
-#include <QtCore/QList>
 
 #include "mymoney/onlinejob.h"
 #include "onlinetasks/interfaces/tasks/ionlinetasksettings.h"
 
+class onlineJob;
 class onlineTask;
-class IonlineJobEdit;
+class payeeIdentifierData;
 
 namespace KMyMoneyPlugin
 {
@@ -45,6 +44,7 @@ class KMM_PLUGIN_EXPORT OnlinePluginExtended : public Plugin, public OnlinePlugi
 
 public:
   OnlinePluginExtended(QObject* parent, const char* name);
+  virtual ~OnlinePluginExtended() {}
 
   /**
    * @brief List onlineJobs supported by an account
@@ -71,8 +71,10 @@ public:
    */
   virtual void sendOnlineJob(QList<onlineJob>& jobs) = 0;
 
+  virtual void plug() override = 0;
+  virtual void unplug() override = 0;
 
-signals:
+Q_SIGNALS:
   /**
    * @brief Emit to make onlineJob available
    *

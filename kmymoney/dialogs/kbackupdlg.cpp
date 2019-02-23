@@ -1,29 +1,27 @@
-/***************************************************************************
-                          kbackupdialog.cpp  -  description
-                             -------------------
-    begin                : Mon Jun 4 2001
-    copyright            : (C) 2001 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                             Javier Campos Morales <javi_c@ctv.es>
-                             Felix Rodriguez <frodriguez@mail.wesleyan.edu>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2001-2003  Michael Edwardes <mte@users.sourceforge.net>
+ * Copyright 2001-2002  Felix Rodriguez <frodriguez@users.sourceforge.net>
+ * Copyright 2017       Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "kbackupdlg.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
 
-#include <QPixmap>
-#include <QLabel>
 #include <QCheckBox>
 #include <QUrl>
 #include <QPushButton>
@@ -33,57 +31,74 @@
 // ----------------------------------------------------------------------------
 // KDE Includes
 
-#include <kconfig.h>
-#include <kconfiggroup.h>
-#include <kguiitem.h>
-#include <KGuiItem>
-#include <KSharedConfig>
+#include <KConfig>
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-KBackupDlg::KBackupDlg(QWidget* parent)
-    : kbackupdlgdecl(parent)
+#include "ui_kbackupdlg.h"
+
+#include "icons/icons.h"
+
+using namespace Icons;
+
+KBackupDlg::KBackupDlg(QWidget* parent) :
+  QDialog(parent),
+  ui(new Ui::KBackupDlg)
 {
+  ui->setupUi(this);
   readConfig();
 
-  KGuiItem chooseButtenItem(i18n("C&hoose..."),
-                            QIcon::fromTheme("folder"),
-                            i18n("Select mount point"),
-                            i18n("Use this to browse to the mount point."));
-  KGuiItem::assign(chooseButton, chooseButtenItem);
+  ui->chooseButton->setIcon(Icons::get(Icon::Folder));
 
-  connect(chooseButton, SIGNAL(clicked()), this, SLOT(chooseButtonClicked()));
-  connect(buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-  connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+  connect(ui->chooseButton, &QAbstractButton::clicked, this, &KBackupDlg::chooseButtonClicked);
 }
 
 KBackupDlg::~KBackupDlg()
 {
   writeConfig();
+  delete ui;
+}
+
+QString KBackupDlg::mountPoint() const
+{
+  return ui->txtMountPoint->text();
+}
+
+bool KBackupDlg::mountCheckBoxChecked() const
+{
+  return ui->mountCheckBox->isChecked();
 }
 
 void KBackupDlg::chooseButtonClicked()
 {
-  QUrl newDir = QFileDialog::getExistingDirectoryUrl(this, QString(), QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)));
+  auto newDir = QFileDialog::getExistingDirectoryUrl(this, QString(), QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)));
   if (!newDir.path().isEmpty())
-    txtMountPoint->setText(newDir.path());
+    ui->txtMountPoint->setText(newDir.path());
 }
 
 void KBackupDlg::readConfig()
 {
+  QString backupDefaultLocation;
+#ifdef Q_OS_WIN
+  backupDefaultLocation = QDir::toNativeSeparators(QDir::homePath() + "/kmymoney/backup");
+#else
+  backupDefaultLocation = "/mnt/floppy";
+#endif
   KSharedConfigPtr config = KSharedConfig::openConfig();
   KConfigGroup grp = config->group("Last Use Settings");
-  mountCheckBox->setChecked(grp.readEntry("KBackupDlg_mountDevice", false));
-  txtMountPoint->setText(grp.readEntry("KBackupDlg_BackupMountPoint", "/mnt/floppy"));
+  ui->mountCheckBox->setChecked(grp.readEntry("KBackupDlg_mountDevice", false));
+  ui->txtMountPoint->setText(grp.readEntry("KBackupDlg_BackupMountPoint", backupDefaultLocation));
 }
 
 void KBackupDlg::writeConfig()
 {
   KSharedConfigPtr config = KSharedConfig::openConfig();
   KConfigGroup grp = config->group("Last Use Settings");
-  grp.writeEntry("KBackupDlg_mountDevice", mountCheckBox->isChecked());
-  grp.writeEntry("KBackupDlg_BackupMountPoint", txtMountPoint->text());
+  grp.writeEntry("KBackupDlg_mountDevice", ui->mountCheckBox->isChecked());
+  grp.writeEntry("KBackupDlg_BackupMountPoint", ui->txtMountPoint->text());
   config->sync();
 }

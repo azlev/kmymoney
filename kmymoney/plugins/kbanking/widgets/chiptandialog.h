@@ -40,7 +40,7 @@ class chipTanDialog : public QDialog
   Q_PROPERTY(int flickerFieldWidth READ flickerFieldWidth WRITE setFlickerFieldWidth)
 
 public:
-  chipTanDialog(QWidget* parent = 0);
+  explicit chipTanDialog(QWidget* parent = 0);
   ~chipTanDialog();
 
   enum Result { Accepted = 0, Rejected, InternalError };
@@ -50,9 +50,9 @@ public:
   QString tan();
   int flickerFieldWidth();
 
-public slots:
-  void accept();
-  void reject();
+public Q_SLOTS:
+  void accept() final override;
+  void reject() final override;
 
   void setInfoText(const QString&);
   void setHhdCode(const QString&);
@@ -61,7 +61,7 @@ public slots:
   void setFlickerFieldWidth(const int& width);
   void setFlickerFieldClockSetting(const int& width);
 
-private slots:
+private Q_SLOTS:
   void tanInputChanged(const QString&);
   void flickerFieldWidthChanged(const int& width);
   void flickerFieldClockSettingChanged(const int& takt);

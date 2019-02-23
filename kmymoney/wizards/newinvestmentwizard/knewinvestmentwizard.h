@@ -4,6 +4,7 @@
    begin                : Sat Dec 4 2004
    copyright            : (C) 2004 by Thomas Baumgart
    email                : Thomas Baumgart <ipwizard@users.sourceforge.net>
+                          (C) 2017 by Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
 ***************************************************************************/
 
 /***************************************************************************
@@ -21,15 +22,16 @@
 // ----------------------------------------------------------------------------
 // QT Includes
 
+#include <QWizard>
+
 // ----------------------------------------------------------------------------
 // KDE Includes
 
 // ----------------------------------------------------------------------------
 // Project Includes
 
-#include "ui_knewinvestmentwizarddecl.h"
-#include "mymoneyaccount.h"
-#include "mymoneysecurity.h"
+class MyMoneyAccount;
+class MyMoneySecurity;
 
 /**
   * This class contains the implementation of the new investment wizard.
@@ -37,31 +39,25 @@
   * @author Thomas Baumgart
   */
 
-class KNewInvestmentWizardDecl : public QWizard, public Ui::KNewInvestmentWizardDecl
-{
-public:
-  KNewInvestmentWizardDecl(QWidget *parent) : QWizard(parent) {
-    setupUi(this);
-  }
-};
-class KNewInvestmentWizard : public KNewInvestmentWizardDecl
+class KNewInvestmentWizardPrivate;
+class KNewInvestmentWizard : public QWizard
 {
   Q_OBJECT
 public:
   /**
     * Use this constructor for the creation of a new investment
     */
-  explicit KNewInvestmentWizard(QWidget *parent = 0);
+  explicit KNewInvestmentWizard(QWidget *parent = nullptr);
 
   /**
     * Use this constructor for the modification of an existing investment
     */
-  explicit KNewInvestmentWizard(const MyMoneyAccount& acc, QWidget *parent = 0);
+  explicit KNewInvestmentWizard(const MyMoneyAccount& acc, QWidget *parent = nullptr);
 
   /**
     * Use this constructor for the modification of an existing security
     */
-  explicit KNewInvestmentWizard(const MyMoneySecurity& sec, QWidget *parent = 0);
+  explicit KNewInvestmentWizard(const MyMoneySecurity& sec, QWidget *parent = nullptr);
 
   ~KNewInvestmentWizard();
 
@@ -79,22 +75,24 @@ public:
     */
   void createObjects(const QString& parentId);
 
-  const MyMoneyAccount& account() const {
-    return m_account;
-  }
+  /**
+    * Create a new investment in a given @p parent investment account
+    */
+  static void newInvestment(const MyMoneyAccount& parent);
+  static void newInvestment(MyMoneyAccount& account, const MyMoneyAccount& parent);
 
-protected slots:
+  static void editInvestment(const MyMoneyAccount& parent);
+
+  MyMoneyAccount account() const;
+
+protected Q_SLOTS:
   void slotCheckForExistingSymbol(const QString&);
   void slotHelp();
 
 private:
-  void init1();
-  void init2();
-
-private:
-  MyMoneyAccount    m_account;
-  MyMoneySecurity   m_security;
-  bool              m_createAccount;
+  Q_DISABLE_COPY(KNewInvestmentWizard)
+  Q_DECLARE_PRIVATE(KNewInvestmentWizard)
+  const QScopedPointer<KNewInvestmentWizardPrivate> d_ptr;
 };
 
 #endif

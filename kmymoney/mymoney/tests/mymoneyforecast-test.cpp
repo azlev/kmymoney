@@ -1,44 +1,60 @@
-/***************************************************************************
-                          mymoneyforecasttest.cpp
-                          -------------------
-    copyright            : (C) 2007 by Alvaro Soliverez
-    email                : asoliverez@gmail.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2007-2010  Alvaro Soliverez <asoliverez@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneyforecast-test.h"
 
 #include <iostream>
 #include <QList>
-#include <QtTest/QtTest>
+#include <QtTest>
 
 #include "mymoneybudget.h"
 
 #include "mymoneyexception.h"
 
 #include "mymoneystoragedump.h"
-#include "mymoneystoragexml.h"
-#include "reportstestcommon.h"
+#include "tests/testutilities.h"
 
+#include "mymoneyinstitution.h"
+#include "mymoneysecurity.h"
+#include "mymoneymoney.h"
+#include "mymoneysplit.h"
+#include "mymoneyschedule.h"
+#include "mymoneypayee.h"
+#include "mymoneyenums.h"
+
+using namespace eMyMoney;
 using namespace test;
 
 QTEST_GUILESS_MAIN(MyMoneyForecastTest)
 
-MyMoneyForecastTest::MyMoneyForecastTest()
+MyMoneyForecastTest::MyMoneyForecastTest() :
+  m(nullptr),
+  storage(nullptr),
+  file(nullptr)
 {
-  this->moT1 = MyMoneyMoney(57, 1);
-  this->moT2 = MyMoneyMoney(63, 1);
-  this->moT3 = MyMoneyMoney(84, 1);
-  this->moT4 = MyMoneyMoney(62, 1);
-  this->moT5 = MyMoneyMoney(104, 1);
+  try {
+    this->moT1 = MyMoneyMoney(57, 1);
+    this->moT2 = MyMoneyMoney(63, 1);
+    this->moT3 = MyMoneyMoney(84, 1);
+    this->moT4 = MyMoneyMoney(62, 1);
+    this->moT5 = MyMoneyMoney(104, 1);
+  } catch (const MyMoneyException &e) {
+    qDebug() << e.what();
+  }
 }
 
 void MyMoneyForecastTest::init()
@@ -46,40 +62,42 @@ void MyMoneyForecastTest::init()
 
   //all this has been taken from pivottabletest.cpp, by Thomas Baumgart and Ace Jones
 
-  storage = new MyMoneySeqAccessMgr;
+  storage = new MyMoneyStorageMgr;
   file = MyMoneyFile::instance();
   file->attachStorage(storage);
 
   MyMoneyFileTransaction ft;
   file->addCurrency(MyMoneySecurity("CAD", "Canadian Dollar",        "C$"));
   file->addCurrency(MyMoneySecurity("USD", "US Dollar",              "$"));
-  file->addCurrency(MyMoneySecurity("JPY", "Japanese Yen",           QChar(0x00A5), 100, 1));
+  file->addCurrency(MyMoneySecurity("JPY", "Japanese Yen",           QChar(0x00A5), 1));
   file->addCurrency(MyMoneySecurity("GBP", "British Pound",           "#"));
   file->setBaseCurrency(file->currency("USD"));
 
-  MyMoneyPayee payeeTest("Test Payee");
+  MyMoneyPayee payeeTest;
+  payeeTest.setName("Test Payee");
   file->addPayee(payeeTest);
-  MyMoneyPayee payeeTest2("Alvaro Soliverez");
+  MyMoneyPayee payeeTest2;
+  payeeTest2.setName("Alvaro Soliverez");
   file->addPayee(payeeTest2);
 
   acAsset = (MyMoneyFile::instance()->asset().id());
   acLiability = (MyMoneyFile::instance()->liability().id());
   acExpense = (MyMoneyFile::instance()->expense().id());
   acIncome = (MyMoneyFile::instance()->income().id());
-  acChecking = makeAccount(QString("Checking Account"), MyMoneyAccount::Checkings, moCheckingOpen, QDate(2004, 5, 15), acAsset, "USD");
-  acCredit = makeAccount(QString("Credit Card"), MyMoneyAccount::CreditCard, moCreditOpen, QDate(2004, 7, 15), acLiability, "USD");
-  acSolo = makeAccount(QString("Solo"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
-  acParent = makeAccount(QString("Parent"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
-  acChild = makeAccount(QString("Child"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent, "USD");
-  acForeign = makeAccount(QString("Foreign"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
-  acInvestment = makeAccount("Investment", MyMoneyAccount::Investment, moZero, QDate(2004, 1, 1), acAsset, "USD");
+  acChecking = makeAccount(QString("Checking Account"), Account::Type::Checkings, moCheckingOpen, QDate(2004, 5, 15), acAsset, "USD");
+  acCredit = makeAccount(QString("Credit Card"), Account::Type::CreditCard, moCreditOpen, QDate(2004, 7, 15), acLiability, "USD");
+  acSolo = makeAccount(QString("Solo"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
+  acParent = makeAccount(QString("Parent"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
+  acChild = makeAccount(QString("Child"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent, "USD");
+  acForeign = makeAccount(QString("Foreign"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 1, 11), acExpense, "USD");
+  acInvestment = makeAccount("Investment", Account::Type::Investment, moZero, QDate(2004, 1, 1), acAsset, "USD");
 
-  acSecondChild = makeAccount(QString("Second Child"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent, "USD");
-  acGrandChild1 = makeAccount(QString("Grand Child 1"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acChild, "USD");
-  acGrandChild2 = makeAccount(QString("Grand Child 2"), MyMoneyAccount::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acChild, "USD");
+  acSecondChild = makeAccount(QString("Second Child"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acParent, "USD");
+  acGrandChild1 = makeAccount(QString("Grand Child 1"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acChild, "USD");
+  acGrandChild2 = makeAccount(QString("Grand Child 2"), Account::Type::Expense, MyMoneyMoney(), QDate(2004, 2, 11), acChild, "USD");
 
   //this account added to have an account to test opening date calculations
-  acCash = makeAccount(QString("Cash"), MyMoneyAccount::Cash, moCreditOpen, QDate::currentDate().addDays(-2), acAsset, "USD");
+  acCash = makeAccount(QString("Cash"), Account::Type::Cash, moCreditOpen, QDate::currentDate().addDays(-2), acAsset, "USD");
 
 
   MyMoneyInstitution i("Bank of the World", "", "", "", "", "", "");
@@ -122,7 +140,7 @@ void MyMoneyForecastTest::testDoForecastInit()
   /*
   //check the illegal argument validation
   try {
-    KMyMoneyGlobalSettings::setForecastDays(-10);
+    KMyMoneySettings::setForecastDays(-10);
     a.doForecast();
   }
   catch (const MyMoneyException &e)
@@ -130,14 +148,14 @@ void MyMoneyForecastTest::testDoForecastInit()
     QFAIL("Unexpected exception");
   }
   try {
-    KMyMoneyGlobalSettings::setForecastAccountCycle(-20);
+    KMyMoneySettings::setForecastAccountCycle(-20);
       a.doForecast();
     }
     catch (const MyMoneyException &e) {
       QFAIL("Unexpected exception");
   }
   try {
-    KMyMoneyGlobalSettings::setForecastCycles(-10);
+    KMyMoneySettings::setForecastCycles(-10);
     a.doForecast();
   }
   catch (const MyMoneyException &e) {
@@ -145,16 +163,16 @@ void MyMoneyForecastTest::testDoForecastInit()
   }
 
   try {
-    KMyMoneyGlobalSettings::setForecastAccountCycle(0);
+    KMyMoneySettings::setForecastAccountCycle(0);
     a.doForecast();
   }
   catch (const MyMoneyException &e) {
     QFAIL("Unexpected exception");
   }
   try {
-    KMyMoneyGlobalSettings::setForecastDays(0);
-    KMyMoneyGlobalSettings::setForecastCycles(0);
-    KMyMoneyGlobalSettings::setForecastAccountCycle(0);
+    KMyMoneySettings::setForecastDays(0);
+    KMyMoneySettings::setForecastCycles(0);
+    KMyMoneySettings::setForecastAccountCycle(0);
     a.doForecast();
   }
   catch (const MyMoneyException &e) {
@@ -172,12 +190,12 @@ void MyMoneyForecastTest::testDoForecast()
   MyMoneyAccount a_credit = file->account(acCredit);
 
   //test empty forecast
-  a.doForecast(); //this is just to check nothing goes wrong if forecast is run agains an empty template
+  a.doForecast(); //this is just to check nothing goes wrong if forecast is run against an empty template
 
   //setup some transactions
-  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT1, acChecking, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionDeposit, -(this->moT2), acCredit, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::ActionTransfer, this->moT1, acCredit, acChecking);
+  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acChecking, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -(this->moT2), acCredit, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Transfer), this->moT1, acCredit, acChecking);
 
   a.setForecastMethod(1);
   a.setForecastDays(3);
@@ -211,9 +229,9 @@ void MyMoneyForecastTest::testDoForecast()
   QVERIFY(a.forecastBalance(a_credit, QDate::currentDate().addDays(3)) == b_credit + ((moT2 - moT1)*3));
 
   //insert transactions outside the forecast period. The calculation should be the same.
-  TransactionHelper t4(QDate::currentDate().addDays(-2), MyMoneySplit::ActionDeposit, -moT2, acCredit, acParent);
-  TransactionHelper t5(QDate::currentDate().addDays(-10), MyMoneySplit::ActionDeposit, -moT2, acCredit, acParent);
-  TransactionHelper t6(QDate::currentDate().addDays(-3), MyMoneySplit::ActionDeposit, -moT2, acCredit, acParent);
+  TransactionHelper t4(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT2, acCredit, acParent);
+  TransactionHelper t5(QDate::currentDate().addDays(-10), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT2, acCredit, acParent);
+  TransactionHelper t6(QDate::currentDate().addDays(-3), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT2, acCredit, acParent);
 
   a.setForecastMethod(1);
   a.setForecastDays(3);
@@ -263,7 +281,7 @@ void MyMoneyForecastTest::testGetForecastAccountList()
 void MyMoneyForecastTest::testCalculateAccountTrend()
 {
   //set up environment
-  TransactionHelper t1(QDate::currentDate().addDays(-3), MyMoneySplit::ActionDeposit, -moT2, acChecking, acSolo);
+  TransactionHelper t1(QDate::currentDate().addDays(-3), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT2, acChecking, acSolo);
   MyMoneyAccount a_checking = file->account(acChecking);
 
   //test invalid arguments
@@ -271,12 +289,12 @@ void MyMoneyForecastTest::testCalculateAccountTrend()
   try {
     MyMoneyForecast::calculateAccountTrend(a_checking, 0);
   } catch (const MyMoneyException &e) {
-    QVERIFY(e.what().compare("Illegal arguments when calling calculateAccountTrend. trendDays must be higher than 0") == 0);
+    QVERIFY(QString::fromLatin1(e.what()).startsWith(QLatin1String("Illegal arguments when calling calculateAccountTrend. trendDays must be higher than 0")));
   }
   try {
     MyMoneyForecast::calculateAccountTrend(a_checking, -10);
   } catch (const MyMoneyException &e) {
-    QVERIFY(e.what().compare("Illegal arguments when calling calculateAccountTrend. trendDays must be higher than 0") == 0);
+    QVERIFY(QString::fromLatin1(e.what()).startsWith(QLatin1String("Illegal arguments when calling calculateAccountTrend. trendDays must be higher than 0")));
   }
 
   //test that it calculates correctly
@@ -290,8 +308,8 @@ void MyMoneyForecastTest::testCalculateAccountTrend()
 
   //test that it does not take into account the transactions of the opening date of the account
   MyMoneyAccount a_cash = file->account(acCash);
-  TransactionHelper t2(QDate::currentDate().addDays(-2), MyMoneySplit::ActionDeposit, moT2, acCash, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::ActionDeposit, moT1, acCash, acParent);
+  TransactionHelper t2(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), moT2, acCash, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), moT1, acCash, acParent);
   QVERIFY(MyMoneyForecast::calculateAccountTrend(a_cash, 3) == -moT1);
 
 }
@@ -301,9 +319,9 @@ void MyMoneyForecastTest::testGetForecastBalance()
   //set up environment
   MyMoneyForecast a;
 
-  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT1, acChecking, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionDeposit, -(this->moT2), acCredit, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::ActionTransfer, this->moT1, acCredit, acChecking);
+  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acChecking, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -(this->moT2), acCredit, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Transfer), this->moT1, acCredit, acChecking);
 
   a.setForecastMethod(1);
   a.setForecastDays(3);
@@ -358,10 +376,10 @@ void MyMoneyForecastTest::testDoFutureScheduledForecast()
   MyMoneyForecast a;
 
   MyMoneyAccount a_cash = file->account(acCash);
-  TransactionHelper t1(QDate::currentDate().addDays(1), MyMoneySplit::ActionDeposit, -moT1, acCash, acParent);
-  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::ActionDeposit, -moT2, acCash, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(3), MyMoneySplit::ActionDeposit, -moT3, acCash, acParent);
-  TransactionHelper t4(QDate::currentDate().addDays(10), MyMoneySplit::ActionDeposit, -moT4, acCash, acParent);
+  TransactionHelper t1(QDate::currentDate().addDays(1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT1, acCash, acParent);
+  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT2, acCash, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(3), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT3, acCash, acParent);
+  TransactionHelper t4(QDate::currentDate().addDays(10), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT4, acCash, acParent);
 
   a.setForecastMethod(0);
   a.setForecastDays(3);
@@ -386,9 +404,9 @@ void MyMoneyForecastTest::testScheduleForecast()
 
   MyMoneyFileTransaction ft;
   MyMoneySchedule sch("A Name",
-                      MyMoneySchedule::TYPE_BILL,
-                      MyMoneySchedule::OCCUR_WEEKLY, 1,
-                      MyMoneySchedule::STYPE_DIRECTDEBIT,
+                      Schedule::Type::Bill,
+                      Schedule::Occurrence::Weekly, 1,
+                      Schedule::PaymentType::DirectDebit,
                       QDate::currentDate().addDays(1),
                       QDate(),
                       true,
@@ -409,7 +427,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s.setValue(moT2);
   s.setAccountId(a_parent.id());
   s.setBankID("SPID1");
-  s.setReconcileFlag(MyMoneySplit::Reconciled);
+  s.setReconcileFlag(eMyMoney::Split::State::Reconciled);
   t.addSplit(s);
 
   s.setPayeeId("P000001");
@@ -417,7 +435,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s.setValue(-moT2);
   s.setAccountId(a_cash.id());
   s.setBankID("SPID2");
-  s.setReconcileFlag(MyMoneySplit::Cleared);
+  s.setReconcileFlag(eMyMoney::Split::State::Cleared);
   s.clearId();
   t.addSplit(s);
 
@@ -428,9 +446,9 @@ void MyMoneyForecastTest::testScheduleForecast()
 
   MyMoneyFileTransaction ft3;
   MyMoneySchedule sch3("A Name1",
-                       MyMoneySchedule::TYPE_BILL,
-                       MyMoneySchedule::OCCUR_WEEKLY, 1,
-                       MyMoneySchedule::STYPE_DIRECTDEBIT,
+                       Schedule::Type::Bill,
+                       Schedule::Occurrence::Weekly, 1,
+                       Schedule::PaymentType::DirectDebit,
                        QDate::currentDate().addDays(5),
                        QDate(),
                        true,
@@ -455,7 +473,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s3.setValue(moT2);
   s3.setAccountId(a_parent.id());
   s3.setBankID("SPID1");
-  s3.setReconcileFlag(MyMoneySplit::Reconciled);
+  s3.setReconcileFlag(eMyMoney::Split::State::Reconciled);
   t3.addSplit(s3);
 
   s3.setPayeeId("P000001");
@@ -463,7 +481,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s3.setValue(-moT2);
   s3.setAccountId(a_cash.id());
   s3.setBankID("SPID2");
-  s3.setReconcileFlag(MyMoneySplit::Cleared);
+  s3.setReconcileFlag(eMyMoney::Split::State::Cleared);
   s3.clearId();
   t3.addSplit(s3);
 
@@ -475,9 +493,9 @@ void MyMoneyForecastTest::testScheduleForecast()
 
   MyMoneyFileTransaction ft2;
   MyMoneySchedule sch2("A Name2",
-                       MyMoneySchedule::TYPE_BILL,
-                       MyMoneySchedule::OCCUR_WEEKLY, 1,
-                       MyMoneySchedule::STYPE_DIRECTDEBIT,
+                       Schedule::Type::Bill,
+                       Schedule::Occurrence::Weekly, 1,
+                       Schedule::PaymentType::DirectDebit,
                        QDate::currentDate().addDays(2),
                        QDate(),
                        true,
@@ -502,7 +520,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s2.setValue(moT1);
   s2.setAccountId(a_parent.id());
   s2.setBankID("SPID1");
-  s2.setReconcileFlag(MyMoneySplit::Reconciled);
+  s2.setReconcileFlag(eMyMoney::Split::State::Reconciled);
   t2.addSplit(s2);
 
   s2.setPayeeId("P000001");
@@ -510,7 +528,7 @@ void MyMoneyForecastTest::testScheduleForecast()
   s2.setValue(-moT1);
   s2.setAccountId(a_cash.id());
   s2.setBankID("SPID2");
-  s2.setReconcileFlag(MyMoneySplit::Cleared);
+  s2.setReconcileFlag(eMyMoney::Split::State::Cleared);
   s2.clearId();
   t2.addSplit(s2);
 
@@ -549,10 +567,10 @@ void MyMoneyForecastTest::testDaysToMinimumBalance()
   MyMoneyAccount a_parent = file->account(acParent);
   a_cash.setValue("minBalanceAbsolute", "50");
   a_credit.setValue("minBalanceAbsolute", "50");
-  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::ActionDeposit, -moT1, acCash, acParent);
-  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::ActionDeposit, moT2, acCash, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, -moT1, acCredit, acParent);
-  TransactionHelper t4(QDate::currentDate().addDays(4), MyMoneySplit::ActionWithdrawal, moT5, acCredit, acParent);
+  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -moT1, acCash, acParent);
+  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), moT2, acCash, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), -moT1, acCredit, acParent);
+  TransactionHelper t4(QDate::currentDate().addDays(4), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), moT5, acCredit, acParent);
 
   a.setForecastMethod(0);
   a.setForecastDays(3);
@@ -582,9 +600,9 @@ void MyMoneyForecastTest::testDaysToZeroBalance()
   MyMoneyAccount a_Credit = file->account(acCredit);
 
   //MyMoneyFileTransaction ft;
-  TransactionHelper t1(QDate::currentDate().addDays(2), MyMoneySplit::ActionWithdrawal, -moT1, acChecking, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::ActionTransfer, (moT5), acCash, acCredit);
-  TransactionHelper t3(QDate::currentDate().addDays(2), MyMoneySplit::ActionWithdrawal, (moT5*100), acCredit, acParent);
+  TransactionHelper t1(QDate::currentDate().addDays(2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), -moT1, acChecking, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(2), MyMoneySplit::actionName(eMyMoney::Split::Action::Transfer), (moT5), acCash, acCredit);
+  TransactionHelper t3(QDate::currentDate().addDays(2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), (moT5*100), acCredit, acParent);
   //ft.commit();
 
   MyMoneyForecast a;
@@ -597,14 +615,15 @@ void MyMoneyForecastTest::testDaysToZeroBalance()
   //test invalid arguments
   MyMoneyAccount nullAcc;
   try {
-    a.daysToZeroBalance(nullAcc);
+    auto days = a.daysToZeroBalance(nullAcc);
+    Q_UNUSED(days)
   } catch (const MyMoneyException &) {
     QFAIL("Unexpected exception");
   }
 
   //test when not a forecast account
   MyMoneyAccount a_solo = file->account(acSolo);
-  int iSolo = a.daysToZeroBalance(a_Solo);
+  auto iSolo = a.daysToZeroBalance(a_Solo);
 
   QVERIFY(iSolo == -2);
 
@@ -623,8 +642,8 @@ void MyMoneyForecastTest::testSkipOpeningDate()
   //set up environment
   MyMoneyForecast a;
 
-  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acSolo);
+  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acSolo);
 
   a.setForecastMethod(1);
   a.setForecastDays(3);
@@ -650,8 +669,8 @@ void MyMoneyForecastTest::testAccountMinimumBalanceDateList()
   //set up environment
   MyMoneyForecast a;
 
-  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acSolo);
+  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acSolo);
 
   a.setForecastMethod(1);
   a.setForecastDays(6);
@@ -686,8 +705,8 @@ void MyMoneyForecastTest::testAccountMaximumBalanceDateList()
   //set up environment
   MyMoneyForecast a;
 
-  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acSolo);
+  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acSolo);
 
   a.setForecastMethod(1);
   a.setForecastDays(6);
@@ -723,8 +742,8 @@ void MyMoneyForecastTest::testAccountAverageBalance()
   //set up environment
   MyMoneyForecast a;
 
-  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acSolo);
+  TransactionHelper t1(QDate::currentDate().addDays(-2), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acSolo);
 
   a.setForecastMethod(1);
   a.setForecastDays(3);
@@ -751,7 +770,7 @@ void MyMoneyForecastTest::testBeginForecastDate()
   //set up environment
   MyMoneyForecast a;
   QDate beginDate;
-  int beginDay;
+  qint64 beginDay;
 
   a.setForecastMethod(1);
   a.setForecastDays(90);
@@ -859,14 +878,14 @@ void MyMoneyForecastTest::testCreateBudget()
   MyMoneyForecast b;
   MyMoneyBudget budget;
 
-  TransactionHelper t1(QDate(2005, 1, 3), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t2(QDate(2005, 1, 15), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acParent);
-  TransactionHelper t3(QDate(2005, 1, 30), MyMoneySplit::ActionWithdrawal, this->moT3, acCash, acSolo);
-  TransactionHelper t4(QDate(2006, 1, 25), MyMoneySplit::ActionWithdrawal, this->moT4, acCash, acParent);
-  TransactionHelper t5(QDate(2005, 4, 3), MyMoneySplit::ActionWithdrawal, this->moT1, acCash, acSolo);
-  TransactionHelper t6(QDate(2006, 5, 15), MyMoneySplit::ActionWithdrawal, this->moT2, acCash, acParent);
-  TransactionHelper t7(QDate(2005, 8, 3), MyMoneySplit::ActionWithdrawal, this->moT3, acCash, acSolo);
-  TransactionHelper t8(QDate(2006, 9, 15), MyMoneySplit::ActionWithdrawal, this->moT4, acCash, acParent);
+  TransactionHelper t1(QDate(2005, 1, 3), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t2(QDate(2005, 1, 15), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acParent);
+  TransactionHelper t3(QDate(2005, 1, 30), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT3, acCash, acSolo);
+  TransactionHelper t4(QDate(2006, 1, 25), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT4, acCash, acParent);
+  TransactionHelper t5(QDate(2005, 4, 3), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acCash, acSolo);
+  TransactionHelper t6(QDate(2006, 5, 15), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT2, acCash, acParent);
+  TransactionHelper t7(QDate(2005, 8, 3), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT3, acCash, acSolo);
+  TransactionHelper t8(QDate(2006, 9, 15), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT4, acCash, acParent);
 
   a.setHistoryMethod(0);
   a.setForecastMethod(1);
@@ -902,9 +921,9 @@ void MyMoneyForecastTest::testCreateBudget()
 
   MyMoneyFileTransaction ft;
   MyMoneySchedule sch("A Name",
-                      MyMoneySchedule::TYPE_BILL,
-                      MyMoneySchedule::OCCUR_MONTHLY, 1,
-                      MyMoneySchedule::STYPE_DIRECTDEBIT,
+                      Schedule::Type::Bill,
+                      Schedule::Occurrence::Monthly, 1,
+                      Schedule::PaymentType::DirectDebit,
                       QDate::currentDate(),
                       QDate(),
                       true,
@@ -925,7 +944,7 @@ void MyMoneyForecastTest::testCreateBudget()
   s.setValue(moT2);
   s.setAccountId(a_parent.id());
   s.setBankID("SPID1");
-  s.setReconcileFlag(MyMoneySplit::Reconciled);
+  s.setReconcileFlag(eMyMoney::Split::State::Reconciled);
   t10.addSplit(s);
 
   s.setPayeeId("P000001");
@@ -933,7 +952,7 @@ void MyMoneyForecastTest::testCreateBudget()
   s.setValue(-moT2);
   s.setAccountId(a_cash.id());
   s.setBankID("SPID2");
-  s.setReconcileFlag(MyMoneySplit::Cleared);
+  s.setReconcileFlag(eMyMoney::Split::State::Cleared);
   s.clearId();
   t10.addSplit(s);
 
@@ -963,9 +982,9 @@ void MyMoneyForecastTest::testLinearRegression()
   MyMoneyAccount a_credit = file->account(acCredit);
 
   //setup some transactions
-  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::ActionWithdrawal, this->moT1, acChecking, acSolo);
-  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::ActionDeposit, -(this->moT2), acCredit, acParent);
-  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::ActionTransfer, this->moT1, acCredit, acChecking);
+  TransactionHelper t1(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Withdrawal), this->moT1, acChecking, acSolo);
+  TransactionHelper t2(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Deposit), -(this->moT2), acCredit, acParent);
+  TransactionHelper t3(QDate::currentDate().addDays(-1), MyMoneySplit::actionName(eMyMoney::Split::Action::Transfer), this->moT1, acCredit, acChecking);
 
 //TODO Add tests specific for linear regression
 

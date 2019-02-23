@@ -1,29 +1,28 @@
-/***************************************************************************
-                          mymoneysecurity.cpp  -  description
-                             -------------------
-    begin                : Tue Jan 29 2002
-    copyright            : (C) 2000-2002 by Michael Edwardes
-    email                : mte@users.sourceforge.net
-                           Javier Campos Morales <javi_c@users.sourceforge.net>
-                           Felix Rodriguez <frodriguez@users.sourceforge.net>
-                           John C <thetacoturtle@users.sourceforge.net>
-                           Thomas Baumgart <ipwizard@users.sourceforge.net>
-                           Kevin Tambascio <ktambascio@users.sourceforge.net>
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/*
+ * Copyright 2005-2017  Thomas Baumgart <tbaumgart@kde.org>
+ * Copyright 2017-2018  Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "mymoneysecurity.h"
+#include "mymoneysecurity_p.h"
 
 // ----------------------------------------------------------------------------
 // QT Includes
+
+#include <QString>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -35,149 +34,250 @@
 
 #include "mymoneyexception.h"
 
+using namespace eMyMoney;
+
 MyMoneySecurity::MyMoneySecurity() :
-    m_securityType(SECURITY_NONE),
-    m_smallestAccountFraction(100),
-    m_smallestCashFraction(100),
-    m_partsPerUnit(100)
+  MyMoneyObject(*new MyMoneySecurityPrivate)
 {
 }
 
-MyMoneySecurity::MyMoneySecurity(const QString& id, const QString& name, const QString& symbol, const int partsPerUnit, const int smallestCashFraction, const int smallestAccountFraction) :
-    MyMoneyObject(id),
-    m_name(name),
-    m_securityType(SECURITY_CURRENCY),
-    m_smallestCashFraction(100),
-    m_partsPerUnit(100)
+MyMoneySecurity::MyMoneySecurity(const QString &id) :
+  MyMoneyObject(*new MyMoneySecurityPrivate, id)
 {
+}
+
+MyMoneySecurity::MyMoneySecurity(const QString& id,
+                                 const QString& name,
+                                 const QString& symbol,
+                                 const int smallestCashFraction,
+                                 const int smallestAccountFraction,
+                                 const int pricePrecision) :
+  MyMoneyObject(*new MyMoneySecurityPrivate, id),
+  MyMoneyKeyValueContainer()
+{
+  Q_D(MyMoneySecurity);
+  d->m_name = name;
+  d->m_smallestCashFraction = smallestCashFraction;
+  d->m_pricePrecision = pricePrecision;
+  d->m_securityType = eMyMoney::Security::Type::Currency;
+
   if (symbol.isEmpty())
-    m_tradingSymbol = id;
+    d->m_tradingSymbol = id;
   else
-    m_tradingSymbol = symbol;
+    d->m_tradingSymbol = symbol;
 
-  m_partsPerUnit = partsPerUnit;
-  m_smallestCashFraction = smallestCashFraction;
   if (smallestAccountFraction)
-    m_smallestAccountFraction = smallestAccountFraction;
+    d->m_smallestAccountFraction = smallestAccountFraction;
   else
-    m_smallestAccountFraction = smallestCashFraction;
+    d->m_smallestAccountFraction = smallestCashFraction;
 }
 
-MyMoneySecurity::MyMoneySecurity(const QString& id, const MyMoneySecurity& equity) :
-    MyMoneyObject(id)
+MyMoneySecurity::MyMoneySecurity(const MyMoneySecurity& other) :
+  MyMoneyObject(*new MyMoneySecurityPrivate(*other.d_func()), other.id()),
+  MyMoneyKeyValueContainer(other)
 {
-  *this = equity;
-  m_id = id;
 }
 
-MyMoneySecurity::MyMoneySecurity(const QDomElement& node) :
-    MyMoneyObject(node),
-    MyMoneyKeyValueContainer(node.elementsByTagName("KEYVALUEPAIRS").item(0).toElement())
+MyMoneySecurity::MyMoneySecurity(const QString& id, const MyMoneySecurity& other) :
+  MyMoneyObject(*new MyMoneySecurityPrivate(*other.d_func()), id),
+  MyMoneyKeyValueContainer(other)
 {
-  if (("SECURITY" != node.tagName())
-      && ("EQUITY" != node.tagName())
-      && ("CURRENCY" != node.tagName()))
-    throw MYMONEYEXCEPTION("Node was not SECURITY or CURRENCY");
-
-  setName(QStringEmpty(node.attribute("name")));
-  setTradingSymbol(QStringEmpty(node.attribute("symbol")));
-  setSecurityType(static_cast<eSECURITYTYPE>(node.attribute("type").toInt()));
-  setSmallestAccountFraction(node.attribute("saf").toInt());
-
-  if (isCurrency()) {
-    setPartsPerUnit(node.attribute("ppu").toInt());
-    setSmallestCashFraction(node.attribute("scf").toInt());
-  } else {
-    setTradingCurrency(QStringEmpty(node.attribute("trading-currency")));
-    setTradingMarket(QStringEmpty(node.attribute("trading-market")));
-  }
 }
 
 MyMoneySecurity::~MyMoneySecurity()
 {
 }
 
-bool MyMoneySecurity::operator == (const MyMoneySecurity& r) const
+bool MyMoneySecurity::operator == (const MyMoneySecurity& right) const
 {
-  return (m_id == r.m_id)
-         && (m_name == r.m_name)
-         && (m_tradingSymbol == r.m_tradingSymbol)
-         && (m_tradingMarket == r.m_tradingMarket)
-         && (m_tradingSymbol == r.m_tradingSymbol)
-         && (m_tradingCurrency == r.m_tradingCurrency)
-         && (m_securityType == r.m_securityType)
-         && (m_smallestAccountFraction == r.m_smallestAccountFraction)
-         && (m_smallestCashFraction == r.m_smallestCashFraction)
-         && (m_partsPerUnit == r.m_partsPerUnit)
-         && this->MyMoneyKeyValueContainer::operator == (r);
-
+  Q_D(const MyMoneySecurity);
+  auto d2 = static_cast<const MyMoneySecurityPrivate *>(right.d_func());
+  return (d->m_id == d2->m_id)
+         && (d->m_name == d2->m_name)
+         && (d->m_tradingSymbol == d2->m_tradingSymbol)
+         && (d->m_tradingMarket == d2->m_tradingMarket)
+         && (d->m_roundingMethod == d2->m_roundingMethod)
+         && (d->m_tradingSymbol == d2->m_tradingSymbol)
+         && (d->m_tradingCurrency == d2->m_tradingCurrency)
+         && (d->m_securityType == d2->m_securityType)
+         && (d->m_smallestAccountFraction == d2->m_smallestAccountFraction)
+         && (d->m_smallestCashFraction == d2->m_smallestCashFraction)
+         && (d->m_pricePrecision == d2->m_pricePrecision)
+         && this->MyMoneyKeyValueContainer::operator == (right);
 }
 
 bool MyMoneySecurity::operator < (const MyMoneySecurity& right) const
 {
-  if (m_securityType == right.m_securityType)
-    return m_name < right.m_name;
-  return m_securityType < right.m_securityType;
+  Q_D(const MyMoneySecurity);
+  auto d2 = static_cast<const MyMoneySecurityPrivate *>(right.d_func());
+  if (d->m_securityType == d2->m_securityType)
+    return d->m_name < d2->m_name;
+  return d->m_securityType < d2->m_securityType;
 }
 
+QString MyMoneySecurity::name() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_name;
+}
+
+void MyMoneySecurity::setName(const QString& str)
+{
+  Q_D(MyMoneySecurity);
+  d->m_name = str;
+}
+
+QString MyMoneySecurity::tradingSymbol() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_tradingSymbol;
+}
+
+void MyMoneySecurity::setTradingSymbol(const QString& str)
+{
+  Q_D(MyMoneySecurity);
+  d->m_tradingSymbol = str;
+}
+
+QString MyMoneySecurity::tradingMarket() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_tradingMarket;
+}
+
+void MyMoneySecurity::setTradingMarket(const QString& str)
+{
+  Q_D(MyMoneySecurity);
+  d->m_tradingMarket = str;
+}
+
+QString MyMoneySecurity::tradingCurrency() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_tradingCurrency;
+}
+
+void MyMoneySecurity::setTradingCurrency(const QString& str)
+{
+  Q_D(MyMoneySecurity);
+  d->m_tradingCurrency = str;
+}
+
+bool MyMoneySecurity::operator != (const MyMoneySecurity& r) const
+{
+  return !(*this == r);
+}
+
+eMyMoney::Security::Type MyMoneySecurity::securityType() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_securityType;
+}
+
+void MyMoneySecurity::setSecurityType(const eMyMoney::Security::Type s)
+{
+  Q_D(MyMoneySecurity);
+  d->m_securityType = s;
+}
+
+bool MyMoneySecurity::isCurrency() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_securityType == eMyMoney::Security::Type::Currency;
+}
+
+AlkValue::RoundingMethod MyMoneySecurity::roundingMethod() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_roundingMethod;
+}
+
+void MyMoneySecurity::setRoundingMethod(const AlkValue::RoundingMethod rnd)
+{
+  Q_D(MyMoneySecurity);
+  d->m_roundingMethod = rnd;
+}
+
+int MyMoneySecurity::smallestAccountFraction() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_smallestAccountFraction;
+}
+
+void MyMoneySecurity::setSmallestAccountFraction(const int sf)
+{
+  Q_D(MyMoneySecurity);
+  d->m_smallestAccountFraction = sf;
+}
+
+int MyMoneySecurity::smallestCashFraction() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_smallestCashFraction;
+}
+
+void MyMoneySecurity::setSmallestCashFraction(const int cf)
+{
+  Q_D(MyMoneySecurity);
+  d->m_smallestCashFraction = cf;
+}
+
+int MyMoneySecurity::pricePrecision() const
+{
+  Q_D(const MyMoneySecurity);
+  return d->m_pricePrecision;
+}
+
+void MyMoneySecurity::setPricePrecision(const int pp)
+{
+  Q_D(MyMoneySecurity);
+  d->m_pricePrecision = pp;
+}
 
 bool MyMoneySecurity::hasReferenceTo(const QString& id) const
 {
-  return (id == m_tradingCurrency);
+  Q_D(const MyMoneySecurity);
+  return (id == d->m_tradingCurrency);
 }
 
-void MyMoneySecurity::writeXML(QDomDocument& document, QDomElement& parent) const
+QString MyMoneySecurity::securityTypeToString(const eMyMoney::Security::Type securityType)
 {
-  QDomElement el;
-  if (isCurrency())
-    el = document.createElement("CURRENCY");
-  else
-    el = document.createElement("SECURITY");
-
-  writeBaseXML(document, el);
-
-  el.setAttribute("name", m_name);
-  el.setAttribute("symbol", m_tradingSymbol);
-  el.setAttribute("type", static_cast<int>(m_securityType));
-  el.setAttribute("saf", m_smallestAccountFraction);
-  if (isCurrency()) {
-    el.setAttribute("ppu", m_partsPerUnit);
-    el.setAttribute("scf", m_smallestCashFraction);
-  } else {
-    el.setAttribute("trading-currency", m_tradingCurrency);
-    el.setAttribute("trading-market", m_tradingMarket);
-  }
-
-  //Add in Key-Value Pairs for securities.
-  MyMoneyKeyValueContainer::writeXML(document, el);
-
-  parent.appendChild(el);
-}
-
-QString MyMoneySecurity::securityTypeToString(const eSECURITYTYPE securityType)
-{
-  QString returnString;
-
   switch (securityType) {
-    case MyMoneySecurity::SECURITY_STOCK:
-      returnString = I18N_NOOP("Stock");
-      break;
-    case MyMoneySecurity::SECURITY_MUTUALFUND:
-      returnString = I18N_NOOP("Mutual Fund");
-      break;
-    case MyMoneySecurity::SECURITY_BOND:
-      returnString = I18N_NOOP("Bond");
-      break;
-    case MyMoneySecurity::SECURITY_CURRENCY:
-      returnString = I18N_NOOP("Currency");
-      break;
-    case MyMoneySecurity::SECURITY_NONE:
-      returnString = I18N_NOOP("None");
-      break;
+    case eMyMoney::Security::Type::Stock:
+      return i18nc("Security type", "Stock");
+    case eMyMoney::Security::Type::MutualFund:
+      return i18nc("Security type", "Mutual Fund");
+    case eMyMoney::Security::Type::Bond:
+      return i18nc("Security type", "Bond");
+    case eMyMoney::Security::Type::Currency:
+      return i18nc("Security type", "Currency");
+    case eMyMoney::Security::Type::None:
+      return i18nc("Security type", "None");
     default:
-      returnString = I18N_NOOP("Unknown");
+      return i18nc("Security type", "Unknown");
   }
-
-  return returnString;
 }
 
+QString MyMoneySecurity::roundingMethodToString(const AlkValue::RoundingMethod roundingMethod)
+{
+  switch (roundingMethod) {
+    case AlkValue::RoundNever:
+      return I18N_NOOP("Never");
+    case AlkValue::RoundFloor:
+      return I18N_NOOP("Floor");
+    case AlkValue::RoundCeil:
+      return I18N_NOOP("Ceil");
+    case AlkValue::RoundTruncate:
+      return I18N_NOOP("Truncate");
+    case AlkValue::RoundPromote:
+      return I18N_NOOP("Promote");
+    case AlkValue::RoundHalfDown:
+      return I18N_NOOP("HalfDown");
+    case AlkValue::RoundHalfUp:
+      return I18N_NOOP("HalfUp");
+    case AlkValue::RoundRound:
+      return I18N_NOOP("Round");
+    default:
+      return I18N_NOOP("Unknown");
+  }
+}

@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2014 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -21,29 +21,31 @@
 
 #include <QWidget>
 
-#include "mymoney/mymoneypayeeidentifiercontainer.h"
 #include "widgets/styleditemdelegateforwarder.h"
 
-namespace Ui
-{
-class KPayeeIdentifierView;
-};
+class payeeIdentifier;
+class MyMoneyPayeeIdentifierContainer;
+
+namespace Ui { class KPayeeIdentifierView; }
 
 class KPayeeIdentifierView : public QWidget
 {
   Q_OBJECT
 
 public:
-  KPayeeIdentifierView(QWidget* parent);
+  explicit KPayeeIdentifierView(QWidget* parent);
+  ~KPayeeIdentifierView();
   QList<payeeIdentifier> identifiers() const;
 
-signals:
+  void closeSource();
+
+Q_SIGNALS:
   void dataChanged();
 
-public slots:
+public Q_SLOTS:
   void setSource(MyMoneyPayeeIdentifierContainer data);
 
-private slots:
+private Q_SLOTS:
   void removeSelected();
 
 private:
@@ -54,8 +56,8 @@ class payeeIdentifierDelegate : public StyledItemDelegateForwarder
 {
   Q_OBJECT
 public:
-  payeeIdentifierDelegate(QObject* parent = 0);
-  virtual QAbstractItemDelegate* getItemDelegate(const QModelIndex& index) const;
+  explicit payeeIdentifierDelegate(QObject* parent = 0);
+  virtual QAbstractItemDelegate* getItemDelegate(const QModelIndex& index) const override;
 };
 
 #endif // KPAYEEIDENTIFIERVIEW_H

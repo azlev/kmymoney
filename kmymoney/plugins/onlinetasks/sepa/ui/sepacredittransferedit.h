@@ -1,5 +1,5 @@
 /*
- * This file is part of KMyMoney, A Personal Finance Manager for KDE
+ * This file is part of KMyMoney, A Personal Finance Manager by KDE
  * Copyright (C) 2013-2015 Christian Dávid <christian-david@web.de>
  *
  * This program is free software; you can redistribute it and/or
@@ -22,10 +22,10 @@
 #include <KLocalizedString>
 
 #include "mymoney/onlinejobtyped.h"
-#include "onlinetasks/sepa/tasks/sepaonlinetransfer.h"
+#include "onlinetasks/sepa/sepaonlinetransfer.h"
 #include "onlinetasks/interfaces/ui/ionlinejobedit.h"
 
-class kMandatoryFieldGroup;
+class KMandatoryFieldGroup;
 
 namespace Ui
 {
@@ -46,45 +46,45 @@ public:
   explicit sepaCreditTransferEdit(QWidget *parent = 0, QVariantList args = QVariantList());
   ~sepaCreditTransferEdit();
   onlineJobTyped<sepaOnlineTransfer> getOnlineJobTyped() const;
-  onlineJob getOnlineJob() const {
+  onlineJob getOnlineJob() const final override {
     return getOnlineJobTyped();
   }
 
-  QStringList supportedOnlineTasks() const {
+  QStringList supportedOnlineTasks() const final override {
     return QStringList(sepaOnlineTransfer::name());
   }
   QString label() const {
     return i18n("SEPA Credit Transfer");
-  };
+  }
 
-  bool isValid() const {
+  bool isValid() const final override {
     return getOnlineJobTyped().isValid();
-  };
+  }
 
-  bool isReadOnly() const {
+  bool isReadOnly() const final override {
     return m_readOnly;
   }
 
-  virtual void showAllErrorMessages(const bool);
+  void showAllErrorMessages(const bool) final override;
 
-  virtual void showEvent(QShowEvent*);
+  void showEvent(QShowEvent*) final override;
 
-signals:
+Q_SIGNALS:
   void onlineJobChanged();
   void readOnlyChanged(bool);
 
-public slots:
+public Q_SLOTS:
   void setOnlineJob(const onlineJobTyped<sepaOnlineTransfer> &job);
-  bool setOnlineJob(const onlineJob& job);
-  void setOriginAccount(const QString& accountId);
+  bool setOnlineJob(const onlineJob& job) final override;
+  void setOriginAccount(const QString& accountId) final override;
   void setReadOnly(const bool&);
 
-private slots:
+private Q_SLOTS:
   void updateSettings();
   void updateEveryStatus();
 
   /** @{
-   * These slots are called when the corosponding field is changed
+   * These slots are called when the corresponding field is changed
    * to start the validation.
    */
   void purposeChanged();
@@ -116,7 +116,7 @@ private slots:
 private:
   Ui::sepaCreditTransferEdit *ui;
   onlineJobTyped<sepaOnlineTransfer> m_onlineJob;
-  kMandatoryFieldGroup* m_requiredFields;
+  KMandatoryFieldGroup* m_requiredFields;
   bool m_readOnly;
   bool m_showAllErrors;
 
